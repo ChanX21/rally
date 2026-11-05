@@ -1,0 +1,128 @@
+{
+  "status": "ok",
+  "recordedAt": "2026-11-05T16:51:27.489580+00:00",
+  "model": "qwen3.7-flash",
+  "promptVersion": "formation-v2",
+  "transport": "Temporary approved curl bridge to real 0G Router; actual engine, schemas and demo assertions ran unchanged. Native Node DNS blocked in assistant sandbox.",
+  "scope": "Synthetic fixtures; no database writes, seat allocations, real users or rooms. One successful run, not a broad quality evaluation.",
+  "calls": [
+    {
+      "step": "onboarding",
+      "result": "passed",
+      "providerRequestId": "chatcmpl-b59b0bf1-966c-99b5-ae6d-30b6e0b9634f",
+      "usage": {
+        "completion_tokens": 324,
+        "completion_tokens_details": {
+          "reasoning_tokens": 310,
+          "text_tokens": 324
+        },
+        "prompt_tokens": 148,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "text_tokens": 148
+        },
+        "total_tokens": 472
+      },
+      "output": {
+        "schemaVersion": 1,
+        "questionIds": [
+          "availability"
+        ]
+      }
+    },
+    {
+      "step": "rally_questions",
+      "result": "passed",
+      "providerRequestId": "chatcmpl-8d35ea54-9d47-9453-8b83-acb21f16c370",
+      "usage": {
+        "completion_tokens": 355,
+        "completion_tokens_details": {
+          "reasoning_tokens": 310,
+          "text_tokens": 355
+        },
+        "prompt_tokens": 337,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "text_tokens": 337
+        },
+        "total_tokens": 692
+      },
+      "output": {
+        "schemaVersion": 1,
+        "status": "needs_answers",
+        "questionIds": [
+          "start_time"
+        ]
+      }
+    },
+    {
+      "step": "rally_answers",
+      "result": "passed",
+      "providerRequestId": "chatcmpl-ca67e559-8a87-9d81-bfdd-08bcfab3c942",
+      "usage": {
+        "completion_tokens": 1060,
+        "completion_tokens_details": {
+          "reasoning_tokens": 924,
+          "text_tokens": 1060
+        },
+        "prompt_tokens": 376,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "text_tokens": 376
+        },
+        "total_tokens": 1436
+      },
+      "output": {
+        "schemaVersion": 1,
+        "status": "ready",
+        "intent": {
+          "categoryId": "food",
+          "goal": "chatty food snack run",
+          "startAt": "2026-11-05T17:49:44.195Z",
+          "durationMin": 40,
+          "groupMin": 2,
+          "groupMax": 2,
+          "zoneId": "venue",
+          "vibe": "chatty"
+        }
+      }
+    },
+    {
+      "step": "composition",
+      "result": "passed",
+      "providerRequestId": "chatcmpl-ec6c180b-48f4-9f95-92a4-60a1f3c74afe",
+      "usage": {
+        "completion_tokens": 1936,
+        "completion_tokens_details": {
+          "reasoning_tokens": 1862,
+          "text_tokens": 1936
+        },
+        "prompt_tokens": 421,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "text_tokens": 421
+        },
+        "total_tokens": 2357
+      },
+      "output": {
+        "schemaVersion": 1,
+        "status": "proposed",
+        "memberIds": [
+          "demo_host",
+          "demo_guest"
+        ],
+        "roles": [
+          {
+            "memberId": "demo_host",
+            "roleId": "buddy"
+          },
+          {
+            "memberId": "demo_guest",
+            "roleId": "buddy"
+          }
+        ],
+        "reason": "Shared food interest, matching buddy role, venue zone, and overlapping availability for the 40-minute snack run."
+      }
+    }
+  ]
+}

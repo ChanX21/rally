@@ -5,7 +5,6 @@ export interface ChatMessage {
 
 export interface CompletionRequest {
   messages: ChatMessage[];
-  maxTokens: number;
 }
 
 export interface CompletionResult {
@@ -46,6 +45,8 @@ export interface ZeroGOptions {
   trustMode: string | undefined;
   verifyTee: boolean;
   timeoutMs: number;
+  /** Reasoning models count thinking against this, so a small per-task cap truncates replies. */
+  maxOutputTokens: number;
 }
 
 interface RouterResponse {
@@ -84,7 +85,7 @@ export function createZeroGProvider(options: ZeroGOptions): AiProvider {
           body: JSON.stringify({
             model: options.model,
             messages: request.messages,
-            max_tokens: request.maxTokens,
+            max_tokens: options.maxOutputTokens,
             temperature: 0.2,
             // No response_format. Tested live: the Router answers no_available_provider or
             // provider_error with it, even for models the catalog lists as supporting it. Prompts

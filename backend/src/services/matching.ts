@@ -146,7 +146,6 @@ async function composeWithAi(
   const result = await runAiTask(deps, {
     task: 'compose_group',
     promptVersion: COMPOSE_PROMPT_VERSION,
-    maxTokens: 800,
     schema: composeSchema,
     validate: (output) => validateComposition(output, aliases, roles, minMembers, maxMembers),
     messages: [

@@ -25,6 +25,14 @@ const corsOrigins = z
     message: 'must be a comma-separated list of exact origins, e.g. https://app.example.com',
   });
 
+export const inferenceEnvSchema = z.object({
+  ZERO_G_API_KEY: z.string().min(1).optional(),
+  ZERO_G_MODEL: z.string().min(1).optional(),
+  AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(128).max(8192).default(4096),
+  AI_TIMEOUT_MS: z.coerce.number().int().min(100).max(120000).default(60000),
+});
+export type InferenceEnv = z.infer<typeof inferenceEnvSchema>;
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -33,6 +41,8 @@ const envSchema = z
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),
+    ...inferenceEnvSchema.shape,
+    AI_REQUIRED: booleanString.default(false),
     DATABASE_URL: postgresUrl,
     DATABASE_MIGRATION_URL: postgresUrl.optional(),
     DATABASE_POOL_MAX: z.coerce.number().int().min(1).max(100).default(10),
@@ -54,13 +64,9 @@ const envSchema = z
     PRIVY_APP_SECRET: z.string().min(1).optional(),
     PRIVY_VERIFICATION_KEY: z.string().min(1).optional(),
 
-    ZG_API_KEY: z.string().min(1).optional(),
     ZG_BASE_URL: z.url().default('https://router-api.0g.ai/v1'),
-    ZG_MODEL: z.string().min(1).default('qwen3.7-flash'),
     ZG_TRUST_MODE: z.string().min(1).optional(),
     ZG_VERIFY_TEE: booleanString.default(false),
-    // Live calls took 7 to 24 seconds, so much less than this would make fallbacks the norm.
-    ZG_TIMEOUT_MS: z.coerce.number().int().min(500).default(45_000),
 
     ARKIV_PRIVATE_KEY: privateKey.optional(),
     ARKIV_ACCESS_KEY: z.string().min(1).optional(),
@@ -80,6 +86,9 @@ const envSchema = z
     REWARD_VOUCHER_TTL_MINUTES: z.coerce.number().int().min(1).default(60),
   })
   .superRefine((env, ctx) => {
+    if (env.AI_REQUIRED && (!env.ZERO_G_API_KEY || !env.ZERO_G_MODEL)) {
+      ctx.addIssue({ code: 'custom', path: ['AI_REQUIRED'], message: 'requires ZERO_G_API_KEY and ZERO_G_MODEL' });
+    }
     if (env.NODE_ENV === 'production' && env.CORS_ORIGINS.length === 0) {
       ctx.addIssue({
         code: 'custom',

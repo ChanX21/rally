@@ -196,14 +196,14 @@ deterministically for fallback groups, so a match costs one call as the playbook
 the normal engine, within the playbook's zero-to-one call budget. Follow-up answers refine the plan
 through the editable fields on `POST /rallies`, since a new activity is budgeted one call.
 
-Default model: `qwen3.7-flash`, which ran the full journey live. Change it with `ZG_MODEL`.
+`qwen3.7-flash` ran the full journey live. Choose the model with `ZERO_G_MODEL`.
 
 Measured on the live Router, November 2026:
 
 - **`response_format` breaks requests.** It returned `no_available_provider` (503) or `provider_error`
   (502) for every model tried, including ones the catalog lists as supporting it. The same requests
   without it returned 200. Prompts therefore ask for JSON, and the harness validates strictly.
-- **Latency was 7 to 24 seconds** per task with qwen3.7-flash, so `ZG_TIMEOUT_MS` defaults to 45 seconds.
+- **Latency was 7 to 24 seconds** per task with qwen3.7-flash, so `AI_TIMEOUT_MS` defaults to 60 seconds.
   `POST /intents/parse` waits on this, so clients need a real processing state.
 - Replies may be wrapped in markdown fences or leading newlines depending on the model. The harness
   strips them.
@@ -219,6 +219,24 @@ User text is delimited and declared as data in the prompt, and exact-location-li
 sent because only structured fields cross the boundary for composition. Parsing must see the user's
 sentence, which is why emails, phone numbers and URLs are redacted first. The parser's output is
 checked against the catalog.
+
+### Two AI paths
+
+`backend/AI.md` and `AI_ARCHITECTURE.md` describe the Formation Engine (`app.formation`,
+`services/formation.ts`), built by the AI owner and agreed as what backend routes should call. Product
+routes do not call it yet: they use `services/ai-harness.ts`. Both were developed at the same time, and
+they share configuration.
+
+| | AI harness (used by routes today) | Formation Engine (`app.formation`) |
+| --- | --- | --- |
+| Persistence | `model_runs` table | Log traces |
+| Request ID | `x_0g_trace.request_id` | Response `id` |
+| Parsing | One call, then the editable form | `ready` or `needs_answers`, with one reparse |
+| Composition | Deterministic fallback | `no_fit`, or a typed failure |
+| Tested live | Full journey through the routes | Its own four-step demo |
+
+**This needs a decision: consolidate on one.** Until then, a prompt change in one is not reflected in
+the other.
 
 ## Arkiv storage and querying
 
@@ -505,11 +523,12 @@ Blank counts as unset. `.env.example` has a commented copy.
 | `OFFER_HOLD_MINUTES` | `30` | How long an offer stays open |
 | `PRIVY_APP_ID`, `PRIVY_APP_SECRET` | none | Required in production. **Secret** |
 | `PRIVY_VERIFICATION_KEY` | none | Verify tokens locally |
-| `ZG_API_KEY` | none | Without it, deterministic fallbacks. **Secret** |
+| `ZERO_G_API_KEY`, `ZERO_G_MODEL` | none | Without both, deterministic fallbacks. Key is **secret** |
+| `AI_REQUIRED` | `false` | `true` fails startup when the two above are missing |
 | `ZG_BASE_URL` | mainnet Router | Testnet: `https://router-api-testnet.integratenetwork.work/v1` |
-| `ZG_MODEL` | `qwen3.7-flash` | Any chat model; must reply with valid JSON from the prompt |
 | `ZG_TRUST_MODE`, `ZG_VERIFY_TEE` | unset, `false` | Private routing and attestation; test before claiming |
-| `ZG_TIMEOUT_MS` | `45000` | Then fall back |
+| `AI_TIMEOUT_MS` | `60000` | Then fall back |
+| `AI_MAX_OUTPUT_TOKENS` | `4096` | Includes reasoning tokens |
 | `ARKIV_PRIVATE_KEY` | none | Relayer wallet. Without it, discovery is off. **Secret** |
 | `ARKIV_ACCESS_KEY` | none | RPC key. Without it, the heavily limited public endpoint |
 | `ARKIV_RPC_URL` | Rabdi | Override, e.g. community RPC |

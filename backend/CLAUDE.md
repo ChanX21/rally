@@ -176,6 +176,7 @@ never query the database. Domain code has no I/O.
 ## 0G guidelines
 
 - Use the 0G Compute Router, which is OpenAI-compatible, through `integrations/zerog/`.
+- There are currently two AI paths. See "Two AI paths" in `ARCHITECTURE.md` before changing prompts.
 - Every call goes through the harness: route, infer, validate, execute, measure.
 - Record `x_0g_trace.request_id`, model, provider, prompt version, latency, tokens and validator
   outcome in `model_runs`.

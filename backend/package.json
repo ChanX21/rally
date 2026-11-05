@@ -22,7 +22,10 @@
     "db:studio": "drizzle-kit studio",
     "arkiv:smoke": "tsx scripts/arkiv-smoke.ts",
     "smoke:integrations": "tsx scripts/integrations-smoke.ts",
-    "smoke:journey": "tsx scripts/live-journey.ts"
+    "smoke:journey": "tsx scripts/live-journey.ts",
+    "ai:smoke": "node --import tsx scripts/ai-smoke.ts",
+    "test:ai": "vitest run --config vitest.ai.config.ts",
+    "ai:demo": "node --import tsx scripts/ai-demo.ts"
   },
   "dependencies": {
     "@arkiv-network/sdk": "^1.0.1",

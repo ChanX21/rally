@@ -41,7 +41,6 @@ const env = parseEnv({
   DATABASE_URL: databaseUrl,
   // A separate tag keeps these listings out of real discovery results.
   ARKIV_EVENT: `${process.env.ARKIV_EVENT || 'ethglobal-mumbai-2026'}-smoke`,
-  ZG_TIMEOUT_MS: '60000',
 });
 const app = await buildApp({
   env,

@@ -51,7 +51,6 @@ export async function parseIntent(deps: Deps, userId: string, text: string) {
   const result = await runAiTask(deps, {
     task: 'parse_intent',
     promptVersion: PROMPT_VERSION,
-    maxTokens: 1200,
     schema: aiIntentSchema,
     validate: (output) => validateAiIntent(output, now, deps.env.EVENT_ZONES),
     messages: [

@@ -112,3 +112,9 @@ test/             Vitest tests
 ```
 
 See `.env.example` for all configuration.
+
+## AI Formation Engine
+
+The backend also exposes `app.formation` for onboarding questions, activity intent parsing and validated group proposals. See [AI.md](AI.md) for configuration, caller contracts, failure behavior and teammate integration. Run `npm run test:ai` for isolated AI tests; `npm run ai:smoke` explicitly checks funded 0G access.
+
+Product routes do not call it yet. They use `services/ai-harness.ts`, described in `ARCHITECTURE.md`. See "Two AI paths" there.

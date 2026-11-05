@@ -42,10 +42,11 @@ const provider = (overrides: Partial<Parameters<typeof createZeroGProvider>[0]> 
     trustMode: undefined,
     verifyTee: false,
     timeoutMs: 2000,
+    maxOutputTokens: 100,
     ...overrides,
   });
 
-const request = { messages: [{ role: 'user' as const, content: 'hi' }], maxTokens: 100 };
+const request = { messages: [{ role: 'user' as const, content: 'hi' }] };
 
 const documented = {
   id: 'chatcmpl-1',

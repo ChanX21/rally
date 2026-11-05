@@ -17,23 +17,24 @@ function report(ok: boolean, name: string, detail = ''): void {
 const messageOf = (error: unknown) =>
   (error instanceof Error ? error.message : String(error)).split('\n')[0]?.slice(0, 200) ?? '';
 
-if (!env.ZG_API_KEY) {
-  report(false, '0G', 'ZG_API_KEY is not set');
+if (!env.ZERO_G_API_KEY || !env.ZERO_G_MODEL) {
+  report(false, '0G', 'ZERO_G_API_KEY and ZERO_G_MODEL must both be set');
 } else {
   const catalog = (await (await fetch(`${env.ZG_BASE_URL}/models`)).json()) as {
     data: { id: string; verifiability?: string }[];
   };
-  const entry = catalog.data.find((model) => model.id === env.ZG_MODEL);
-  report(entry !== undefined, `0G model ${env.ZG_MODEL} is in the catalog`);
+  const entry = catalog.data.find((model) => model.id === env.ZERO_G_MODEL);
+  report(entry !== undefined, `0G model ${env.ZERO_G_MODEL} is in the catalog`);
   console.log(`      verifiability: ${entry?.verifiability ?? 'none'}`);
 
   const provider = createZeroGProvider({
-    apiKey: env.ZG_API_KEY,
+    apiKey: env.ZERO_G_API_KEY,
     baseUrl: env.ZG_BASE_URL,
-    model: env.ZG_MODEL,
+    model: env.ZERO_G_MODEL,
     trustMode: env.ZG_TRUST_MODE,
     verifyTee: env.ZG_VERIFY_TEE,
-    timeoutMs: Math.max(env.ZG_TIMEOUT_MS, 60_000),
+    timeoutMs: Math.max(env.AI_TIMEOUT_MS, 60_000),
+    maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
   });
   const startedAt = Date.now();
   try {
@@ -42,7 +43,6 @@ if (!env.ZG_API_KEY) {
         { role: 'system', content: 'Respond with one JSON object: {"ok": true}.' },
         { role: 'user', content: 'Health check.' },
       ],
-      maxTokens: 500,
     });
     report(true, '0G completion', `${Date.now() - startedAt} ms`);
     console.log(`      content: ${result.content.slice(0, 100)}`);

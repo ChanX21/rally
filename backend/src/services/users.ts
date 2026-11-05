@@ -58,7 +58,6 @@ export async function chooseOnboardingQuestions(deps: Deps, interests: readonly 
   const result = await runAiTask(deps, {
     task: 'onboarding_questions',
     promptVersion: QUESTIONS_PROMPT_VERSION,
-    maxTokens: 300,
     schema: z.strictObject({
       questionIds: z.array(z.string()).min(1).max(MAX_QUESTIONS),
     }),

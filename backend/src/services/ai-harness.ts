@@ -9,7 +9,6 @@ export type AiTask = 'onboarding_questions' | 'parse_intent' | 'compose_group';
 export interface AiTaskConfig<T> {
   task: AiTask;
   promptVersion: string;
-  maxTokens: number;
   schema: z.ZodType<T>;
   messages: ChatMessage[];
   /** Business rules Zod cannot express. Return a reason to reject the output. */
@@ -54,7 +53,7 @@ export async function runAiTask<T>(deps: Deps, config: AiTaskConfig<T>): Promise
   if (!deps.ai) {
     const modelRunId = await record({
       outcome: 'not_configured',
-      failureReason: 'ZG_API_KEY is not set',
+      failureReason: 'ZERO_G_API_KEY and ZERO_G_MODEL are not both set',
     });
     return { ok: false, reason: 'not_configured', modelRunId, requestId: null };
   }
@@ -62,10 +61,7 @@ export async function runAiTask<T>(deps: Deps, config: AiTaskConfig<T>): Promise
   const startedAt = Date.now();
   let completion;
   try {
-    completion = await deps.ai.complete({
-      messages: config.messages,
-      maxTokens: config.maxTokens,
-    });
+    completion = await deps.ai.complete({ messages: config.messages });
   } catch (error) {
     const providerError = error instanceof AiProviderError ? error : null;
     const outcome = providerError?.kind ?? 'upstream_error';

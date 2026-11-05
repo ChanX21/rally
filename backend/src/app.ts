@@ -17,6 +17,7 @@ import { docsPlugin } from './plugins/docs.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { createIntegrations, integrationsPlugin } from './plugins/integrations.js';
 import { securityPlugin } from './plugins/security.js';
+import { formationPlugin } from './plugins/formation.js';
 import { healthRoutes } from './routes/health.js';
 import { intentRoutes } from './routes/intents.js';
 import { matchRoutes } from './routes/matches.js';
@@ -70,6 +71,7 @@ export async function buildApp({ env, integrations }: BuildOptions) {
   });
   await app.register(authPlugin);
   await app.register(docsPlugin);
+  await app.register(formationPlugin, { env });
 
   await app.register(healthRoutes);
   await app.register(userRoutes);

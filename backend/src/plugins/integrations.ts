@@ -22,16 +22,18 @@ export function createIntegrations(env: Env): Integrations {
             verificationKey: env.PRIVY_VERIFICATION_KEY,
           })
         : null,
-    ai: env.ZG_API_KEY
-      ? createZeroGProvider({
-          apiKey: env.ZG_API_KEY,
-          baseUrl: env.ZG_BASE_URL,
-          model: env.ZG_MODEL,
-          trustMode: env.ZG_TRUST_MODE,
-          verifyTee: env.ZG_VERIFY_TEE,
-          timeoutMs: env.ZG_TIMEOUT_MS,
-        })
-      : null,
+    ai:
+      env.ZERO_G_API_KEY && env.ZERO_G_MODEL
+        ? createZeroGProvider({
+            apiKey: env.ZERO_G_API_KEY,
+            baseUrl: env.ZG_BASE_URL,
+            model: env.ZERO_G_MODEL,
+            trustMode: env.ZG_TRUST_MODE,
+            verifyTee: env.ZG_VERIFY_TEE,
+            timeoutMs: env.AI_TIMEOUT_MS,
+            maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
+          })
+        : null,
     arkiv: createArkivGateway({
       privateKey: env.ARKIV_PRIVATE_KEY,
       accessKey: env.ARKIV_ACCESS_KEY,
