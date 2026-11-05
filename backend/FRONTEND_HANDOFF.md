@@ -348,7 +348,7 @@ Nothing is ever accepted on the user's behalf. Handle these:
 
 | Code | Say |
 | --- | --- |
-| `409 RALLY_FULL` | Someone took the last seat. **Expect this: the two-phone demo tests it** |
+| `409 RALLY_FULL` | Someone took the last seat. **The two-phone demo tests this.** See [Testing](#testing-a-full-flow) |
 | `409 OFFER_EXPIRED`, `OFFER_CLOSED`, `RALLY_CLOSED` | This match is no longer available |
 | `409 SCHEDULE_CONFLICT` | You already have a rally at this time |
 | `409 ROLE_TAKEN`, `MEMBER_CONFLICT` | This match is no longer available |
@@ -467,12 +467,17 @@ Use two browsers with two Privy accounts:
 1. Account A onboards with `optInMatching: true`, availability covering the next few hours, and `food`
    as an interest.
 2. Account B onboards, and publishes a `food` rally starting within A's availability.
-3. Within a few seconds, A gets a `match.proposed` notification.
+3. Within about 30 seconds with AI on, or a few seconds without it, A gets a `match.proposed`
+   notification.
 4. A accepts, and B sets a meeting point. Both open the room.
 5. B checks A in, and A leaves feedback.
 
-For the last-seat race, set up one seat with two people offered, then accept on both phones at once.
-Exactly one succeeds, and the other gets `RALLY_FULL`.
+**Last-seat race.** The backend never offers more people than seats, so set this up deliberately:
+
+1. Accounts A and C both onboard as in step 1.
+2. B publishes with `capacity: 3`, and waits until A and C each have a match.
+3. B reduces the rally to `capacity: 2` with `PATCH /rallies/:id`. Now there is one seat and two offers.
+4. A and C accept on two phones at once. Exactly one succeeds, and the other gets `409 RALLY_FULL`.
 
 ## Known gaps
 

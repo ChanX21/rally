@@ -213,6 +213,26 @@ describe('the last seat', () => {
     expect(row?.openSeats).toBe(0);
   });
 
+  it('can be set up through the API, as the two-phone demo does', async () => {
+    const { candidates, creator, rally, matchIds } = await setUp(2, { capacity: 3 });
+    const current = await creator.get(`/rallies/${rally.id}`);
+    expect(current.status).toBe('proposed');
+
+    const shrunk = await creator.patch(`/rallies/${rally.id}`, {
+      expectedVersion: current.version,
+      capacity: 2,
+    });
+    expect(shrunk).toMatchObject({ capacity: 2, openSeats: 1 });
+
+    const results = await Promise.all(
+      candidates.map((candidate, i) => respond(candidate, matchIds[i]!, 'accept')),
+    );
+    expect(results.map((result) => result.statusCode).sort()).toEqual([200, 409]);
+    const loser = results.find((result) => result.statusCode === 409);
+    expect(loser?.json().error.code).toBe('RALLY_FULL');
+    expect(await activeClaims(rally.id)).toHaveLength(2);
+  });
+
   it('fills several seats correctly under load, with no seat counted twice', async () => {
     const { candidates, rally, matchIds } = await setUp(6);
     await h.app.deps.db.execute(sql`
