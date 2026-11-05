@@ -87,3 +87,5 @@ Failure traces distinguish `output_limit`, `empty_content`, `response_shape`, `i
 Run `npm run ai:demo` locally. If it fails, share the failing step's `demo_model_output` and `inference_trace` lines; neither includes the API key. `output_limit` means the completion was truncated; `schema_mismatch` means valid JSON violated the strict task contract. These require different fixes.
 
 Prompt version `formation-v2` explicitly lists allowed question, category, zone and member IDs. The adapter also unwraps a complete JSON Markdown fence, while still rejecting surrounding prose and enforcing all strict schemas. These changes resolved observed live failures; see `AI_PROOF.md`.
+
+`npm run ai:demo` now narrates each fictional user input, translates the validated response into plain English, and explains what passed. Original JSON responses and traces remain alongside the narration for technical evidence. A final success message requires all four assertions to pass.
