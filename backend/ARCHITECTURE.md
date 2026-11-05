@@ -582,3 +582,10 @@ The playbook marks these optional or describes them loosely. They were left out 
 - Model quality: the 30 labeled evaluations the playbook calls for have not been run.
 
 Others: see the Arkiv table above. Which chain and asset any reward contract targets is undecided.
+
+
+## Matching regression guarantees
+
+The shortlist holds `MAX_GROUP - 1` candidates (currently 11), so groups of 10–12 can reach their minimum with the host included. Both retrieval and transactional revalidation use the same bound.
+
+A cached no-fit is keyed by candidate matching data, current member IDs/roles, available roles, activity constraints and group bounds. Changing interests or availability triggers a new composition; unchanged input and display-name-only changes reuse the existing no-fit. The hash is private and stores no raw profile data.

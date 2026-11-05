@@ -617,3 +617,37 @@ describe('intent parsing', () => {
     expect(JSON.stringify(call.input)).not.toContain('a@b.co');
   });
 });
+
+
+describe('matching flow regressions', () => {
+  it.each([10, 11, 12])('proposes a %i-person group when enough eligible people exist', async (size) => {
+    const creator = await creatorFor('large-host');
+    const candidates = [];
+    for (let i = 0; i < size - 1; i++) candidates.push(await h.onboarded(did('large-guest')));
+    const rally = await h.rally(creator, { groupMin: size, capacity: size });
+    await h.drainOutbox();
+    expect((await creator.get(`/rallies/${rally.id}`)).status).toBe('proposed');
+    for (const candidate of candidates) expect(await matchesFor(candidate)).toHaveLength(1);
+  });
+
+  it('reevaluates changed profile data but reuses no-fit for unchanged input', async () => {
+    const guest = await h.onboarded(did('cached-guest'));
+    const creator = await creatorFor('cached-host');
+    h.ai.respond = () => ({ schemaVersion: 1, status: 'no_fit' });
+    const rally = await h.rally(creator, { capacity: 2 });
+    await h.drainOutbox();
+    expect(h.ai.callsFor('composition')).toHaveLength(1);
+    expect(await evaluateRally(h.app.deps, rally.id)).toBe('unchanged');
+    await guest.patch('/me/profile', { interests: ['food', 'build', 'workshop'] });
+    await h.drainOutbox();
+    expect(h.ai.callsFor('composition')).toHaveLength(2);
+    expect(await evaluateRally(h.app.deps, rally.id)).toBe('unchanged');
+    // An unrelated display-name change must not spend a new composition call.
+    await guest.patch('/me/profile', { displayName: 'Updated name' });
+    await h.drainOutbox();
+    expect(h.ai.callsFor('composition')).toHaveLength(2);
+    await guest.patch('/me/profile', { availableFrom: hoursFromNow(0), availableTo: hoursFromNow(6) });
+    await h.drainOutbox();
+    expect(h.ai.callsFor('composition')).toHaveLength(3);
+  });
+});

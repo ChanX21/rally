@@ -304,12 +304,25 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
 
   // The only model call. Infeasible cases returned above, and anyone offered a seat leaves the
   // candidate set. A no-fit is remembered below, so a call is spent only when candidates change.
+  const members = await activeMembers(deps.db, rallyId);
   const shortlistHash = createHash('sha256')
-    .update(JSON.stringify([candidates.map((c) => c.user_id).sort(), maxMembers, minMembers]))
+    .update(JSON.stringify({
+      candidates,
+      members: members.map(({ userId, role }) => ({ userId, role })),
+      roles,
+      category: rally.category,
+      goal: redactPii(rally.goal),
+      windowStart: rally.windowStart,
+      windowEnd: rally.windowEnd,
+      durationMin: rally.durationMin,
+      zone: rally.zone,
+      vibe: rally.vibe,
+      maxMembers,
+      minMembers,
+    }))
     .digest('hex');
   if (rally.noFitShortlistHash === shortlistHash) return 'unchanged';
 
-  const members = await activeMembers(deps.db, rallyId);
   const outcome = await composeWithEngine(
     deps,
     rally,
