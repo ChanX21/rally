@@ -29,6 +29,7 @@ import {
   activeMembers,
   countActiveClaims,
   findRally,
+  hasScheduleConflict,
   lockRally,
   openSlots,
   type Rally,
@@ -113,6 +114,9 @@ export interface CreateRallyInput {
 }
 
 async function publishLocked(tx: Tx, rally: Rally): Promise<Rally> {
+  if (await hasScheduleConflict(tx, rally.creatorId, rally.id, rally.windowStart, rally.windowEnd)) {
+    throw new AppError(409, 'SCHEDULE_CONFLICT', 'You already have a rally at this time');
+  }
   const published = await transition(tx, rally, 'open', { publishedAt: new Date() });
   await scheduleArkivSync(tx, published);
   await enqueue(tx, {
@@ -239,6 +243,7 @@ async function canSee(tx: Tx | Deps['db'], rally: Rally, userId: string): Promis
 
 export async function publishRally(deps: Deps, userId: string, rallyId: string) {
   return deps.db.transaction(async (tx) => {
+    await lockUser(tx, userId);
     const rally = await requireCreator(tx, rallyId, userId);
     if (rally.status !== 'draft') {
       // A retried publish is a no-op, once it has actually happened.
@@ -358,6 +363,7 @@ export async function updateRally(
   input: UpdateRallyInput,
 ) {
   return deps.db.transaction(async (tx) => {
+    await lockUser(tx, userId);
     const rally = await requireCreator(tx, rallyId, userId);
 
     if (rally.version !== input.expectedVersion) {
@@ -387,7 +393,12 @@ export async function updateRally(
       windowEnd: input.windowEnd ?? rally.windowEnd,
       durationMin: input.durationMin ?? rally.durationMin,
     };
-    if (changesSchedule) assertSchedule(schedule, new Date());
+    if (changesSchedule) {
+      assertSchedule(schedule, new Date());
+      if (rally.status !== 'draft' && await hasScheduleConflict(tx, userId, rally.id, schedule.windowStart, schedule.windowEnd)) {
+        throw new AppError(409, 'SCHEDULE_CONFLICT', 'You already have a rally at this time');
+      }
+    }
     if (input.zone !== undefined) assertZone(deps, input.zone);
 
     const capacity = input.capacity ?? rally.capacity;

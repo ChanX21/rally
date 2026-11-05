@@ -7,11 +7,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { arkivEntities, outboxEvents, rallies } from '../src/db/schema/index.js';
 import { createArkivGateway, listingSchema } from '../src/integrations/arkiv/index.js';
 import { reconcileArkiv, syncRallyListing } from '../src/services/arkiv-sync.js';
-import { createHarness, type Harness, type Json, type TestUser } from './helpers/harness.js';
+import { createHarness, type Harness, hoursFromNow, type Json, type TestUser } from './helpers/harness.js';
 
 let h: Harness;
 let creator: TestUser;
 let counter = 0;
+let publishedCount = 0;
 
 const SAFE_FIELDS = [
   'app',
@@ -28,7 +29,9 @@ const SAFE_FIELDS = [
   'zone',
 ];
 
-beforeAll(async () => {
+beforeEach(async () => {
+  await h?.close();
+  publishedCount = 0;
   h = await createHarness();
   creator = await h.onboarded('did:privy:arkiv-creator', {
     displayName: 'Private Creator Name',
@@ -52,7 +55,10 @@ const entityRow = async (rallyId: string) => {
 };
 
 async function published(overrides: Record<string, unknown> = {}): Promise<Json> {
-  const rally = await h.rally(creator, overrides);
+  const offset = publishedCount++ * 3;
+  const rally = await h.rally(creator, {
+    windowStart: hoursFromNow(1 + offset), windowEnd: hoursFromNow(3 + offset), ...overrides,
+  });
   await h.drainOutbox();
   return creator.get(`/rallies/${rally.id}`);
 }
@@ -124,10 +130,6 @@ describe('updates', () => {
     await h.drainOutbox();
     expect(entityFor(rally.opaqueId)).toBeUndefined();
     expect(await entityRow(rally.id)).toMatchObject({ syncStatus: 'deleted' });
-
-    // Keep this person out of the later tests in this file, which share the database.
-    await candidate.patch('/me/profile', { optInMatching: false });
-    await h.drainOutbox();
   });
 
   it('writes nothing when already in sync', async () => {

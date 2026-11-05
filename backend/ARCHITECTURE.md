@@ -589,3 +589,5 @@ Others: see the Arkiv table above. Which chain and asset any reward contract tar
 The shortlist holds `MAX_GROUP - 1` candidates (currently 11), so groups of 10–12 can reach their minimum with the host included. Both retrieval and transactional revalidation use the same bound.
 
 A cached no-fit is keyed by candidate matching data, current member IDs/roles, available roles, activity constraints and group bounds. Changing interests or availability triggers a new composition; unchanged input and display-name-only changes reuse the existing no-fit. The hash is private and stores no raw profile data.
+
+Host publication checks the same schedule-conflict rule as accepting an invitation. Creation with immediate publication, later draft publication and published schedule edits take the user's lock before the Rally lock, so concurrent host actions and acceptance cannot double-book that person. Overlapping drafts remain editable; publication returns `409 SCHEDULE_CONFLICT` until the conflict is resolved. Adjacent non-overlapping windows are allowed.

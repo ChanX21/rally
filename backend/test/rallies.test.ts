@@ -1,5 +1,5 @@
 import { eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { claims, outboxEvents, rallies, rallySlots } from '../src/db/schema/index.js';
 import { notify } from '../src/lib/notify.js';
@@ -12,7 +12,8 @@ let h: Harness;
 let creator: TestUser;
 let stranger: TestUser;
 
-beforeAll(async () => {
+beforeEach(async () => {
+  await h?.close();
   h = await createHarness();
   creator = await h.onboarded('did:privy:creator', { optInMatching: false });
   stranger = await h.onboarded('did:privy:stranger', { optInMatching: false });
