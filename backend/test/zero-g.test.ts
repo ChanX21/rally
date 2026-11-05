@@ -30,6 +30,25 @@ describe('0G Router adapter', () => {
     expect(transport.mock.calls[0]?.[0]).toBe('https://router-api.0g.ai/v1/chat/completions');
     expect(transport.mock.calls[0]?.[1]).toMatchObject({ redirect: 'error', headers: { authorization: 'Bearer test-key' } });
   });
+  it('prefers the Router trace ID, and keeps provider and cost', async () => {
+    const transport = vi.fn<typeof fetch>(async () => Response.json({
+      id: 'chatcmpl-1',
+      choices: [{ message: { content: '{"ok":true}' } }],
+      usage: { total_tokens: 8 },
+      x_0g_trace: {
+        request_id: 'router-1',
+        provider: '0xprovider',
+        billing: { currency: 'usd', total_cost: '20', total_cost_usd_micro: '20' },
+      },
+    }));
+    const result = await createZeroG(env(), transport)('JSON only', {});
+    expect(result).toMatchObject({ providerRequestId: 'router-1', provider: '0xprovider', cost: '20 usd_micro' });
+  });
+  it('never sends response_format, which the live Router rejects', async () => {
+    const transport = vi.fn<typeof fetch>(async () => reply('{"ok":true}'));
+    await createZeroG(env(), transport)('JSON only', {});
+    expect(JSON.parse(transport.mock.calls[0]?.[1]?.body as string)).not.toHaveProperty('response_format');
+  });
   it('unwraps a complete JSON code fence without accepting surrounding prose', async () => {
     expect((await createZeroG(env(), async () => reply('```json\n{"ok":true}\n```'))('', {})).text).toBe('{"ok":true}');
     expect((await createZeroG(env(), async () => reply('Here is JSON: ```json\n{}\n```'))('', {})).text).toContain('Here is JSON');

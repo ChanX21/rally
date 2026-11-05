@@ -30,7 +30,7 @@ These come from the playbook. Do not trade them away for convenience.
 
 Node.js 22.12+, TypeScript (ESM, NodeNext), Fastify 5, Zod 4 via `fastify-type-provider-zod`,
 PostgreSQL on Supabase, Drizzle ORM with the `postgres` driver, Vitest, ESLint, `viem`,
-`@arkiv-network/sdk`, `@privy-io/node`. One service, no microservices, Kafka or vector DB.
+`@arkiv-network/sdk`, `@privy-io/node`, and native `fetch` for the 0G Router. One service, no microservices, Kafka or vector DB.
 
 `typescript` is pinned to `~6.0` because `typescript-eslint` does not support 6.1 or newer yet.
 
@@ -42,7 +42,8 @@ npm run db:local       # local PostgreSQL on port 54329, no Docker
 npm run db:generate    # generate a migration after changing src/db/schema
 npm run db:migrate     # apply migrations
 npm run arkiv:smoke    # real Arkiv read check; add -- --write with a funded key
-npm run smoke:integrations   # real 0G call and Privy credential check
+npm run smoke:privy    # real Privy credential check
+npm run ai:smoke       # real 0G call; npm run ai:demo runs the engine's four steps
 npm run smoke:journey  # full flow on live 0G and Arkiv, throwaway database, simulated login
 npm run typecheck && npm run lint && npm test && npm run build   # run all before finishing
 ```
@@ -58,7 +59,7 @@ src/
   config/          environment validation
   db/              client, migration runner, schema
   domain/          pure rules: catalog, state machine, time, matching score
-  integrations/    privy/, arkiv/, zerog/: one adapter per external service
+  integrations/    privy/, arkiv/, zero-g.ts: one adapter per external service
   lib/             errors, logger, shutdown, idempotency, outbox helpers
   plugins/         error handler, security, auth, database, docs
   repositories/    database queries; take a db or transaction handle
@@ -175,16 +176,15 @@ never query the database. Domain code has no I/O.
 
 ## 0G guidelines
 
-- Use the 0G Compute Router, which is OpenAI-compatible, through `integrations/zerog/`.
-- There are currently two AI paths. See "Two AI paths" in `ARCHITECTURE.md` before changing prompts.
-- Every call goes through the harness: route, infer, validate, execute, measure.
-- Record `x_0g_trace.request_id`, model, provider, prompt version, latency, tokens and validator
-  outcome in `model_runs`.
-- Send pseudonymous candidates only. Never send names, wallets, DIDs or exact locations.
-- AI failure must never block the flow. Fall back deterministically and never invent matches.
-- Never claim private or verified inference unless `tee_verified` was actually returned as true.
-- Do not send `response_format`: the live Router fails with it. See `ARCHITECTURE.md`.
-- Budget: new profile 1 call, new activity 1 call, matched case 1 call, decline 0 to 1 call.
+- All inference goes through the Formation Engine (`services/formation.ts`), called via
+  `deps.formation`, which records each attempt in `model_runs`. Do not add a second AI client.
+- Its contract is in `AI.md` and `AI_ARCHITECTURE.md`. Prompts and schemas belong to the AI owner, so
+  coordinate changes to them.
+- Send aliases only. Never send names, wallets, DIDs, exact locations or free-form profile text.
+- AI failure must never block the flow, and fallbacks must never invent people. See `ARCHITECTURE.md`.
+- Never claim private or verified inference. Adapter routing is standard.
+- Do not send `response_format`: the live Router fails with it.
+- Budget: new profile 1 call, new activity 1 call plus 1 reparse, matched case 1 call.
 
 ## Contracts
 

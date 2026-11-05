@@ -1,5 +1,4 @@
 import { and, eq, sql } from 'drizzle-orm';
-import { z } from 'zod';
 
 import { onboardingAnswers, userBlocks, users } from '../db/schema/index.js';
 import {
@@ -18,7 +17,6 @@ import {
   lockUser,
   type User,
 } from '../repositories/users.js';
-import { DATA_RULE, runAiTask, userData } from './ai-harness.js';
 
 /** Identity comes only from the verified token. Wallets are read from Privy, never the client. */
 export async function upsertSession(deps: Deps, did: string): Promise<User> {
@@ -50,49 +48,37 @@ export async function getMe(deps: Deps, user: User) {
   return { user, profile: profile ?? null };
 }
 
-const QUESTIONS_PROMPT_VERSION = 'onboarding_questions.v1';
+/** The model only picks IDs from the fixed catalog. If it fails, the engine uses catalog order. */
+export async function chooseOnboardingQuestions(
+  deps: Deps,
+  userId: string,
+  interests: readonly Category[],
+) {
+  const answered = await deps.db
+    .select({ id: onboardingAnswers.questionId })
+    .from(onboardingAnswers)
+    .where(eq(onboardingAnswers.userId, userId));
+  const alreadyAnsweredIds = answered.map((row) => row.id);
 
-/** 0G may only choose from fixed templates. If it fails, the templates are used in order. */
-export async function chooseOnboardingQuestions(deps: Deps, interests: readonly Category[]) {
-  const allowedIds = ONBOARDING_QUESTIONS.map((question) => question.id);
-  const result = await runAiTask(deps, {
-    task: 'onboarding_questions',
-    promptVersion: QUESTIONS_PROMPT_VERSION,
-    schema: z.strictObject({
-      questionIds: z.array(z.string()).min(1).max(MAX_QUESTIONS),
+  const { result, requestId } = await deps.formation((engine, runId) =>
+    engine.chooseOnboardingQuestions({
+      requestId: runId,
+      interests: [...interests],
+      questions: ONBOARDING_QUESTIONS.map(({ id, purpose }) => ({ id, purpose })),
+      alreadyAnsweredIds,
+      remainingQuestions: Math.max(0, MAX_QUESTIONS - alreadyAnsweredIds.length),
     }),
-    validate: ({ questionIds }) => {
-      if (new Set(questionIds).size !== questionIds.length) return 'duplicate question';
-      return questionIds.every((id) => allowedIds.includes(id)) ? null : 'unknown question id';
-    },
-    messages: [
-      {
-        role: 'system',
-        content:
-          'Choose the onboarding questions most useful for matching this person with others for ' +
-          `real-world activities. ${DATA_RULE}\nFields: questionIds, at most ${MAX_QUESTIONS} ` +
-          'IDs from the available list.',
-      },
-      {
-        role: 'user',
-        content: [
-          userData('interests', interests),
-          userData('available_questions', ONBOARDING_QUESTIONS),
-        ].join('\n'),
-      },
-    ],
-  });
-
-  const chosen = result.ok
-    ? result.output.questionIds.flatMap((id) =>
-        ONBOARDING_QUESTIONS.filter((question) => question.id === id),
-      )
-    : ONBOARDING_QUESTIONS.slice(0, MAX_QUESTIONS);
+  );
 
   return {
-    questions: chosen,
-    source: result.ok ? ('ai' as const) : ('fallback' as const),
-    aiRequestId: result.requestId,
+    questions: result.questionIds.flatMap((id) =>
+      ONBOARDING_QUESTIONS.filter((question) => question.id === id).map(({ id: qid, text }) => ({
+        id: qid,
+        text,
+      })),
+    ),
+    source: result.source,
+    aiRequestId: requestId,
   };
 }
 
@@ -122,6 +108,10 @@ export async function completeOnboarding(deps: Deps, userId: string, input: Onbo
   }
   if (new Set(input.answers.map((answer) => answer.questionId)).size !== input.answers.length) {
     throw new AppError(422, 'DUPLICATE_ANSWER', 'Each question may be answered once');
+  }
+  const knownQuestions = new Set(ONBOARDING_QUESTIONS.map((question) => question.id));
+  if (input.answers.some((answer) => !knownQuestions.has(answer.questionId))) {
+    throw new AppError(422, 'UNKNOWN_QUESTION', 'That question is not in the catalog');
   }
   if (input.optInMatching) assertAvailability(input.availableFrom, input.availableTo);
 

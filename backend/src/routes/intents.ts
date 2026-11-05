@@ -5,6 +5,7 @@ import type { intents } from '../db/schema/index.js';
 import { requireUser } from '../plugins/auth.js';
 import {
   activateIntentBody,
+  answerIntentBody,
   idParams,
   intentSchema,
   listQuery,
@@ -12,7 +13,13 @@ import {
   parseIntentBody,
 } from '../schemas/api.js';
 import { ok, successSchema } from '../schemas/common.js';
-import { activateIntent, cancelIntent, listIntents, parseIntent } from '../services/intents.js';
+import {
+  activateIntent,
+  answerIntent,
+  cancelIntent,
+  listIntents,
+  parseIntent,
+} from '../services/intents.js';
 
 const secured = { security: [{ bearer: [] }] };
 
@@ -52,7 +59,29 @@ export const intentRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => {
-      const result = await parseIntent(deps, requireUser(request).id, request.body.text);
+      const result = await parseIntent(deps, requireUser(request).id, request.body);
+      return ok({ ...result, intent: intentView(result.intent) });
+    },
+  );
+
+  app.post(
+    '/intents/:id/answers',
+    {
+      ...auth,
+      schema: {
+        ...secured,
+        params: idParams,
+        body: answerIntentBody,
+        response: { 200: successSchema(parsedIntentSchema) },
+      },
+    },
+    async (request) => {
+      const result = await answerIntent(
+        deps,
+        requireUser(request).id,
+        request.params.id,
+        request.body.answers,
+      );
       return ok({ ...result, intent: intentView(result.intent) });
     },
   );

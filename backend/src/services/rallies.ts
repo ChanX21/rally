@@ -411,6 +411,7 @@ export async function updateRally(
         meetingPoint: input.meetingPoint ?? rally.meetingPoint,
         meetingBrief: input.meetingBrief ?? rally.meetingBrief,
         expiresAt: input.windowEnd ?? rally.expiresAt,
+        noFitShortlistHash: null,
         version: rally.version + 1,
       })
       .where(eq(rallies.id, rally.id))

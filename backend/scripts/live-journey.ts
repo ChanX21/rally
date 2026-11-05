@@ -102,7 +102,7 @@ try {
     interests: ['food', 'coffee', 'gaming'],
   });
   console.log(`  questions (${questions.source}):`, questions.questions.map((q: { text: string }) => q.text));
-  showRun('questions', await latestRun('onboarding_questions'));
+  showRun('questions', await latestRun('onboarding'));
   await call('did:journey:joiner', 'POST', '/onboarding/complete', {
     displayName: 'Joiner',
     interests: ['food', 'coffee', 'gaming'],
@@ -120,20 +120,29 @@ try {
     interests: ['food', 'build', 'explore'],
     optInMatching: false,
   });
-  const parsed = await call('did:journey:host', 'POST', '/intents/parse', {
-    text: 'Anyone up for a late snack run near the venue in about an hour? Chatty group of 2 to 4.',
+  let parsed = await call('did:journey:host', 'POST', '/intents/parse', {
+    text: 'Anyone up for a late snack run in the nearby zone? Chatty group of 2 to 4, about 45 minutes.',
+    timeZone: 'Asia/Kolkata',
   });
+  console.log(`  first parse: status=${parsed.status}`, parsed.intent.questions.map((q: { text: string }) => q.text));
+  showRun('intent', await latestRun('intent'));
+  if (parsed.status === 'needs_answers') {
+    const answers = parsed.intent.questions.map((q: { id: string }) => ({
+      questionId: q.id,
+      answer: q.id === 'start_time' ? `One hour from now, at ${hours(1)}` : 'Whatever you suggest',
+    }));
+    parsed = await call('did:journey:host', 'POST', `/intents/${parsed.intent.id}/answers`, { answers });
+    showRun('reparse', await latestRun('intent'));
+  }
   console.log('  intent:', {
     source: parsed.intent.source,
-    needsReview: parsed.needsReview,
+    status: parsed.status,
     category: parsed.intent.category,
     goal: parsed.intent.goal,
     from: parsed.intent.windowStart,
     zone: parsed.intent.zone,
     group: [parsed.intent.groupMin, parsed.intent.groupMax],
-    questions: parsed.intent.questions.map((q: { text: string }) => q.text),
   });
-  showRun('intent', await latestRun('parse_intent'));
 
   console.log('3. Host approves the plan; Arkiv listing and matching run after commit');
   const rally = await call('did:journey:host', 'POST', '/rallies', {
@@ -163,7 +172,7 @@ try {
   console.log('4. Joiner is matched');
   const { matches } = await call('did:journey:joiner', 'GET', '/matches');
   console.log('  match:', { source: matches[0]?.source, reason: matches[0]?.reason, status: matches[0]?.status });
-  showRun('composition', await latestRun('compose_group'));
+  showRun('composition', await latestRun('composition'));
   if (!matches[0]) throw new Error('No match was proposed');
 
   console.log('5. Joiner accepts; host sets the meeting point; room unlocks');

@@ -1,11 +1,14 @@
-import { sql } from 'drizzle-orm';
-import { z } from 'zod';
+import { createHash } from 'node:crypto';
 
-import { matchProposals, offers } from '../db/schema/index.js';
+import { eq, sql } from 'drizzle-orm';
+
+import { matchProposals, offers, rallies } from '../db/schema/index.js';
 import { SHORTLIST_SIZE } from '../domain/catalog.js';
 import { MATCHABLE } from '../domain/rally-state.js';
 import { rankCandidates, scoreCandidate } from '../domain/scoring.js';
 import { overlapMinutes } from '../domain/time.js';
+import { redactPii } from '../domain/intent-fallback.js';
+import type { Tx } from '../lib/db-types.js';
 import type { Deps } from '../lib/deps.js';
 import { notify } from '../lib/notify.js';
 import {
@@ -14,6 +17,7 @@ import {
   findRalliesForUser,
 } from '../repositories/matching.js';
 import {
+  activeMembers,
   countActiveClaims,
   countPendingOffers,
   findRally,
@@ -21,17 +25,9 @@ import {
   openSlots,
   type Rally,
 } from '../repositories/rallies.js';
-import { DATA_RULE, runAiTask, userData } from './ai-harness.js';
 import { scheduleArkivSync, transition } from './rally-lifecycle.js';
 
-const COMPOSE_PROMPT_VERSION = 'compose_group.v1';
-const FORBIDDEN_IN_REASON = /(@|https?:\/\/|\b0x[a-f0-9]{6,}|\bc\d+\b|did:privy)/i;
-
-const composeSchema = z.strictObject({
-  memberIds: z.array(z.string()).min(1).max(SHORTLIST_SIZE),
-  roles: z.array(z.string()).min(1).max(SHORTLIST_SIZE),
-  reason: z.string().min(1).max(280),
-});
+const FORBIDDEN_IN_REASON = /(@|https?:\/\/|\b0x[a-f0-9]{6,}|\b[cm]\d+\b|did:privy)/i;
 
 export interface ScoredCandidate extends CandidateRow {
   alias: string;
@@ -51,6 +47,8 @@ export type EvaluationOutcome =
   | 'not_matchable'
   | 'no_need'
   | 'waiting'
+  | 'no_fit'
+  | 'unchanged'
   | 'proposed'
   | 'stale';
 
@@ -109,15 +107,15 @@ export function composeDeterministically(
   };
 }
 
-/** Rejects anything but a real subset of the shortlist that fits seats and roles. */
+/** Seats and roles, which the engine's checks do not cover. Null means the group fits. */
 export function validateComposition(
-  output: z.infer<typeof composeSchema>,
+  output: { memberIds: readonly string[]; roles: readonly string[] },
   aliases: ReadonlySet<string>,
   roles: readonly string[],
   minMembers: number,
   maxMembers: number,
 ): string | null {
-  const { memberIds, roles: chosenRoles, reason } = output;
+  const { memberIds, roles: chosenRoles } = output;
   if (new Set(memberIds).size !== memberIds.length) return 'duplicate member';
   if (memberIds.some((id) => !aliases.has(id))) return 'member not in shortlist';
   if (memberIds.length < minMembers) return 'group below minimum';
@@ -130,81 +128,132 @@ export function validateComposition(
     if (index === -1) return 'role not available';
     remaining.splice(index, 1);
   }
-  if (FORBIDDEN_IN_REASON.test(reason)) return 'reason contains identifiers';
   return null;
 }
 
-async function composeWithAi(
+/** Shown to the people invited, so it must not reveal aliases or contact details. */
+export function safeReason(reason: string, rally: Rally): string {
+  return FORBIDDEN_IN_REASON.test(reason) ? defaultReason(rally) : reason;
+}
+
+type AiComposition =
+  | { kind: 'proposed'; composition: Composition }
+  | { kind: 'no_fit' }
+  | { kind: 'failed'; failure: string; modelRunId: string | null };
+
+/**
+ * One Formation Engine call. Everyone appears under an alias, with only match-relevant features, so
+ * no user ID, name, wallet or exact location crosses the model boundary. All are mapped back here.
+ */
+async function composeWithEngine(
   deps: Deps,
   rally: Rally,
+  members: Awaited<ReturnType<typeof activeMembers>>,
   candidates: readonly ScoredCandidate[],
   roles: readonly string[],
   minMembers: number,
   maxMembers: number,
-): Promise<Composition> {
-  const aliases = new Set(candidates.map((candidate) => candidate.alias));
-  const result = await runAiTask(deps, {
-    task: 'compose_group',
-    promptVersion: COMPOSE_PROMPT_VERSION,
-    schema: composeSchema,
-    validate: (output) => validateComposition(output, aliases, roles, minMembers, maxMembers),
-    messages: [
-      {
-        role: 'system',
-        content:
-          'You compose a small group for a real-world activity from a shortlist of already ' +
-          `eligible, pseudonymous candidates. ${DATA_RULE}\nFields: memberIds (candidate aliases, ` +
-          `${minMembers} to ${maxMembers} of them), roles (same length and order, each taken once ` +
-          'from availableRoles), reason (one friendly sentence shown to the people invited: ' +
-          'mention no aliases, names or contact details). Only use listed aliases. Prefer ' +
-          'feasible timing, then complementary skills, then likely acceptance.',
-      },
-      {
-        role: 'user',
-        content: [
-          userData('activity', {
-            category: rally.category,
-            vibe: rally.vibe,
-            durationMin: rally.durationMin,
-            zone: rally.zone,
-            availableRoles: roles,
-          }),
-          // Aliases only. No user IDs, names, wallets or free-form text cross this boundary.
-          userData(
-            'candidates',
-            candidates.map((candidate) => ({
-              alias: candidate.alias,
-              interests: candidate.interests,
-              skills: candidate.declared_skills,
-              overlapMinutes: candidate.overlapMin,
-              hasActiveIntent: candidate.intent_id !== null,
-              vibe: candidate.intent_vibe ?? candidate.preferences?.group_energy ?? null,
-              priorMutualEncore: candidate.mutual_encore,
-            })),
-          ),
-        ].join('\n'),
-      },
-    ],
+): Promise<AiComposition> {
+  const start = rally.windowStart.toISOString();
+  const end = new Date(rally.windowStart.getTime() + rally.durationMin * 60_000).toISOString();
+  const openRoleIds = [...new Set(roles)];
+  const committed = (alias: string, role: string) => ({
+    id: alias,
+    optedIn: true as const,
+    interests: [rally.category],
+    roleIds: [role],
+    zoneIds: [rally.zone],
+    availableFrom: start,
+    availableUntil: end,
   });
 
-  if (!result.ok) {
-    const fallback = composeDeterministically(rally, candidates, roles, maxMembers);
-    return { ...fallback, modelRunId: result.modelRunId };
+  const { result, modelRunId } = await deps.formation((engine, runId) =>
+    engine.composeGroup({
+      requestId: runId,
+      rally: {
+        id: rally.opaqueId,
+        intent: {
+          categoryId: rally.category,
+          goal: redactPii(rally.goal),
+          startAt: start,
+          durationMin: rally.durationMin,
+          groupMin: members.length + minMembers,
+          groupMax: members.length + maxMembers,
+          zoneId: rally.zone,
+          vibe: (rally.vibe as 'quiet' | 'chatty' | 'any' | null) ?? 'any',
+        },
+        // People already in hold a seat, and their consent is on record.
+        requiredMembers: members.map((member, index) => committed(`m${index + 1}`, member.role)),
+        requiredRoleIds: [],
+      },
+      candidates: candidates.map((candidate) => ({
+        id: candidate.alias,
+        optedIn: true as const,
+        interests: candidate.interests,
+        roleIds: openRoleIds,
+        zoneIds: [rally.zone],
+        availableFrom: (candidate.intent_start ?? candidate.available_from)!.toISOString(),
+        availableUntil: (candidate.intent_end ?? candidate.available_to)!.toISOString(),
+      })),
+    }),
+  );
+
+  if (result.status === 'no_fit') return { kind: 'no_fit' };
+  if (result.status !== 'proposed') {
+    return { kind: 'failed', failure: result.status, modelRunId };
+  }
+
+  // Assign any seat the model left without a role from what is still open.
+  const aliases = new Set(candidates.map((candidate) => candidate.alias));
+  const chosen = result.memberIds.filter((id) => aliases.has(id));
+  const roleOf = new Map(result.roles.map((entry) => [entry.memberId, entry.roleId]));
+  const unassigned = [...roles];
+  for (const id of chosen) {
+    const index = unassigned.indexOf(roleOf.get(id) ?? '');
+    if (index !== -1) unassigned.splice(index, 1);
+  }
+  const chosenRoles = chosen.map((id) => roleOf.get(id) ?? unassigned.shift() ?? '');
+
+  const violation = validateComposition(
+    { memberIds: chosen, roles: chosenRoles },
+    aliases,
+    roles,
+    minMembers,
+    maxMembers,
+  );
+  if (violation !== null) {
+    deps.log.warn({ violation }, 'composition rejected after engine validation');
+    return { kind: 'failed', failure: 'invalid_output', modelRunId };
   }
 
   const byAlias = new Map(candidates.map((candidate) => [candidate.alias, candidate]));
-  const members = result.output.memberIds.map((alias, index) => ({
-    userId: byAlias.get(alias)!.user_id,
-    role: result.output.roles[index]!,
-  }));
-  const scores = result.output.memberIds.map((alias) => byAlias.get(alias)!.score);
+  const scores = chosen.map((alias) => byAlias.get(alias)!.score);
   return {
-    members,
-    reason: result.output.reason,
-    score: Math.round(scores.reduce((total, score) => total + score, 0) / scores.length),
-    source: 'ai',
-    modelRunId: result.modelRunId,
+    kind: 'proposed',
+    composition: {
+      members: chosen.map((alias, index) => ({
+        userId: byAlias.get(alias)!.user_id,
+        role: chosenRoles[index]!,
+      })),
+      reason: safeReason(result.reason, rally),
+      score: Math.round(scores.reduce((total, score) => total + score, 0) / scores.length),
+      source: 'ai',
+      modelRunId,
+    },
   };
+}
+
+async function markWaiting(tx: Tx, rally: Rally): Promise<void> {
+  if (rally.status !== 'open') return;
+  await scheduleArkivSync(tx, await transition(tx, rally, 'waiting'));
+  await notify(tx, {
+    userId: rally.creatorId,
+    type: 'rally.waiting',
+    title: 'No close fit yet',
+    body: `We will keep looking for "${rally.goal}" and notify you when something changes.`,
+    data: { rallyId: rally.id },
+    dedupeKey: `rally.waiting:${rally.id}`,
+  });
 }
 
 /**
@@ -248,25 +297,56 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
     // No viable group: keep waiting. The only honest result here is "no fit yet".
     await deps.db.transaction(async (tx) => {
       const locked = await lockRally(tx, rallyId);
-      if (!locked) return;
-      if (locked.status === 'open') {
-        await scheduleArkivSync(tx, await transition(tx, locked, 'waiting'));
-        await notify(tx, {
-          userId: locked.creatorId,
-          type: 'rally.waiting',
-          title: 'No close fit yet',
-          body: `We will keep looking for "${locked.goal}" and notify you when something changes.`,
-          data: { rallyId },
-          dedupeKey: `rally.waiting:${rallyId}`,
-        });
-      }
+      if (locked) await markWaiting(tx, locked);
     });
     return 'waiting';
   }
 
   // The only model call. Infeasible cases returned above, and anyone offered a seat leaves the
-  // candidate set, so a rally only spends another call when its feasible candidates have changed.
-  const composition = await composeWithAi(deps, rally, candidates, roles, minMembers, maxMembers);
+  // candidate set. A no-fit is remembered below, so a call is spent only when candidates change.
+  const shortlistHash = createHash('sha256')
+    .update(JSON.stringify([candidates.map((c) => c.user_id).sort(), maxMembers, minMembers]))
+    .digest('hex');
+  if (rally.noFitShortlistHash === shortlistHash) return 'unchanged';
+
+  const members = await activeMembers(deps.db, rallyId);
+  const outcome = await composeWithEngine(
+    deps,
+    rally,
+    members,
+    candidates,
+    roles,
+    minMembers,
+    maxMembers,
+  );
+
+  if (outcome.kind === 'no_fit') {
+    // A genuine no-fit waits for supply to change. It is remembered so the same people, seats and
+    // needs do not spend another model call.
+    await deps.db.transaction(async (tx) => {
+      const locked = await lockRally(tx, rallyId);
+      if (!locked) return;
+      await tx
+        .update(rallies)
+        .set({ noFitShortlistHash: shortlistHash })
+        .where(eq(rallies.id, rallyId));
+      await markWaiting(tx, locked);
+    });
+    return 'no_fit';
+  }
+
+  if (outcome.kind === 'failed' && deps.env.AI_REQUIRED) {
+    // An outage is not a no-fit. Throwing lets the outbox retry with backoff.
+    throw new Error(`Formation Engine failed: ${outcome.failure}`);
+  }
+
+  const composition =
+    outcome.kind === 'proposed'
+      ? outcome.composition
+      : {
+          ...composeDeterministically(rally, candidates, roles, maxMembers),
+          modelRunId: outcome.modelRunId,
+        };
 
   return deps.db.transaction(async (tx) => {
     const locked = await lockRally(tx, rallyId);
@@ -276,13 +356,13 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
     const stillEligible = new Set(
       (await findCandidates(tx, locked, SHORTLIST_SIZE)).map((row) => row.user_id),
     );
-    const members = composition.members.filter((member) => stillEligible.has(member.userId));
+    const offered = composition.members.filter((member) => stillEligible.has(member.userId));
     const nowPending = await countPendingOffers(tx, rallyId);
     const nowClaims = await countActiveClaims(tx, rallyId);
     if (
-      members.length === 0 ||
-      nowClaims + nowPending + members.length < locked.groupMin ||
-      nowPending + members.length > locked.openSeats
+      offered.length === 0 ||
+      nowClaims + nowPending + offered.length < locked.groupMin ||
+      nowPending + offered.length > locked.openSeats
     ) {
       return 'stale';
     }
@@ -304,7 +384,7 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
     const created = await tx
       .insert(offers)
       .values(
-        members.map((member) => ({
+        offered.map((member) => ({
           proposalId: proposal!.id,
           rallyId,
           candidateId: member.userId,

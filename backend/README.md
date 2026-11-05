@@ -59,7 +59,7 @@ Prepared statements are disabled because the transaction pooler does not support
 | `npm run db:migrate:prod` | Apply migrations from `dist/` (needs `drizzle/` alongside it) |
 | `npm run db:studio` | Open Drizzle Studio |
 | `npm run arkiv:smoke` | Check Arkiv on the real network; add `-- --write` with a funded key |
-| `npm run smoke:integrations` | Real 0G call and Privy credential check |
+| `npm run smoke:privy` | Real Privy credential check |
 | `npm run smoke:journey` | Whole flow on live 0G and Arkiv, throwaway database, simulated login |
 
 ## Tests
@@ -115,6 +115,6 @@ See `.env.example` for all configuration.
 
 ## AI Formation Engine
 
-The backend also exposes `app.formation` for onboarding questions, activity intent parsing and validated group proposals. See [AI.md](AI.md) for configuration, caller contracts, failure behavior and teammate integration. Run `npm run test:ai` for isolated AI tests; `npm run ai:smoke` explicitly checks funded 0G access.
-
-Product routes do not call it yet. They use `services/ai-harness.ts`, described in `ARCHITECTURE.md`. See "Two AI paths" there.
+Onboarding questions, activity parsing and group composition all run through the Formation Engine. See
+[AI.md](AI.md) for its contract, and `ARCHITECTURE.md` for how routes use it. Run `npm run test:ai` for
+isolated AI tests; `npm run ai:smoke` and `npm run ai:demo` check funded 0G access.

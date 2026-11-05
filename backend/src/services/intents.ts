@@ -1,118 +1,199 @@
 import { and, desc, eq, inArray, lt, or } from 'drizzle-orm';
-import { z } from 'zod';
 
 import { intents } from '../db/schema/index.js';
+import type {
+  VIBES} from '../domain/catalog.js';
 import {
+  ACTIVITY_QUESTIONS,
   CATEGORIES,
   MAX_DAYS_AHEAD,
-  MAX_DURATION_MIN,
   MAX_GROUP,
-  MAX_QUESTIONS,
-  MIN_GROUP,
-  VIBES,
+  MAX_QUESTIONS
 } from '../domain/catalog.js';
-import { FALLBACK_QUESTIONS, parseIntentFallback, redactPii } from '../domain/intent-fallback.js';
+import { parseIntentFallback, redactPii } from '../domain/intent-fallback.js';
 import type { Deps } from '../lib/deps.js';
 import { AppError, notFound } from '../lib/errors.js';
 import { enqueue } from '../lib/outbox.js';
 import { decodeCursor, page } from '../lib/pagination.js';
-import { DATA_RULE, runAiTask, userData } from './ai-harness.js';
 
-const PROMPT_VERSION = 'parse_intent.v1';
+export type Intent = typeof intents.$inferSelect;
+export type ParseStatus = 'ready' | 'needs_answers' | 'needs_review';
 
-/** Strict: extra fields such as member IDs or owners make the whole output invalid. */
-const aiIntentSchema = z.strictObject({
-  category: z.enum(CATEGORIES).nullable(),
-  goal: z.string().min(1).max(120),
-  from: z.iso.datetime({ offset: true }),
-  durationMin: z.number().int().min(5).max(MAX_DURATION_MIN),
-  groupMin: z.number().int().min(MIN_GROUP).max(MAX_GROUP),
-  groupMax: z.number().int().min(MIN_GROUP).max(MAX_GROUP),
-  zone: z.string().nullable(),
-  vibe: z.enum(VIBES),
-  questions: z
-    .array(z.strictObject({ id: z.string().min(1).max(40), text: z.string().min(1).max(140) }))
-    .max(MAX_QUESTIONS),
-});
-
-type AiIntent = z.infer<typeof aiIntentSchema>;
-
-function validateAiIntent(output: AiIntent, now: Date, zones: readonly string[]): string | null {
-  if (output.groupMin > output.groupMax) return 'groupMin exceeds groupMax';
-  if (output.zone !== null && !zones.includes(output.zone)) return 'zone not in catalog';
-  const from = new Date(output.from).getTime();
-  if (from < now.getTime() - 5 * 60_000) return 'start time is in the past';
-  if (from > now.getTime() + MAX_DAYS_AHEAD * 86_400_000) return 'start time too far ahead';
-  return null;
+export interface ParsedIntent {
+  intent: Intent;
+  status: ParseStatus;
+  needsReview: boolean;
+  aiRequestId: string | null;
 }
 
-export async function parseIntent(deps: Deps, userId: string, text: string) {
+interface ParseCall {
+  text: string;
+  timeZone: string;
+  answers: { questionId: string; answer: string }[];
+  attempt: 0 | 1;
+}
+
+function eventEnd(deps: Deps, now: Date): string {
+  const configured = deps.env.EVENT_END ? new Date(deps.env.EVENT_END) : null;
+  const latest = new Date(now.getTime() + MAX_DAYS_AHEAD * 86_400_000);
+  return (configured && configured < latest ? configured : latest).toISOString();
+}
+
+/**
+ * Runs the Formation Engine, and maps its answer onto intent columns. Anything but a usable result
+ * becomes the editable form: prefilled by fixed rules, marked for review, and never published until
+ * the user confirms it.
+ */
+async function runParse(deps: Deps, call: ParseCall) {
   const now = new Date();
-  const result = await runAiTask(deps, {
-    task: 'parse_intent',
-    promptVersion: PROMPT_VERSION,
-    schema: aiIntentSchema,
-    validate: (output) => validateAiIntent(output, now, deps.env.EVENT_ZONES),
-    messages: [
-      {
-        role: 'system',
-        content:
-          `You turn a person's activity idea into a structured plan for a real-world meetup app. ${DATA_RULE}\n` +
-          'Fields: category (one of the allowed values, or null if unclear), goal (short summary, ' +
-          'no personal data), from (ISO 8601 start time), durationMin, groupMin, groupMax, zone ' +
-          '(one of the allowed zones, or null if not stated), vibe, questions. ' +
-          'questions: at most three, only where the answer would change who is matched, each ' +
-          'with a short id and text. Use an empty array if nothing is ambiguous. ' +
-          'Never output people, IDs, exact addresses or seat assignments.',
-      },
-      {
-        role: 'user',
-        content: [
-          userData('context', {
-            now: now.toISOString(),
-            categories: CATEGORIES,
-            zones: deps.env.EVENT_ZONES,
-            vibes: VIBES,
-          }),
-          userData('activity_idea', redactPii(text)),
-        ].join('\n'),
-      },
-    ],
-  });
+  const answered = new Set(call.answers.map((answer) => answer.questionId));
+  const { result, modelRunId, requestId } = await deps.formation((engine, runId) =>
+    engine.parseActivity({
+      requestId: runId,
+      text: redactPii(call.text),
+      answers: call.answers.map((answer) => ({ ...answer, answer: redactPii(answer.answer) })),
+      questions: ACTIVITY_QUESTIONS.map(({ id, purpose }) => ({ id, purpose })),
+      remainingQuestions: Math.max(0, MAX_QUESTIONS - answered.size),
+      attempt: call.attempt,
+      now: now.toISOString(),
+      eventEnd: eventEnd(deps, now),
+      timeZone: call.timeZone,
+      allowedCategoryIds: [...CATEGORIES],
+      allowedZoneIds: deps.env.EVENT_ZONES,
+    }),
+  );
 
-  const structured = result.ok
-    ? {
-        category: result.output.category,
-        goal: result.output.goal,
-        windowStart: new Date(result.output.from),
-        windowEnd: new Date(new Date(result.output.from).getTime() + result.output.durationMin * 60_000),
-        durationMin: result.output.durationMin,
-        groupMin: result.output.groupMin,
-        groupMax: result.output.groupMax,
-        zone: result.output.zone,
-        vibe: result.output.vibe,
-      }
-    : parseIntentFallback(text, now);
-  const questions = result.ok ? result.output.questions : [...FALLBACK_QUESTIONS];
-  const source = result.ok ? ('ai' as const) : ('fallback' as const);
+  const meta = { modelRunId, aiRequestId: requestId };
 
+  if (result.status === 'ready') {
+    const { intent } = result;
+    const start = new Date(intent.startAt);
+    return {
+      ...meta,
+      status: 'ready' as const,
+      source: 'ai' as const,
+      questions: [],
+      fields: {
+        category: intent.categoryId,
+        goal: intent.goal,
+        windowStart: start,
+        windowEnd: new Date(start.getTime() + intent.durationMin * 60_000),
+        durationMin: intent.durationMin,
+        groupMin: Math.min(intent.groupMin, MAX_GROUP),
+        groupMax: Math.min(intent.groupMax, MAX_GROUP),
+        zone: intent.zoneId,
+        vibe: intent.vibe,
+      },
+    };
+  }
+
+  const fallback = parseIntentFallback(call.text, now);
+  if (result.status === 'needs_answers') {
+    return {
+      ...meta,
+      status: 'needs_answers' as const,
+      source: 'ai' as const,
+      questions: ACTIVITY_QUESTIONS.filter((q) => result.questionIds.includes(q.id)).map(
+        ({ id, text }) => ({ id, text }),
+      ),
+      // Nothing is confirmed yet, so the model's silence is not filled in with a guess.
+      fields: { goal: fallback.goal },
+    };
+  }
+
+  deps.log.warn({ failure: result.status, aiRequestId: requestId }, 'intent parse fell back to form');
+  return {
+    ...meta,
+    status: 'needs_review' as const,
+    source: 'fallback' as const,
+    questions: [],
+    fields: fallback,
+  };
+}
+
+const present = (intent: Intent, parse: { status: ParseStatus; aiRequestId: string | null }) => ({
+  intent,
+  status: parse.status,
+  needsReview: parse.status === 'needs_review',
+  aiRequestId: parse.aiRequestId,
+});
+
+export async function parseIntent(
+  deps: Deps,
+  userId: string,
+  input: { text: string; timeZone?: string | undefined },
+): Promise<ParsedIntent> {
+  const timeZone = input.timeZone ?? deps.env.EVENT_TIME_ZONE;
+  const parse = await runParse(deps, { text: input.text, timeZone, answers: [], attempt: 0 });
   const [intent] = await deps.db
     .insert(intents)
     .values({
       userId,
-      rawText: text,
-      source,
-      modelRunId: result.modelRunId,
-      questions,
-      ...structured,
+      rawText: input.text,
+      timeZone,
+      parseAttempts: 1,
+      source: parse.source,
+      modelRunId: parse.modelRunId,
+      questions: parse.questions,
+      ...parse.fields,
     })
     .returning();
+  return present(intent!, parse);
+}
 
-  return {
-    intent: intent!,
-    needsReview: !result.ok,
-    aiRequestId: result.requestId,
-  };
+/**
+ * Applies the user's answers with the one reparse the budget allows. The attempt is claimed first in
+ * a conditional update, so concurrent retries cannot spend a second model call.
+ */
+export async function answerIntent(
+  deps: Deps,
+  userId: string,
+  intentId: string,
+  answers: { questionId: string; answer: string }[],
+): Promise<ParsedIntent> {
+  const [existing] = await deps.db
+    .select()
+    .from(intents)
+    .where(and(eq(intents.id, intentId), eq(intents.userId, userId)));
+  if (!existing) throw notFound('Intent');
+
+  const asked = new Set(existing.questions.map((question) => question.id));
+  if (asked.size === 0) {
+    throw new AppError(409, 'NO_QUESTIONS', 'This intent is not waiting for answers');
+  }
+  if (answers.some((answer) => !asked.has(answer.questionId))) {
+    throw new AppError(422, 'UNKNOWN_QUESTION', 'Only answer the questions you were asked');
+  }
+  if (new Set(answers.map((answer) => answer.questionId)).size !== answers.length) {
+    throw new AppError(422, 'DUPLICATE_ANSWER', 'Each question may be answered once');
+  }
+
+  const [claimed] = await deps.db
+    .update(intents)
+    .set({ parseAttempts: 2, answers })
+    .where(and(eq(intents.id, intentId), eq(intents.status, 'draft'), eq(intents.parseAttempts, 1)))
+    .returning({ id: intents.id });
+  if (!claimed) {
+    throw new AppError(409, 'PARSE_BUDGET_EXHAUSTED', 'Use the editable form to finish this plan');
+  }
+
+  const parse = await runParse(deps, {
+    text: existing.rawText,
+    timeZone: existing.timeZone ?? deps.env.EVENT_TIME_ZONE,
+    answers,
+    attempt: 1,
+  });
+  const [intent] = await deps.db
+    .update(intents)
+    .set({
+      source: parse.source,
+      modelRunId: parse.modelRunId,
+      questions: [],
+      ...parse.fields,
+    })
+    .where(eq(intents.id, intentId))
+    .returning();
+  return present(intent!, parse);
 }
 
 export async function listIntents(

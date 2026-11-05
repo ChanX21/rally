@@ -1,4 +1,4 @@
-import type { Category, QuestionTemplate, Vibe } from './catalog.js';
+import type { Category, Vibe } from './catalog.js';
 
 const KEYWORDS: readonly [Category, RegExp][] = [
   ['food', /\b(snack|food|dinner|lunch|breakfast|eat|meal|biryani|chai|pizza)\b/i],
@@ -52,12 +52,6 @@ export function parseIntentFallback(text: string, now: Date): FallbackIntent {
     vibe: 'any',
   };
 }
-
-export const FALLBACK_QUESTIONS: readonly QuestionTemplate[] = [
-  { id: 'timing', text: 'When do you want to start?' },
-  { id: 'distance', text: 'How far are you willing to go?' },
-  { id: 'group_fit', text: 'Quiet hangout or chatty group?' },
-];
 
 const PII_PATTERNS: readonly [RegExp, string][] = [
   [/[\w.+-]+@[\w-]+\.[\w.-]+/g, '[email]'],

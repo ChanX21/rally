@@ -14,12 +14,20 @@ export interface InferenceReply {
   model: string;
   providerRequestId?: string;
   tokens?: number;
+  provider?: string;
+  cost?: string;
 }
 export type Infer = (system: string, input: unknown) => Promise<InferenceReply>;
 const responseSchema = z.object({
   id: z.string().max(200).optional(),
   choices: z.array(z.object({ finish_reason: z.string().max(64).optional(), message: z.object({ content: z.string().max(16000).nullable() }) })).min(1),
   usage: z.object({ total_tokens: z.number().int().nonnegative() }).optional(),
+  // The Router's own trace. Its request_id is the reference 0G documents for support and evidence.
+  x_0g_trace: z.object({
+    request_id: z.string().max(200).optional(),
+    provider: z.string().max(200).optional(),
+    billing: z.object({ total_cost_usd_micro: z.union([z.string().max(64), z.number()]).optional() }).optional(),
+  }).optional(),
 });
 
 /** 0G Router API; no wallet signing or unverified TEE claims. */
@@ -51,14 +59,21 @@ export function createZeroG(env: InferenceEnv, transport: typeof fetch = fetch):
       const parsed = responseSchema.safeParse(JSON.parse(Buffer.concat(chunks).toString('utf8')));
       if (!parsed.success) throw new InferenceError('invalid_output', { reason: 'response_shape' });
       const choice = parsed.data.choices[0]!;
-      const metadata = { providerRequestId: parsed.data.id, tokens: parsed.data.usage?.total_tokens };
-      if (choice.finish_reason === 'length') throw new InferenceError('invalid_output', { ...metadata, reason: 'output_limit' });
-      if (!choice.message.content?.trim()) throw new InferenceError('invalid_output', { ...metadata, reason: 'empty_content' });
+      const trace = parsed.data.x_0g_trace;
+      const costMicro = trace?.billing?.total_cost_usd_micro;
+      const metadata = {
+        providerRequestId: trace?.request_id ?? parsed.data.id,
+        tokens: parsed.data.usage?.total_tokens,
+        ...(trace?.provider === undefined ? {} : { provider: trace.provider }),
+        ...(costMicro === undefined ? {} : { cost: `${costMicro} usd_micro` }),
+      };
+      const { provider: _provider, cost: _cost, ...diagnostics } = metadata;
+      if (choice.finish_reason === 'length') throw new InferenceError('invalid_output', { ...diagnostics, reason: 'output_limit' });
+      if (!choice.message.content?.trim()) throw new InferenceError('invalid_output', { ...diagnostics, reason: 'empty_content' });
       // Some providers fence otherwise valid JSON; remove only a complete JSON fence.
       const content = choice.message.content.trim();
       const fence = /^```(?:json)?\s*\n([\s\S]*?)\n```$/i.exec(content);
-      return { text: fence?.[1] ?? content, model: env.ZERO_G_MODEL,
-        providerRequestId: parsed.data.id, tokens: parsed.data.usage?.total_tokens };
+      return { text: fence?.[1] ?? content, model: env.ZERO_G_MODEL, ...metadata };
     } catch (error) {
       if (error instanceof InferenceError) throw error;
       if (signal.aborted) throw new InferenceError('timeout');

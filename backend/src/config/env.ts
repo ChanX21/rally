@@ -58,15 +58,15 @@ const envSchema = z
     ADMIN_API_TOKEN: z.string().min(32).optional(),
 
     EVENT_ZONES: csv.default(['venue-floor-1', 'venue-floor-2', 'venue-nearby']),
+    // Intent start times must fall before this. Unset means no later than MAX_DAYS_AHEAD.
+    EVENT_END: z.iso.datetime({ offset: true }).optional(),
+    EVENT_TIME_ZONE: z.string().min(1).default('Asia/Kolkata'),
     OFFER_HOLD_MINUTES: z.coerce.number().int().min(1).default(30),
 
     PRIVY_APP_ID: z.string().min(1).optional(),
     PRIVY_APP_SECRET: z.string().min(1).optional(),
     PRIVY_VERIFICATION_KEY: z.string().min(1).optional(),
 
-    ZG_BASE_URL: z.url().default('https://router-api.0g.ai/v1'),
-    ZG_TRUST_MODE: z.string().min(1).optional(),
-    ZG_VERIFY_TEE: booleanString.default(false),
 
     ARKIV_PRIVATE_KEY: privateKey.optional(),
     ARKIV_ACCESS_KEY: z.string().min(1).optional(),

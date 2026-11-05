@@ -41,6 +41,13 @@ describe('onboarding', () => {
 
   it('caps answers at three and requires availability to opt in', async () => {
     const user = await h.user('did:privy:ob2');
+    const unknown = await user.request('POST', '/onboarding/complete', {
+      interests: ['food', 'coffee', 'gaming'],
+      answers: [{ questionId: 'made_up', answer: 'a' }],
+      optInMatching: false,
+    });
+    expect(unknown.json().error.code).toBe('UNKNOWN_QUESTION');
+
     const answers = [1, 2, 3, 4].map((n) => ({ questionId: `q${n}`, answer: 'a' }));
     const tooMany = await user.request('POST', '/onboarding/complete', {
       interests: ['food', 'coffee', 'gaming'],
@@ -92,10 +99,10 @@ describe('onboarding', () => {
     expect(fallback.source).toBe('fallback');
     expect(fallback.questions).toHaveLength(3);
 
-    h.ai.respond = () => ({ questionIds: ['made_up'] });
+    h.ai.respond = () => ({ schemaVersion: 1, questionIds: ['made_up'] });
     expect((await user.post('/onboarding/questions', body)).source).toBe('fallback');
 
-    h.ai.respond = () => ({ questionIds: ['group_size', 'skill_offer'] });
+    h.ai.respond = () => ({ schemaVersion: 1, questionIds: ['group_size', 'skill_offer'] });
     const chosen = await user.post('/onboarding/questions', body);
     expect(chosen.source).toBe('ai');
     expect(chosen.questions.map((q: { id: string }) => q.id)).toEqual(['group_size', 'skill_offer']);

@@ -133,7 +133,8 @@ export const userRoutes: FastifyPluginAsyncZod = async (app) => {
         response: { 200: successSchema(questionsSchema) },
       },
     },
-    async (request) => ok(await chooseOnboardingQuestions(deps, request.body.interests)),
+    async (request) =>
+      ok(await chooseOnboardingQuestions(deps, requireUser(request).id, request.body.interests)),
   );
 
   app.post(

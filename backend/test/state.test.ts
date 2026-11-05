@@ -102,39 +102,28 @@ describe('scoring', () => {
 describe('composition validator', () => {
   const aliases = new Set(['c1', 'c2', 'c3']);
   const roles = ['participant', 'participant', 'reviewer'];
-  const check = (output: { memberIds: string[]; roles: string[]; reason: string }, min = 1, max = 3) =>
+  const check = (output: { memberIds: string[]; roles: string[] }, min = 1, max = 3) =>
     validateComposition(output, aliases, roles, min, max);
 
   it('accepts a valid group', () => {
-    expect(
-      check({ memberIds: ['c1', 'c3'], roles: ['reviewer', 'participant'], reason: 'Good fit.' }),
-    ).toBeNull();
+    expect(check({ memberIds: ['c1', 'c3'], roles: ['reviewer', 'participant'] })).toBeNull();
   });
 
   it.each([
-    [{ memberIds: ['c9'], roles: ['participant'], reason: 'x' }, 'member not in shortlist'],
-    [{ memberIds: ['u21'], roles: ['participant'], reason: 'x' }, 'member not in shortlist'],
-    [{ memberIds: ['c1', 'c1'], roles: ['participant', 'participant'], reason: 'x' }, 'duplicate member'],
-    [{ memberIds: ['c1'], roles: ['host'], reason: 'x' }, 'role not available'],
-    [{ memberIds: ['c1', 'c2'], roles: ['reviewer', 'reviewer'], reason: 'x' }, 'role not available'],
-    [{ memberIds: ['c1', 'c2'], roles: ['participant'], reason: 'x' }, 'roles do not line up with members'],
-    [{ memberIds: ['c1'], roles: ['participant'], reason: 'Say hi to c2!' }, 'reason contains identifiers'],
-    [{ memberIds: ['c1'], roles: ['participant'], reason: 'email a@b.co' }, 'reason contains identifiers'],
+    [{ memberIds: ['c9'], roles: ['participant'] }, 'member not in shortlist'],
+    [{ memberIds: ['c1', 'c1'], roles: ['participant', 'participant'] }, 'duplicate member'],
+    [{ memberIds: ['c1'], roles: ['host'] }, 'role not available'],
+    [{ memberIds: ['c1', 'c2'], roles: ['reviewer', 'reviewer'] }, 'role not available'],
+    [{ memberIds: ['c1', 'c2'], roles: ['participant'] }, 'roles do not line up with members'],
   ])('rejects %j', (output, reason) => {
     expect(check(output)).toBe(reason);
   });
 
   it('enforces group size limits', () => {
-    expect(check({ memberIds: ['c1'], roles: ['participant'], reason: 'x' }, 2, 3)).toBe(
-      'group below minimum',
+    expect(check({ memberIds: ['c1'], roles: ['participant'] }, 2, 3)).toBe('group below minimum');
+    expect(check({ memberIds: ['c1', 'c2'], roles: ['participant', 'participant'] }, 1, 1)).toBe(
+      'group above open seats',
     );
-    expect(
-      check(
-        { memberIds: ['c1', 'c2'], roles: ['participant', 'participant'], reason: 'x' },
-        1,
-        1,
-      ),
-    ).toBe('group above open seats');
   });
 });
 

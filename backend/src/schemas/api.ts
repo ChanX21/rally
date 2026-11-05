@@ -97,7 +97,29 @@ export const profileUpdateBody = z.object({
 
 export const blockBody = z.object({ userId: z.uuid() });
 
-export const parseIntentBody = z.object({ text: shortText(500) });
+export const parseIntentBody = z.object({
+  text: shortText(500),
+  // Resolves words like "tonight". Must be a real IANA zone; the engine validates it too.
+  timeZone: z
+    .string()
+    .max(64)
+    .refine((value) => {
+      try {
+        new Intl.DateTimeFormat('en', { timeZone: value });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'must be an IANA time zone')
+    .optional(),
+});
+
+export const answerIntentBody = z.object({
+  answers: z
+    .array(z.object({ questionId: shortText(40), answer: shortText(300) }))
+    .min(1)
+    .max(MAX_QUESTIONS),
+});
 
 export const intentSchema = z.object({
   id: z.uuid(),
@@ -119,6 +141,7 @@ export const intentSchema = z.object({
 
 export const parsedIntentSchema = z.object({
   intent: intentSchema,
+  status: z.enum(['ready', 'needs_answers', 'needs_review']),
   needsReview: z.boolean(),
   aiRequestId: z.string().nullable(),
 });
@@ -136,7 +159,7 @@ export const activateIntentBody = z.object({
 export const createRallyBody = z.object({
   intentId: z.uuid().optional(),
   category,
-  goal: shortText(120),
+  goal: shortText(160),
   vibe: vibe.optional(),
   windowStart: dateTime,
   windowEnd: dateTime,
@@ -153,7 +176,7 @@ export const createRallyBody = z.object({
 
 export const updateRallyBody = z.object({
   expectedVersion: z.number().int().positive(),
-  goal: shortText(120).optional(),
+  goal: shortText(160).optional(),
   vibe: vibe.optional(),
   windowStart: dateTime.optional(),
   windowEnd: dateTime.optional(),

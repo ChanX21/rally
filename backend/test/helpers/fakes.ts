@@ -5,11 +5,7 @@ import type {
   MutableListingValues,
 } from '../../src/integrations/arkiv/index.js';
 import type { AuthVerifier } from '../../src/integrations/privy/index.js';
-import {
-  type AiProvider,
-  AiProviderError,
-  type CompletionRequest,
-} from '../../src/integrations/zerog/index.js';
+import { type Infer, InferenceError } from '../../src/integrations/zero-g.js';
 
 /** Treats any token starting with "valid:" as that user's DID. */
 export function fakeAuth(wallets: Record<string, string> = {}): AuthVerifier {
@@ -22,31 +18,44 @@ export function fakeAuth(wallets: Record<string, string> = {}): AuthVerifier {
   };
 }
 
-export class FakeAi implements AiProvider {
-  readonly model = 'fake-model';
-  readonly calls: CompletionRequest[] = [];
+export interface FakeCall {
+  system: string;
+  input: unknown;
+}
+
+/** Stands in for the 0G transport, so the real Formation Engine runs in every test. */
+export class FakeInfer {
+  readonly calls: FakeCall[] = [];
   /** Decides each reply. Throw for provider errors, or return text or an object for JSON. */
-  respond: (request: CompletionRequest) => unknown = () => {
-    throw new AiProviderError('upstream_error', 'not scripted');
+  respond: (call: FakeCall) => unknown = () => {
+    throw new InferenceError('unavailable', { reason: 'http_error', httpStatus: 503 });
   };
 
-  complete(request: CompletionRequest) {
-    this.calls.push(request);
+  readonly infer: Infer = (system, input) => {
+    const call = { system, input };
+    this.calls.push(call);
     try {
-      const reply = this.respond(request);
+      const reply = this.respond(call);
       return Promise.resolve({
-        content: typeof reply === 'string' ? reply : JSON.stringify(reply),
-        model: this.model,
-        requestId: `req_${this.calls.length}`,
+        text: typeof reply === 'string' ? reply : JSON.stringify(reply),
+        model: 'fake-model',
+        providerRequestId: `req_${this.calls.length}`,
+        tokens: 15,
         provider: '0xprovider',
-        promptTokens: 10,
-        completionTokens: 5,
         cost: '100 usd_micro',
-        teeVerified: null,
       });
     } catch (error) {
       return Promise.reject(error instanceof Error ? error : new Error('failed'));
     }
+  };
+
+  callsFor(task: 'onboarding' | 'intent' | 'composition'): FakeCall[] {
+    const marker = {
+      onboarding: 'relevant question',
+      intent: 'Extract activity intent',
+      composition: 'Propose a compatible group',
+    }[task];
+    return this.calls.filter((call) => call.system.includes(marker));
   }
 }
 

@@ -15,7 +15,7 @@ flowchart LR
     WRK --> PG
   end
   API -->|verify token, read wallets| PRIVY[Privy]
-  SVC -->|sanitized inputs| ZG[0G Compute Router]
+  SVC -->|Formation Engine, sanitized inputs| ZG[0G Compute Router]
   WRK -->|relayer wallet writes| ARKIV[Arkiv Rabdi testnet]
   API -->|public query| ARKIV
   PUBLIC[Anyone] -->|public query| ARKIV
@@ -85,7 +85,7 @@ erDiagram
 | `notifications` | Persistent in-app inbox |
 | `outbox_events` | Transactional outbox |
 | `arkiv_entities` | Entity key, last transaction, sync state per rally |
-| `model_runs` | 0G trace: request ID, model, provider, prompt version, latency, tokens, outcome |
+| `model_runs` | 0G trace: request ID, model, provider, prompt version, latency, tokens, cost, outcome |
 | `idempotency_keys` | Stored responses for retried commands |
 | `reward_vouchers` | Issued claim vouchers and their nonces (optional feature) |
 
@@ -119,7 +119,8 @@ Base format is described in `CLAUDE.md`. Interactive documentation is served at 
 | `POST /me/rewards/:id/voucher` | Yes | Signed claim voucher; optional feature |
 | `POST /onboarding/questions` | Yes | Up to three questions |
 | `POST /onboarding/complete` | Yes | Interests and answers; starts matching |
-| `POST /intents/parse` | Yes | Natural language to structured intent |
+| `POST /intents/parse` | Yes | Natural language to `ready`, `needs_answers` or `needs_review` |
+| `POST /intents/:id/answers` | Yes | The one reparse, with answers |
 | `GET /intents` | Yes | My intents |
 | `POST /intents/:id/activate`, `POST /intents/:id/cancel` | Yes | Keep or drop waiting interest |
 | `POST /rallies` | Yes | Create a draft, or create and publish |
@@ -170,73 +171,75 @@ sequenceDiagram
 
 ## Intent processing with 0G
 
+All inference goes through the Formation Engine, built by the AI owner: `services/formation.ts`,
+`schemas/formation.ts` and `integrations/zero-g.ts`. `backend/AI.md` and `AI_ARCHITECTURE.md` are its
+contract. The backend supplies catalogs and hard-filtered shortlists, and owns persistence, retries and
+consent. `services/formation-runs.ts` calls the engine and records each attempt in `model_runs`, so
+intents and proposals can reference their evidence.
+
 ```mermaid
 sequenceDiagram
+  participant C as Client
   participant A as API
-  participant H as AI harness
+  participant E as Formation Engine
   participant Z as 0G Router
   participant DB as PostgreSQL
-  A->>H: run(task, sanitized input)
-  H->>H: Route: prompt version, model, timeout, schema
-  H->>Z: POST /chat/completions
-  alt Valid JSON matching schema
-    Z-->>H: Result + x_0g_trace.request_id
-    H->>DB: model_runs (ok)
-    H-->>A: Validated output
-  else Timeout, error or invalid
-    H->>DB: model_runs (failure reason)
-    H-->>A: Failure
-    A->>A: Deterministic fallback, marked as such
+  C->>A: POST /intents/parse
+  A->>E: parseActivity(redacted text, catalogs, attempt 0)
+  E->>Z: POST /chat/completions
+  Z-->>E: Reply + x_0g_trace.request_id
+  E->>E: Strict schema and business checks
+  E-->>A: ready, needs_answers or a failure
+  A->>DB: intents, model_runs
+  A-->>C: status, plus questions if needed
+  opt status is needs_answers
+    C->>A: POST /intents/:id/answers
+    A->>DB: Claim the single reparse
+    A->>E: parseActivity(same text, answers, attempt 1)
+    E-->>A: ready, or a failure
+    A-->>C: ready, or needs_review
   end
 ```
 
-Tasks, each with a versioned prompt and strict Zod schema: `onboarding_questions`, `parse_intent` and
-`compose_group`. The human-readable explanation is part of `compose_group`, or generated
-deterministically for fallback groups, so a match costs one call as the playbook budgets. Declines use
-the normal engine, within the playbook's zero-to-one call budget. Follow-up answers refine the plan
-through the editable fields on `POST /rallies`, since a new activity is budgeted one call.
+| Task | Budget | If it fails |
+| --- | --- | --- |
+| `onboarding` | 1 call | The engine uses catalog order, marked `fallback` |
+| `intent` | 1 call, plus 1 reparse after answers | Editable form (`needs_review`), prefilled by fixed rules |
+| `composition` | 1 call per viable group | See below |
 
-`qwen3.7-flash` ran the full journey live. Choose the model with `ZERO_G_MODEL`.
+- The model only chooses question IDs. Display text comes from the backend catalog.
+- The attempt budget is stored on the intent and claimed by a conditional update, so clients cannot
+  reset it, and concurrent retries cannot spend a second call.
+- Direct identifiers (emails, phones, links, wallets) are redacted before text crosses the boundary.
+- A rally starts at `windowStart` and runs `durationMin`. The engine validates a fixed time, and the
+  candidate SQL filter enforces the same rule, so the two cannot disagree.
+
+Composition outcomes:
+
+- **Proposed:** after the engine's checks, the backend also checks seats and role counts, then rechecks
+  live state in a transaction before creating offers.
+- **`no_fit`:** a genuine answer from the model. The rally waits, and the shortlist's hash is stored, so
+  the same people, seats and needs do not spend another call.
+- **Failure** (`unavailable`, `timeout`, `invalid_output`):
+  - `AI_REQUIRED=false`: the deterministic composer picks from the same eligible shortlist, marked
+    `deterministic`. It cannot invent a person, and everyone still has to accept.
+  - `AI_REQUIRED=true`: the outbox retries with backoff, and the rally stays pending. Use this for a
+    sponsor demo, so a fallback cannot pass as AI.
+
+`AI_ARCHITECTURE.md` says matching should remain waiting on failure. The product brief asks for
+deterministic fallback behaviour. `AI_REQUIRED` gives both. **Confirm the default with the AI owner.**
 
 Measured on the live Router, November 2026:
 
 - **`response_format` breaks requests.** It returned `no_available_provider` (503) or `provider_error`
-  (502) for every model tried, including ones the catalog lists as supporting it. The same requests
-  without it returned 200. Prompts therefore ask for JSON, and the harness validates strictly.
-- **Latency was 7 to 24 seconds** per task with qwen3.7-flash, so `AI_TIMEOUT_MS` defaults to 60 seconds.
-  `POST /intents/parse` waits on this, so clients need a real processing state.
-- Replies may be wrapped in markdown fences or leading newlines depending on the model. The harness
-  strips them.
-- The trace matches the docs for `request_id` and `provider`. Billing differs: `currency: "usd"` and
-  `total_cost_usd_micro`, recorded as `usd_micro`.
-- `X-0G-Provider-Trust-Mode: verified` returned `no_provider_for_trust_mode`. Standard routing works.
-
-Fallbacks: questions use a fixed template per interest. Parsing uses a rule-based parser and returns
-`source: "fallback"` and `needsReview: true`, so the client shows the editable form. Composition uses
-the deterministic scorer. No fallback invents a person or a seat.
-
-User text is delimited and declared as data in the prompt, and exact-location-like details are never
-sent because only structured fields cross the boundary for composition. Parsing must see the user's
-sentence, which is why emails, phone numbers and URLs are redacted first. The parser's output is
-checked against the catalog.
-
-### Two AI paths
-
-`backend/AI.md` and `AI_ARCHITECTURE.md` describe the Formation Engine (`app.formation`,
-`services/formation.ts`), built by the AI owner and agreed as what backend routes should call. Product
-routes do not call it yet: they use `services/ai-harness.ts`. Both were developed at the same time, and
-they share configuration.
-
-| | AI harness (used by routes today) | Formation Engine (`app.formation`) |
-| --- | --- | --- |
-| Persistence | `model_runs` table | Log traces |
-| Request ID | `x_0g_trace.request_id` | Response `id` |
-| Parsing | One call, then the editable form | `ready` or `needs_answers`, with one reparse |
-| Composition | Deterministic fallback | `no_fit`, or a typed failure |
-| Tested live | Full journey through the routes | Its own four-step demo |
-
-**This needs a decision: consolidate on one.** Until then, a prompt change in one is not reflected in
-the other.
+  (502) for every model tried, including ones the catalog lists as supporting it. The engine does not
+  send it.
+- **Latency was 7 to 24 seconds** per task with `qwen3.7-flash`. `AI_TIMEOUT_MS` defaults to 60 seconds,
+  and `POST /intents/parse` waits on this, so clients need a real processing state.
+- The Router's trace ID is `x_0g_trace.request_id`, which the adapter prefers over the response `id`.
+  Billing reports `total_cost_usd_micro`, recorded as `usd_micro`.
+- `X-0G-Provider-Trust-Mode: verified` returned `no_provider_for_trust_mode`. The adapter uses standard
+  routing and makes no private or verified claim.
 
 ## Arkiv storage and querying
 
@@ -315,16 +318,17 @@ Hard filters: same category; window overlap covering the duration; allowed zone;
 and seats; opted-in active user; no block in either direction with any current member; no existing
 claim, pending offer or earlier offer on this rally; no overlapping active commitment.
 
-A model call happens only for a viable group, and anyone offered a seat leaves the candidate set. So
-a rally spends another call only when its feasible candidates have actually changed, as the playbook
-requires, and nothing needs to track that separately.
+A model call happens only for a viable group. Anyone offered a seat leaves the candidate set, and a
+`no_fit` is remembered by shortlist hash, so a rally spends another call only when its feasible
+candidates have actually changed, as the playbook requires.
 
-The score follows the playbook, as a heuristic and not a probability: feasibility 45%, complementary
-fit 30%, acceptance likelihood 15%, prior mutual encore 10%.
+The deterministic score follows the playbook, as a heuristic and not a probability: feasibility 45%,
+complementary fit 30%, acceptance likelihood 15%, prior mutual encore 10%. It orders the shortlist, and
+picks the group when the engine is unavailable.
 
-Validator rules for AI output: members must be a unique subset of the shortlist; the group must fit
-open seats and reach the group minimum; roles must come from the rally's open slots. IDs are `c1`,
-`c2` and so on, mapped back server-side, so real user IDs never cross the boundary.
+Everyone reaches the engine under an alias (`m1` for current members, `c1` for candidates), mapped back
+server-side, so real user IDs never cross the boundary. Only interests, eligible roles, zone and
+availability are sent. Declared skills and display names are not.
 
 ## Atomic acceptance and reservation
 
@@ -520,13 +524,13 @@ Blank counts as unset. `.env.example` has a commented copy.
 | `OUTBOX_POLL_MS`, `SCHEDULER_INTERVAL_MS` | `1000`, `30000` | Worker pacing |
 | `ADMIN_API_TOKEN` | none | Enables `GET /internal/metrics`; 32+ characters |
 | `EVENT_ZONES` | three venue zones | Allowed zones |
+| `EVENT_TIME_ZONE` | `Asia/Kolkata` | Resolves "tonight" when the client sends no zone |
+| `EVENT_END` | 14 days ahead | Activities must end before this |
 | `OFFER_HOLD_MINUTES` | `30` | How long an offer stays open |
 | `PRIVY_APP_ID`, `PRIVY_APP_SECRET` | none | Required in production. **Secret** |
 | `PRIVY_VERIFICATION_KEY` | none | Verify tokens locally |
 | `ZERO_G_API_KEY`, `ZERO_G_MODEL` | none | Without both, deterministic fallbacks. Key is **secret** |
-| `AI_REQUIRED` | `false` | `true` fails startup when the two above are missing |
-| `ZG_BASE_URL` | mainnet Router | Testnet: `https://router-api-testnet.integratenetwork.work/v1` |
-| `ZG_TRUST_MODE`, `ZG_VERIFY_TEE` | unset, `false` | Private routing and attestation; test before claiming |
+| `AI_REQUIRED` | `false` | `true` fails startup when the two above are missing, and retries matching through outages rather than falling back |
 | `AI_TIMEOUT_MS` | `60000` | Then fall back |
 | `AI_MAX_OUTPUT_TOKENS` | `4096` | Includes reasoning tokens |
 | `ARKIV_PRIVATE_KEY` | none | Relayer wallet. Without it, discovery is off. **Secret** |
@@ -548,7 +552,8 @@ Blank counts as unset. `.env.example` has a commented copy.
 | Privy token verification | Real SDK with locally signed ES256 tokens |
 | Privy credentials | Live: junk token rejected, and the API accepted the app ID and secret |
 | Privy login with a real user, and wallet lookup | **Unverified**: needs a real login from the client. Faked in tests |
-| 0G inference in the main flow | Live: questions, intent parsing and composition, with request IDs (`npm run smoke:journey`) |
+| 0G inference in the main flow | Live: questions, intent parsing and composition through the Formation Engine, with request IDs (`npm run smoke:journey`) |
+| Formation Engine alone | Live, by the AI owner: `backend/AI_PROOF.md`, `npm run ai:demo` |
 | Private or verified 0G routing | **Unverified**; verified routing currently returns no provider. Do not claim it |
 | Arkiv queries and writes | Live on Rabdi: create, read, patch, extend, delete (`npm run arkiv:smoke -- --write`) |
 | Full journey | Live 0G and Arkiv on a throwaway database, with simulated login |
@@ -561,7 +566,8 @@ The playbook marks these optional or describes them loosely. They were left out 
 
 - Web Push, and SSE. In-app notifications use polling, which the playbook allows.
 - Chat in the temporary room. The room is the meeting card and member list.
-- Encore prefill of a future rally. Mutual encores do feed the match score.
+- Encore prefill of a future rally. Mutual encores feed the deterministic score only, because the
+  Formation Engine's strict schema has no field for them.
 - Reward corrections and vouch disputes, which need an admin flow. Flagged vouches earn nothing.
 - "N exploring" counts on preview cards. Cards show open seats.
 - Admin tooling beyond `GET /internal/metrics`.
@@ -573,5 +579,6 @@ The playbook marks these optional or describes them loosely. They were left out 
 - Private or verified routing must be tested with a real key before it is claimed.
 - Model availability and JSON mode, read from the live catalog, may change.
 - Whether `response_format` failing is a temporary Router issue or expected behaviour.
+- Model quality: the 30 labeled evaluations the playbook calls for have not been run.
 
 Others: see the Arkiv table above. Which chain and asset any reward contract targets is undecided.

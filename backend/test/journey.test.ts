@@ -13,27 +13,36 @@ afterAll(() => h.close());
 describe('end-to-end journey', () => {
   it('goes from a sentence to a completed rally with a vouch', async () => {
     // AI handles every step, in the order the flow reaches it.
-    h.ai.respond = (request) => {
-      const system = request.messages[0]?.content ?? '';
-      if (system.includes('onboarding questions')) {
-        return { questionIds: ['group_energy', 'skill_offer'] };
+    h.ai.respond = ({ system }) => {
+      if (system.includes('relevant question')) {
+        return { schemaVersion: 1, questionIds: ['group_energy', 'skill_offer'] };
       }
-      if (system.includes('structured plan')) {
-        return {
-          category: 'food',
-          goal: 'Late snack run',
-          from: hoursFromNow(1),
-          durationMin: 40,
-          groupMin: 2,
-          groupMax: 3,
-          zone: 'venue-nearby',
-          vibe: 'chatty',
-          questions: [{ id: 'timing', text: 'Now or within the next hour?' }],
-        };
+      if (system.includes('Extract activity intent')) {
+        return h.ai.callsFor('intent').length === 1
+          ? { schemaVersion: 1, status: 'needs_answers', questionIds: ['start_time'] }
+          : {
+              schemaVersion: 1,
+              status: 'ready',
+              intent: {
+                categoryId: 'food',
+                goal: 'Late snack run',
+                startAt: hoursFromNow(1),
+                durationMin: 40,
+                groupMin: 2,
+                groupMax: 3,
+                zoneId: 'venue-nearby',
+                vibe: 'chatty',
+              },
+            };
       }
       return {
-        memberIds: ['c1'],
-        roles: ['participant'],
+        schemaVersion: 1,
+        status: 'proposed',
+        memberIds: ['m1', 'c1'],
+        roles: [
+          { memberId: 'm1', roleId: 'host' },
+          { memberId: 'c1', roleId: 'participant' },
+        ],
         reason: 'You are both up for a chatty snack run tonight.',
       };
     };
@@ -59,11 +68,15 @@ describe('end-to-end journey', () => {
 
     // Workflow B: a host describes an activity and approves the plan.
     const asha = await h.onboarded('did:privy:asha', { displayName: 'Asha', optInMatching: false });
-    const { intent, aiRequestId } = await asha.post('/intents/parse', {
-      text: 'Anyone up for a late snack run?',
+    const asked = await asha.post('/intents/parse', { text: 'Anyone up for a late snack run?' });
+    expect(asked.status).toBe('needs_answers');
+    expect(asked.aiRequestId).toMatch(/^req_/);
+    expect(asked.intent.questions).toHaveLength(1);
+
+    const { intent, status } = await asha.post(`/intents/${asked.intent.id}/answers`, {
+      answers: [{ questionId: 'start_time', answer: 'In about an hour' }],
     });
-    expect(aiRequestId).toMatch(/^req_/);
-    expect(intent.questions).toHaveLength(1);
+    expect(status).toBe('ready');
 
     const rally = await asha.post(
       '/rallies',

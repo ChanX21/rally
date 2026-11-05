@@ -152,10 +152,8 @@ export const modelRuns = pgTable(
     provider: text('provider'),
     requestId: text('request_id'),
     latencyMs: integer('latency_ms'),
-    promptTokens: integer('prompt_tokens'),
-    completionTokens: integer('completion_tokens'),
+    totalTokens: integer('total_tokens'),
     cost: text('cost'),
-    teeVerified: boolean('tee_verified'),
     outcome: modelRunOutcome('outcome').notNull(),
     failureReason: text('failure_reason'),
     createdAt: createdAt(),
@@ -184,6 +182,10 @@ export const intents = pgTable(
     zone: text('zone'),
     vibe: text('vibe'),
     questions: jsonb('questions').$type<ClarifyingQuestion[]>().notNull().default([]),
+    answers: jsonb('answers').$type<ClarifyingAnswer[]>().notNull().default([]),
+    // Enforced here because clients cannot be trusted to count: one parse plus one reparse.
+    parseAttempts: integer('parse_attempts').notNull().default(0),
+    timeZone: text('time_zone'),
     expiresAt: timestamptz('expires_at'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -221,6 +223,8 @@ export const rallies = pgTable(
     meetingPoint: text('meeting_point'),
     meetingBrief: text('meeting_brief'),
     expiresAt: timestamptz('expires_at').notNull(),
+    // A model no_fit for this shortlist. Waits for supply to change before spending another call.
+    noFitShortlistHash: text('no_fit_shortlist_hash'),
     version: integer('version').notNull().default(1),
     publishedAt: timestamptz('published_at'),
     formedAt: timestamptz('formed_at'),
@@ -516,4 +520,9 @@ export interface ProfileEvidence {
 export interface ClarifyingQuestion {
   id: string;
   text: string;
+}
+
+export interface ClarifyingAnswer {
+  questionId: string;
+  answer: string;
 }

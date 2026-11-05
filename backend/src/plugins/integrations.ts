@@ -3,8 +3,9 @@ import fp from 'fastify-plugin';
 import type { Env } from '../config/env.js';
 import { createArkivGateway } from '../integrations/arkiv/index.js';
 import { createPrivyVerifier } from '../integrations/privy/index.js';
-import { createZeroGProvider } from '../integrations/zerog/index.js';
+import { createZeroG } from '../integrations/zero-g.js';
 import type { Deps, Integrations } from '../lib/deps.js';
+import { createFormationRunner } from '../services/formation-runs.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -22,18 +23,7 @@ export function createIntegrations(env: Env): Integrations {
             verificationKey: env.PRIVY_VERIFICATION_KEY,
           })
         : null,
-    ai:
-      env.ZERO_G_API_KEY && env.ZERO_G_MODEL
-        ? createZeroGProvider({
-            apiKey: env.ZERO_G_API_KEY,
-            baseUrl: env.ZG_BASE_URL,
-            model: env.ZERO_G_MODEL,
-            trustMode: env.ZG_TRUST_MODE,
-            verifyTee: env.ZG_VERIFY_TEE,
-            timeoutMs: env.AI_TIMEOUT_MS,
-            maxOutputTokens: env.AI_MAX_OUTPUT_TOKENS,
-          })
-        : null,
+    infer: createZeroG(env),
     arkiv: createArkivGateway({
       privateKey: env.ARKIV_PRIVATE_KEY,
       accessKey: env.ARKIV_ACCESS_KEY,
@@ -48,7 +38,14 @@ export function createIntegrations(env: Env): Integrations {
 
 export const integrationsPlugin = fp<{ env: Env; integrations: Integrations }>(
   (app, { env, integrations }, done) => {
-    app.decorate('deps', { db: app.db, env, log: app.log, ...integrations });
+    const { infer, ...services } = integrations;
+    app.decorate('deps', {
+      ...services,
+      db: app.db,
+      env,
+      log: app.log,
+      formation: createFormationRunner(infer, app.db, app.log),
+    });
     done();
   },
   { dependencies: ['database'], name: 'integrations' },

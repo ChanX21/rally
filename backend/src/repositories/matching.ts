@@ -27,9 +27,10 @@ export type CandidateRow = z.infer<typeof candidateRow>;
  * a listed interest plus declared availability. Nothing below uses AI or any public Arkiv data.
  */
 export async function findCandidates(db: Db, rally: Rally, limit: number): Promise<CandidateRow[]> {
+  // A rally starts at windowStart and runs durationMin, so people must be free for all of that.
+  // The Formation Engine validates the same rule against the same fixed time.
   const start = rally.windowStart.toISOString();
-  const end = rally.windowEnd.toISOString();
-  const minOverlap = `${rally.durationMin} minutes`;
+  const end = new Date(rally.windowStart.getTime() + rally.durationMin * 60_000).toISOString();
 
   const rows = await db.execute(sql`
     select
@@ -71,8 +72,8 @@ export async function findCandidates(db: Db, rally: Rally, limit: number): Promi
         and w.category = ${rally.category}
         and (w.expires_at is null or w.expires_at > now())
         and (w.zone is null or w.zone = ${rally.zone})
-        and least(w.window_end, ${end}::timestamptz)
-          - greatest(w.window_start, ${start}::timestamptz) >= ${minOverlap}::interval
+        and w.window_start <= ${start}::timestamptz
+        and w.window_end >= ${end}::timestamptz
       order by w.created_at
       limit 1
     ) i on true
@@ -85,8 +86,8 @@ export async function findCandidates(db: Db, rally: Rally, limit: number): Promi
           ${rally.category} = any(p.interests)
           and p.available_from is not null
           and p.available_to is not null
-          and least(p.available_to, ${end}::timestamptz)
-            - greatest(p.available_from, ${start}::timestamptz) >= ${minOverlap}::interval
+          and p.available_from <= ${start}::timestamptz
+          and p.available_to >= ${end}::timestamptz
         )
       )
       and not exists (
@@ -112,7 +113,7 @@ export async function findCandidates(db: Db, rally: Rally, limit: number): Promi
           and c.status = 'active'
           and other.id <> ${rally.id}
           and other.status in ('open', 'waiting', 'proposed', 'ready', 'formed', 'met')
-          and other.window_start < ${end}::timestamptz
+          and other.window_start < ${rally.windowEnd.toISOString()}::timestamptz
           and other.window_end > ${start}::timestamptz
       )
     order by (i.id is not null) desc, u.created_at

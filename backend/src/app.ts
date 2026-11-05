@@ -65,13 +65,11 @@ export async function buildApp({ env, integrations }: BuildOptions) {
   await app.register(securityPlugin, { env });
   await app.register(databasePlugin, { url: env.DATABASE_URL, poolMax: env.DATABASE_POOL_MAX });
 
-  await app.register(integrationsPlugin, {
-    env,
-    integrations: { ...createIntegrations(env), ...integrations },
-  });
+  const resolved = { ...createIntegrations(env), ...integrations };
+  await app.register(integrationsPlugin, { env, integrations: resolved });
   await app.register(authPlugin);
   await app.register(docsPlugin);
-  await app.register(formationPlugin, { env });
+  await app.register(formationPlugin, { env, infer: resolved.infer });
 
   await app.register(healthRoutes);
   await app.register(userRoutes);

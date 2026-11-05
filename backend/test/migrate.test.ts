@@ -12,7 +12,7 @@ describe('runMigrations', () => {
     const client = postgres(database.url, { max: 1, onnotice: () => {} });
     try {
       const rows = await client`select count(*)::int as count from drizzle.__drizzle_migrations`;
-      expect(rows[0]?.count).toBeGreaterThanOrEqual(3);
+      expect(rows[0]?.count).toBeGreaterThanOrEqual(5);
       const tables = await client`
         select table_name from information_schema.tables where table_schema = 'public'
       `;

@@ -1,5 +1,9 @@
 # Rally Formation Engine
 
+> **Integration status:** product routes and the matching worker now call this engine. Where this
+> document says routes, tables or workers are not implemented, see `ARCHITECTURE.md` for what exists.
+> Callers use `deps.formation`, which also records each attempt in `model_runs`.
+
 Rally is an intelligent activity formation engine that brings people together in the real world.
 Project wallet: `0x4A1cD581623Dc1efcB3Eea5da963BFC2C53A996f` (reported funded by the team; not an authentication credential).
 
