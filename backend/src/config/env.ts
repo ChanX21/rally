@@ -1,6 +1,16 @@
+import { createPublicKey } from 'node:crypto';
+
 import { z } from 'zod';
 
 const booleanString = z.enum(['true', 'false']).transform((value) => value === 'true');
+
+const verificationKey = z.string().refine((value) => {
+  try {
+    const key = createPublicKey(value);
+    return value.trim().startsWith('-----BEGIN PUBLIC KEY-----')
+      && key.asymmetricKeyType === 'ec' && key.asymmetricKeyDetails?.namedCurve === 'prime256v1';
+  } catch { return false; }
+}, 'must be an ES256 SPKI PEM public key; leave blank to fetch the app key from Privy');
 
 const postgresUrl = z.url({ protocol: /^postgres(ql)?$/ });
 const privateKey = z.string().regex(/^0x[0-9a-fA-F]{64}$/, 'must be a 32-byte hex key');
@@ -65,7 +75,7 @@ const envSchema = z
 
     PRIVY_APP_ID: z.string().min(1).optional(),
     PRIVY_APP_SECRET: z.string().min(1).optional(),
-    PRIVY_VERIFICATION_KEY: z.string().min(1).optional(),
+    PRIVY_VERIFICATION_KEY: verificationKey.optional(),
 
 
     ARKIV_PRIVATE_KEY: privateKey.optional(),
