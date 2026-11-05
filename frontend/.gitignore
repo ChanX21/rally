@@ -48,3 +48,7 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /src/app/marketing/
+
+# local-only working files
+/AGENTS.md
+/design-reference/
