@@ -1,16 +1,9 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
-import { usePrivy } from "@privy-io/react-auth";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
-import {
-  completeOnboarding,
-  getOnboardingQuestions,
-  RallyApiError,
-  type CompleteOnboardingInput,
-  type OnboardingQuestion,
-} from "@/lib/api";
+import { errorMessage, type CompleteOnboardingInput, type OnboardingQuestion } from "@/lib/api";
+import { useSession } from "@/lib/session";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -90,11 +83,10 @@ export default function AboutYouScreen() {
   // Workflow A, first sign-in only: a display name (shown to your Rally, never the wallet), then exactly
   // three interests from a fixed catalog, then at most three 0G-chosen questions from fixed templates.
   // Matching is opt-in; nobody is added without accepting.
-  const { getAccessToken } = usePrivy();
-  const router = useRouter();
+  const { api, setMe } = useSession();
   const [step, setStep] = useState<Step>("name");
   const [name, setName] = useState("");
-  const [picked, setPicked] = useState<InterestId[]>(["coffee", "build", "workshops"]);
+  const [picked, setPicked] = useState<InterestId[]>([]);
 
   // AI-composed questions for the chosen interests, fetched on entering step 3.
   const [questions, setQuestions] = useState<OnboardingQuestion[]>([]);
@@ -135,22 +127,16 @@ export default function AboutYouScreen() {
     setQStatus("loading");
     setQError(null);
     try {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Please sign in again to continue.");
       const interests = picked.map((p) => INTEREST_TO_BACKEND[p]);
-      const res = await getOnboardingQuestions(token, interests);
+      const res = await api.getOnboardingQuestions(interests);
       setQuestions(res.questions);
       setQSource(res.source);
       setQStatus("ready");
     } catch (err) {
-      setQError(
-        err instanceof RallyApiError || err instanceof Error
-          ? err.message
-          : "Could not load your questions."
-      );
+      setQError(errorMessage(err, "Could not load your questions."));
       setQStatus("error");
     }
-  }, [getAccessToken, picked]);
+  }, [api, picked]);
 
   const goToQuestions = () => {
     setStep("questions");
@@ -161,9 +147,6 @@ export default function AboutYouScreen() {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      const token = await getAccessToken();
-      if (!token) throw new Error("Please sign in again to continue.");
-
       const body: CompleteOnboardingInput = {
         interests: picked.map((p) => INTEREST_TO_BACKEND[p]),
         optInMatching: optIn,
@@ -185,17 +168,13 @@ export default function AboutYouScreen() {
         body.availableTo = new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString();
       }
 
-      await completeOnboarding(token, body);
-      router.push("/app/check-plan");
+      // AppGate sees onboarded: true and moves on to the plan or to home.
+      setMe(await api.completeOnboarding(body));
     } catch (err) {
-      setSubmitError(
-        err instanceof RallyApiError || err instanceof Error
-          ? err.message
-          : "Could not save your profile."
-      );
+      setSubmitError(errorMessage(err, "Could not save your profile."));
       setSubmitting(false);
     }
-  }, [getAccessToken, picked, optIn, questions, answers, name, router]);
+  }, [api, setMe, picked, optIn, questions, answers, name]);
 
   const footNote = onName
     ? "You can change this later"
@@ -477,7 +456,7 @@ export default function AboutYouScreen() {
                 disabled={submitting}
                 aria-disabled={submitting}
               >
-                {submitting ? "Saving…" : "Continue to my plan"}
+                {submitting ? "Saving…" : "Continue"}
                 {!submitting && (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M5 12h14M13 6l6 6-6 6" />
@@ -486,7 +465,7 @@ export default function AboutYouScreen() {
               </button>
             ) : (
               <button className="btn btn-dis" type="button" aria-disabled="true" disabled>
-                {qStatus === "loading" ? "Getting your questions…" : "Continue to my plan"}
+                {qStatus === "loading" ? "Getting your questions…" : "Continue"}
               </button>
             ))}
           <div className="mono" style={{ textAlign: "center", color: submitError ? "#EC562E" : undefined }}>

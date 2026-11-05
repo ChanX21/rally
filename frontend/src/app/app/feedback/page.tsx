@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
+import { errorCode, errorMessage } from "@/lib/api";
+import { displayTime, initials } from "@/lib/format";
+import { useSession } from "@/lib/session";
+import { usePolled } from "@/lib/usePolled";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -10,6 +15,8 @@ const mono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500"], variabl
 const SANS = "var(--font-inter), system-ui, sans-serif";
 const SERIF = "var(--font-serif), Georgia, serif";
 const MONO = "var(--font-mono), monospace";
+
+const CONTRIBUTIONS = ["Helped my pitch", "Taught me something", "Great company"];
 
 function Chip({ label, pressed, onClick, extra }: { label: React.ReactNode; pressed: boolean; onClick: () => void; extra?: React.ReactNode }) {
   return (
@@ -28,13 +35,56 @@ function Chip({ label, pressed, onClick, extra }: { label: React.ReactNode; pres
 
 export default function FeedbackScreen() {
   // Attest -> vouch. A vouch names a specific contribution, only for other members of this Rally.
-  const [happened, setHappened] = useState<"yes" | "no">("yes");
-  const [useful, setUseful] = useState<"very" | "not" | null>("very");
-  const [who, setWho] = useState<"AM" | "RK" | null>("AM");
-  const [why, setWhy] = useState<"pitch" | "taught" | "company" | null>("pitch");
-  const [rallyAgain, setRallyAgain] = useState<Record<string, boolean>>({ AM: true, RK: false });
+  const { api, me } = useSession();
+  const router = useRouter();
+  const rallyId = useSearchParams().get("id");
+  const [happened, setHappened] = useState<"yes" | "no" | null>(null);
+  const [useful, setUseful] = useState<"very" | "not" | null>(null);
+  const [who, setWho] = useState<string | null>(null);
+  const [why, setWhy] = useState<string | null>(null);
+  const [rallyAgain, setRallyAgain] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Vouches and encores can only name people the host marked present.
+  const load = useCallback(() => api.getRoom(rallyId ?? ""), [api, rallyId]);
+  const { data: room, error, loaded } = usePolled(rallyId ? load : null);
+  const others = room?.members.filter((m) => m.userId !== me?.user.id && m.checkedIn) ?? [];
 
   const met = happened === "yes";
+
+  const send = async () => {
+    if (!rallyId || !happened) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await api.submitFeedback(
+        rallyId,
+        met
+          ? {
+              happened: true,
+              useful: useful === null ? undefined : useful === "very",
+              vouches: who && why ? [{ recipientId: who, contribution: why }] : [],
+              encoreWith: others.filter((m) => rallyAgain[m.userId]).map((m) => m.userId),
+            }
+          : { happened: false }
+      );
+      router.replace("/app/profile");
+    } catch (err) {
+      setActionError(errorMessage(err));
+      setBusy(false);
+    }
+  };
+
+  // Check-in decides who can answer: a no-show has lost access to the rally.
+  const blocked = rallyId && loaded && !room;
+  const blockedText = !rallyId
+    ? "Open feedback from your inbox or your room."
+    : errorCode(error) === "NOT_FOUND"
+    ? "Only people marked present can leave feedback for this Rally."
+    : errorCode(error) === "ROOM_LOCKED"
+    ? "Feedback opens after the host has checked everyone in."
+    : errorMessage(error);
 
   return (
     <div
@@ -52,7 +102,8 @@ export default function FeedbackScreen() {
         .chip { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1px solid #D9C8BE; background: #FFFAF7; font-family: inherit; font-size: 14px; font-weight: 500; color: #1C1917; cursor: pointer; box-sizing: border-box; transition: border-color .12s ease-out, background .12s ease-out; }
         .chip:hover { border-color: #1C1917; }
         .chip:focus-visible { outline: 2px solid #315FE8; outline-offset: 2px; }
-        .btn { display: flex; align-items: center; justify-content: center; gap: 8px; height: 56px; border-radius: 999px; font-size: 16px; font-weight: 600; text-decoration: none; box-sizing: border-box; transition: transform .12s ease-out, background .12s ease-out; }
+        .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 56px; border: 0; border-radius: 999px; font-family: inherit; font-size: 16px; font-weight: 600; text-decoration: none; box-sizing: border-box; cursor: pointer; transition: transform .12s ease-out, background .12s ease-out; }
+        .btn:disabled { background: #E8DFDA; color: #766B65; cursor: not-allowed; }
         .btn:active { transform: scale(.97); }
         .btn-p { background: #1C1917; color: #FFF5EF; }
         .btn-p:hover { background: #292421; color: #FFF5EF; }
@@ -84,23 +135,29 @@ export default function FeedbackScreen() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: "64px", padding: "12px 24px 0", boxSizing: "border-box", flexShrink: 0 }}>
-          <a className="ib" href="/app/room" aria-label="Back">
+          <a className="ib" href={rallyId ? `/app/room?id=${rallyId}` : "/app/home"} aria-label="Back">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M19 12H5M11 6l-6 6 6 6" />
             </svg>
           </a>
-          <span className="mono" style={{ color: "#1C1917" }}>
-            Coffee break · 16:40
+          <span className="mono" style={{ color: "#1C1917", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "240px" }}>
+            {room ? `${room.goal} · ${displayTime(room.windowStart)}` : "Feedback"}
           </span>
           <span style={{ width: "44px" }} />
         </div>
 
-        <div style={{ flex: 1, padding: "20px 24px 0", display: "flex", flexDirection: "column", gap: "20px", overflow: "hidden" }}>
+        <div style={{ flex: 1, minHeight: 0, padding: "20px 24px 0", display: "flex", flexDirection: "column", gap: "20px", overflowY: "auto" }}>
           <h1 className="h1">
             How did <span className="em">it go?</span>
           </h1>
 
-          <fieldset className="sec" style={{ margin: 0, padding: 0, border: 0 }}>
+          {(blocked || !rallyId) && (
+            <p role="alert" style={{ margin: 0, fontSize: "15px", lineHeight: 1.45, color: "#766B65" }}>
+              {blockedText}
+            </p>
+          )}
+
+          {room && <fieldset className="sec" style={{ margin: 0, padding: 0, border: 0 }}>
             <legend className="mono" style={{ padding: 0, marginBottom: "8px" }}>
               Did it happen?
             </legend>
@@ -108,9 +165,9 @@ export default function FeedbackScreen() {
               <Chip label="Yes, we met" pressed={happened === "yes"} onClick={() => setHappened("yes")} />
               <Chip label="No, it didn't" pressed={happened === "no"} onClick={() => setHappened("no")} />
             </div>
-          </fieldset>
+          </fieldset>}
 
-          {met && (
+          {room && met && (
             <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
               <fieldset className="sec" style={{ margin: 0, padding: 0, border: 0 }}>
                 <legend className="mono" style={{ padding: 0, marginBottom: "8px" }}>
@@ -126,32 +183,25 @@ export default function FeedbackScreen() {
                 <legend className="mono" style={{ padding: 0, marginBottom: "8px" }}>
                   Vouch for someone · optional
                 </legend>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <Chip
-                    label="Aarav"
-                    pressed={who === "AM"}
-                    onClick={() => setWho(who === "AM" ? null : "AM")}
-                    extra={
-                      <span className="av" style={{ width: "24px", height: "24px", fontSize: "10px" }}>
-                        AM
-                      </span>
-                    }
-                  />
-                  <Chip
-                    label="Riya"
-                    pressed={who === "RK"}
-                    onClick={() => setWho(who === "RK" ? null : "RK")}
-                    extra={
-                      <span className="av" style={{ width: "24px", height: "24px", fontSize: "10px" }}>
-                        RK
-                      </span>
-                    }
-                  />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {others.map((m) => (
+                    <Chip
+                      key={m.userId}
+                      label={m.displayName ?? "Rally member"}
+                      pressed={who === m.userId}
+                      onClick={() => setWho(who === m.userId ? null : m.userId)}
+                      extra={
+                        <span className="av" style={{ width: "24px", height: "24px", fontSize: "10px" }}>
+                          {initials(m.displayName)}
+                        </span>
+                      }
+                    />
+                  ))}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                  <Chip label="Helped my pitch" pressed={why === "pitch"} onClick={() => setWhy(why === "pitch" ? null : "pitch")} />
-                  <Chip label="Taught me something" pressed={why === "taught"} onClick={() => setWhy(why === "taught" ? null : "taught")} />
-                  <Chip label="Great company" pressed={why === "company"} onClick={() => setWhy(why === "company" ? null : "company")} />
+                  {CONTRIBUTIONS.map((c) => (
+                    <Chip key={c} label={c} pressed={why === c} onClick={() => setWhy(why === c ? null : c)} />
+                  ))}
                 </div>
                 <p style={{ margin: 0, fontSize: "12px", lineHeight: 1.4, color: "#766B65" }}>
                   Helps Rally suggest better groups. It&apos;s not a payout, and you can&apos;t vouch for yourself.
@@ -161,18 +211,15 @@ export default function FeedbackScreen() {
               <div className="sec">
                 <div className="mono">Rally again with · private</div>
                 <div style={{ borderBottom: "1px solid #D9C8BE" }}>
-                  {[
-                    { id: "AM", name: "Aarav" },
-                    { id: "RK", name: "Riya" },
-                  ].map((m) => (
-                    <label key={m.id} className="mem">
-                      <span className="av">{m.id}</span>
-                      <span style={{ flex: 1, fontSize: "15px", fontWeight: 600 }}>{m.name}</span>
+                  {others.map((m) => (
+                    <label key={m.userId} className="mem">
+                      <span className="av">{initials(m.displayName)}</span>
+                      <span style={{ flex: 1, fontSize: "15px", fontWeight: 600 }}>{m.displayName ?? "Rally member"}</span>
                       <span className="cb">
                         <input
                           type="checkbox"
-                          checked={rallyAgain[m.id] ?? false}
-                          onChange={(e) => setRallyAgain({ ...rallyAgain, [m.id]: e.target.checked })}
+                          checked={rallyAgain[m.userId] ?? false}
+                          onChange={(e) => setRallyAgain({ ...rallyAgain, [m.userId]: e.target.checked })}
                         />
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFF5EF" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                           <path d="M20 6L9 17l-5-5" />
@@ -188,9 +235,16 @@ export default function FeedbackScreen() {
         </div>
 
         <div className="foot">
-          <a className="btn btn-p" href="/app/profile">
-            Send feedback
-          </a>
+          {actionError && (
+            <p role="alert" style={{ margin: "0 0 8px", fontSize: "13px", lineHeight: 1.4, color: "#EC562E", textAlign: "center" }}>
+              {actionError}
+            </p>
+          )}
+          {room && (
+            <button className="btn btn-p" type="button" disabled={busy || !happened} onClick={() => void send()}>
+              {busy ? "Sending…" : "Send feedback"}
+            </button>
+          )}
           <a href="/app/home" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "44px", fontSize: "15px", fontWeight: 500 }}>
             Skip for now
           </a>

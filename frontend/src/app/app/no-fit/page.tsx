@@ -1,8 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import RallyOrb from "@/components/RallyOrb";
+import { errorMessage, getPreview } from "@/lib/api";
+import { bucketLabel, categoryPhrase, displayTime, zoneLabel } from "@/lib/format";
+import { startPlan } from "@/lib/plan";
+import { useSession } from "@/lib/session";
+import { usePolled } from "@/lib/usePolled";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -12,13 +18,68 @@ const SANS = "var(--font-inter), system-ui, sans-serif";
 const SERIF = "var(--font-serif), Georgia, serif";
 const MONO = "var(--font-mono), monospace";
 
-const ALTERNATIVES = [
-  { title: "Snack run", place: "Food court", time: "16:45" },
-  { title: "Pitch practice", place: "Main hall", time: "18:00" },
-];
+type Waiting = { goal: string | null; until: string | null; movedOn: boolean; hasMatch: boolean };
 
 export default function NoFitScreen() {
+  // "No match" is never a dead end. Two things can be waiting: a published rally the
+  // scheduler found no fit for (?rally=), or an interest kept active (?intent=).
+  const { api } = useSession();
+  const router = useRouter();
+  const params = useSearchParams();
+  const rallyId = params.get("rally");
+  const intentId = params.get("intent");
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const load = useCallback(async (): Promise<Waiting> => {
+    if (rallyId) {
+      const rally = await api.getRally(rallyId);
+      return { goal: rally.goal, until: rally.expiresAt, movedOn: rally.status !== "waiting", hasMatch: false };
+    }
+    const { matches, waiting } = await api.listMatches();
+    const intent = waiting.find((w) => w.id === intentId) ?? (intentId ? undefined : waiting[0]);
+    const hasMatch = matches.some((m) => m.status === "pending" && new Date(m.holdUntil).getTime() > Date.now());
+    return { goal: intent?.goal ?? null, until: intent?.expiresAt ?? null, movedOn: !intent, hasMatch };
+  }, [api, rallyId, intentId]);
+  const { data, error, loaded } = usePolled(load, 15_000);
+
+  const { data: preview } = usePolled(useCallback(() => getPreview({ limit: 2 }), []));
+
+  useEffect(() => {
+    if (!data?.movedOn) return;
+    // Things changed since this screen opened, so it no longer applies.
+    router.replace(rallyId ? `/app/finding-people?rally=${rallyId}` : "/app/home");
+  }, [data, rallyId, router]);
+
+  const pickAlternative = (text: string) => {
+    startPlan(text);
+    router.push("/app/check-plan");
+  };
+
+  const stopLooking = async () => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      if (rallyId) await api.cancelRally(rallyId);
+      else if (intentId) await api.cancelIntent(intentId);
+      router.replace("/app/home");
+    } catch (err) {
+      setActionError(errorMessage(err));
+      setBusy(false);
+    }
+  };
+
+  const invite = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.origin);
+      setCopied(true);
+    } catch {
+      setActionError("Couldn't copy the link on this device.");
+    }
+  };
+
+  const alternatives = preview?.activities.filter((a) => a.status !== "full") ?? [];
 
   return (
     <div
@@ -39,14 +100,7 @@ export default function NoFitScreen() {
         .btn-p { background: #1C1917; color: #FFF5EF; }
         .btn-p:hover { background: #292421; color: #FFF5EF; }
         .foot { padding: 16px 24px 32px; display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
-        .alt { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; border-top: 1px solid #D9C8BE; text-decoration: none; color: #1C1917; }
-        .alt:hover { color: #1C1917; }
-        .alt:hover .go { color: #1C1917; }
-        .sw { appearance: none; -webkit-appearance: none; width: 52px; height: 32px; margin: 0; border-radius: 999px; background: #E8DFDA; position: relative; cursor: pointer; flex-shrink: 0; transition: background .15s ease-out; }
-        .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #FFFAF7; transition: transform .15s ease-out; }
-        .sw:checked { background: #1C1917; }
-        .sw:checked::after { transform: translateX(20px); }
-        .sw:focus-visible { outline: 2px solid #315FE8; outline-offset: 2px; }
+        .alt { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 56px; padding: 0; border: 0; border-top: 1px solid #D9C8BE; background: transparent; font-family: inherit; text-align: left; color: #1C1917; cursor: pointer; }
         .breathe { animation: breathe 4s ease-in-out infinite; }
         @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
         @media (prefers-reduced-motion: reduce) { .breathe { animation: none; } }
@@ -80,7 +134,7 @@ export default function NoFitScreen() {
           <span style={{ width: "44px" }} />
         </div>
 
-        <div style={{ flex: 1, padding: "24px 24px 0", display: "flex", flexDirection: "column", gap: "24px", overflow: "hidden" }}>
+        <div style={{ flex: 1, minHeight: 0, padding: "24px 24px 0", display: "flex", flexDirection: "column", gap: "24px", overflowY: "auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             <div className="breathe">
               <RallyOrb variant="searching" size={88} />
@@ -91,78 +145,84 @@ export default function NoFitScreen() {
               </h1>
             </div>
           </div>
-          <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.5, color: "#766B65" }}>
-            Nobody else wants a coffee break in this window right now. We only look again when someone new joins or plans change.
+          <p role={error ? "alert" : undefined} style={{ margin: 0, fontSize: "14px", lineHeight: 1.5, color: "#766B65" }}>
+            {error && !data
+              ? errorMessage(error)
+              : "Nobody fits this plan right now. We only look again when someone new joins or plans change."}
           </p>
 
-          <div className="card" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontFamily: SERIF, fontSize: "20px" }}>Coffee break</span>
-              <span style={{ fontFamily: MONO, fontSize: "13px" }}>until 6 PM</span>
-            </div>
-            <div>
-              <div style={{ height: "6px", borderRadius: "3px", background: "#E5ECFF", overflow: "hidden" }}>
-                <div style={{ width: "35%", height: "100%", borderRadius: "3px", background: "#315FE8" }} />
+          {loaded && data && (
+            <div className="card" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px" }}>
+                <span style={{ fontFamily: SERIF, fontSize: "20px" }}>{data.goal ?? "Your plan"}</span>
+                {data.until && <span style={{ fontFamily: MONO, fontSize: "13px", flexShrink: 0 }}>until {displayTime(data.until)}</span>}
               </div>
-              <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#766B65" }}>
-                <span>Looking for 23 min</span>
-                <span>1 h 8 min left</span>
-              </div>
-            </div>
-            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", paddingTop: "16px", borderTop: "1px solid #D9C8BE", cursor: "pointer" }}>
-              <span>
-                <span style={{ display: "block", fontSize: "15px", fontWeight: 600 }}>Keep this interest active until 6 PM?</span>
-                <span style={{ display: "block", marginTop: "2px", fontSize: "13px", color: "#766B65" }}>You can stop any time</span>
+              <span style={{ fontSize: "13px", lineHeight: 1.4, color: "#766B65" }}>
+                Still active. When someone fits, it lands in your Rally inbox, and you still choose.
               </span>
-              <input className="sw" type="checkbox" role="switch" defaultChecked />
-            </label>
-            <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", cursor: "pointer" }}>
-              <span>
-                <span style={{ display: "block", fontSize: "15px", fontWeight: 600 }}>Tell me when someone fits</span>
-                <span style={{ display: "block", marginTop: "2px", fontSize: "13px", color: "#766B65" }}>In your Rally inbox. Phone alerts only if you allow them</span>
-              </span>
-              <input className="sw" type="checkbox" role="switch" defaultChecked />
-            </label>
-          </div>
-
-          <div>
-            <div className="mono">Or try a plan that&apos;s already live</div>
-            <div style={{ marginTop: "8px" }}>
-              {ALTERNATIVES.map((alt, i) => (
-                <a key={alt.title} className="alt" href="/app/check-plan" style={i === ALTERNATIVES.length - 1 ? { borderBottom: "1px solid #D9C8BE" } : undefined}>
-                  <span>
-                    <span style={{ display: "block", fontSize: "15px", fontWeight: 600 }}>{alt.title}</span>
-                    <span style={{ display: "block", marginTop: "2px", fontSize: "13px", color: "#766B65" }}>
-                      {alt.place} · <span style={{ fontFamily: MONO }}>{alt.time}</span>
-                    </span>
-                  </span>
-                  <span className="go" style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "14px", fontWeight: 600, color: "#315FE8" }}>
-                    Use plan
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M5 12h14M13 6l6 6-6 6" />
-                    </svg>
-                  </span>
+              {data.hasMatch && (
+                <a href="/app/match-found" style={{ fontSize: "15px", fontWeight: 600, color: "#315FE8" }}>
+                  You have a match waiting
                 </a>
-              ))}
+              )}
             </div>
-          </div>
+          )}
+
+          {alternatives.length > 0 && (
+            <div>
+              <div className="mono">Or try a plan that&apos;s already live</div>
+              <div style={{ marginTop: "8px", borderBottom: "1px solid #D9C8BE" }}>
+                {alternatives.map((alt) => (
+                  <button
+                    key={alt.opaqueId}
+                    className="alt"
+                    type="button"
+                    onClick={() => pickAlternative(`${categoryPhrase(alt.category)}, ${zoneLabel(alt.zone).toLowerCase()}, ${bucketLabel(alt.startBucket)}`)}
+                  >
+                    <span>
+                      <span style={{ display: "block", fontSize: "15px", fontWeight: 600 }}>{categoryPhrase(alt.category)}</span>
+                      <span style={{ display: "block", marginTop: "2px", fontSize: "13px", color: "#766B65" }}>
+                        {zoneLabel(alt.zone)} · <span style={{ fontFamily: MONO }}>{bucketLabel(alt.startBucket)}</span>
+                      </span>
+                    </span>
+                    <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "14px", fontWeight: 600, color: "#315FE8", flexShrink: 0 }}>
+                      Use plan
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M5 12h14M13 6l6 6-6 6" />
+                      </svg>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {actionError && (
+            <p role="alert" style={{ margin: 0, fontSize: "14px", color: "#EC562E" }}>
+              {actionError}
+            </p>
+          )}
         </div>
 
         <div className="foot">
-          <a className="btn btn-p" href="/app/check-plan">
-            Change my plan
+          <a className="btn btn-p" href="/app/home">
+            Start a different plan
           </a>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
             <button
               type="button"
-              onClick={() => setCopied(true)}
+              onClick={() => void invite()}
               style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "44px", padding: 0, border: 0, background: "transparent", fontFamily: "inherit", fontSize: "15px", fontWeight: 500, color: "#1C1917", cursor: "pointer" }}
             >
-              {copied ? "Invite link copied" : "Invite a friend to start it"}
+              {copied ? "Invite link copied" : "Invite a friend"}
             </button>
-            <a href="/app/home" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "44px", fontSize: "15px", fontWeight: 500, color: "#766B65" }}>
-              Stop looking
-            </a>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void stopLooking()}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "44px", padding: 0, border: 0, background: "transparent", fontFamily: "inherit", fontSize: "15px", fontWeight: 500, color: "#766B65", cursor: "pointer" }}
+            >
+              {busy ? "Stopping…" : "Stop looking"}
+            </button>
           </div>
         </div>
       </div>
