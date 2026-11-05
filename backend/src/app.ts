@@ -13,6 +13,7 @@ import { loggerOptions } from './lib/logger.js';
 import { databasePlugin } from './plugins/database.js';
 import { errorHandlerPlugin } from './plugins/error-handler.js';
 import { securityPlugin } from './plugins/security.js';
+import { formationPlugin } from './plugins/formation.js';
 import { healthRoutes } from './routes/health.js';
 
 const REQUEST_ID_PATTERN = /^[\w-]{8,64}$/;
@@ -49,6 +50,7 @@ export async function buildApp({ env }: { env: Env }) {
   await app.register(securityPlugin, { env });
   await app.register(databasePlugin, { url: env.DATABASE_URL, poolMax: env.DATABASE_POOL_MAX });
 
+  await app.register(formationPlugin, { env });
   await app.register(healthRoutes);
 
   return app;

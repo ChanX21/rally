@@ -3,7 +3,7 @@
 Rally API service: Node.js, TypeScript, Fastify, PostgreSQL (Supabase), Drizzle ORM and Zod.
 
 Status: foundation only. The server boots, validates configuration, connects to PostgreSQL and
-runs migrations. Product routes and tables are not implemented yet.
+runs migrations. The AI Formation Engine is implemented and live-tested; product routes and tables are not implemented yet.
 
 ## Local setup
 
@@ -100,3 +100,7 @@ test/             Vitest tests
 ```
 
 See `.env.example` for all configuration.
+
+## AI Formation Engine
+
+The backend exposes `app.formation` for onboarding questions, activity intent parsing and validated group proposals. See [AI.md](AI.md) for configuration, caller contracts, failure behavior and teammate integration. Run `npm run test:ai` for isolated AI tests; `npm run ai:smoke` explicitly checks funded 0G access. Product routes/auth and database matching are still pending.
