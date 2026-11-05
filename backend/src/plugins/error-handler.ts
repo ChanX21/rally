@@ -2,7 +2,7 @@ import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
 import { hasZodFastifySchemaValidationErrors } from 'fastify-type-provider-zod';
 
-import { AppError } from '../lib/errors.js';
+import { AppError, postgresCode, UNIQUE_VIOLATION } from '../lib/errors.js';
 import type { ErrorResponse } from '../schemas/common.js';
 
 interface ErrorBody {
@@ -29,6 +29,15 @@ function describeError(error: unknown): ErrorBody {
       message: error.message,
       details: error.details,
     };
+  }
+
+  // Database safety nets. Services check first, so these mean a request lost a race.
+  const pgCode = postgresCode(error);
+  if (pgCode === UNIQUE_VIOLATION) {
+    return { statusCode: 409, code: 'CONFLICT', message: 'That change conflicts with another' };
+  }
+  if (pgCode === '40001' || pgCode === '40P01') {
+    return { statusCode: 409, code: 'RETRY', message: 'Please try again' };
   }
 
   const fastifyError = error as FastifyError;

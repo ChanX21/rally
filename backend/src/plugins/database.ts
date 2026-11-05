@@ -14,4 +14,4 @@ export const databasePlugin = fp<{ url: string; poolMax: number }>((app, options
   // onClose runs after in-flight requests finish.
   app.addHook('onClose', () => close());
   done();
-});
+}, { name: 'database' });

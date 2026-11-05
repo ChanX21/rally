@@ -8,6 +8,20 @@
       "when": 1793894078032,
       "tag": "0000_baseline",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793898118587,
+      "tag": "0001_initial_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793898118895,
+      "tag": "0002_enable_rls",
+      "breakpoints": true
     }
   ]
 }

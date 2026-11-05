@@ -6,7 +6,8 @@ import fp from 'fastify-plugin';
 import type { Env } from '../config/env.js';
 
 export const securityPlugin = fp<{ env: Env }>(async (app, { env }) => {
-  await app.register(helmet);
+  // Default CSP would block the /docs UI assets, and this API serves no other HTML.
+  await app.register(helmet, { contentSecurityPolicy: false });
 
   // The PWA authenticates with a bearer token, so cookies are not allowed cross-origin.
   await app.register(cors, {

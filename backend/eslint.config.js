@@ -18,7 +18,18 @@ export default tseslint.config(
       '@typescript-eslint/no-floating-promises': 'error',
       // Fastify plugins are conventionally async even when they register synchronously.
       '@typescript-eslint/require-await': 'off',
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', ignoreRestSiblings: true }],
+    },
+  },
+  {
+    // These read loosely typed JSON responses; the server validates the real shapes.
+    files: ['test/**/*.ts', 'scripts/live-journey.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
     },
   },
 );

@@ -1,0 +1,8 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`contract compatibility > produces the signature the Foundry test verifies 1`] = `
+{
+  "nonce": "51993934641445269897782990687260543171695112700611433784806210735058160486557",
+  "signature": "0x726f37cbf189c297c4632017da3f52e11aeece0e3ddaaa5e0daeb70b6a8ac7a74e768832fa650efab2853a339eb3581f6e6f38a52282dd573f04cb36f8874ecd1b",
+}
+`;

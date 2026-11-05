@@ -2,8 +2,11 @@
 
 Rally API service: Node.js, TypeScript, Fastify, PostgreSQL (Supabase), Drizzle ORM and Zod.
 
-Status: foundation only. The server boots, validates configuration, connects to PostgreSQL and
-runs migrations. Product routes and tables are not implemented yet.
+See `PRODUCT.md` for what Rally does, `ARCHITECTURE.md` for how it works and what has been verified,
+and `CLAUDE.md` for development rules. API docs are served at `/docs` while the server runs.
+
+Privy, 0G and Arkiv are optional locally. Without Privy credentials, authenticated routes return 503.
+Without 0G, deterministic fallbacks run. Without Arkiv, public discovery shows a notice.
 
 ## Local setup
 
@@ -33,7 +36,10 @@ curl localhost:3000/health/ready  # process is up and PostgreSQL responds
 Set both URLs in `.env`, taken from the Supabase dashboard (Connect):
 
 - `DATABASE_URL`: transaction pooler, port 6543, with `?sslmode=require`.
-- `DATABASE_MIGRATION_URL`: direct or session pooler, port 5432, with `?sslmode=require`.
+- `DATABASE_MIGRATION_URL`: session pooler, port 5432, with `?sslmode=require`.
+
+Use the pooler hosts (`*.pooler.supabase.com`). The direct `db.<ref>.supabase.co` host is IPv6-only and
+fails with `ENETUNREACH` on networks without IPv6.
 
 Prepared statements are disabled because the transaction pooler does not support them.
 
@@ -52,6 +58,9 @@ Prepared statements are disabled because the transaction pooler does not support
 | `npm run db:migrate` | Apply migrations (development) |
 | `npm run db:migrate:prod` | Apply migrations from `dist/` (needs `drizzle/` alongside it) |
 | `npm run db:studio` | Open Drizzle Studio |
+| `npm run arkiv:smoke` | Check Arkiv on the real network; add `-- --write` with a funded key |
+| `npm run smoke:integrations` | Real 0G call and Privy credential check |
+| `npm run smoke:journey` | Whole flow on live 0G and Arkiv, throwaway database, simulated login |
 
 ## Tests
 
@@ -78,6 +87,8 @@ Failure:
 Every response carries an `x-request-id` header. Quote it when reporting a problem; it matches
 `reqId` in the logs.
 
+Clients must call `POST /auth/session` once after login, before other authenticated routes.
+
 ## Layout
 
 ```text
@@ -86,14 +97,15 @@ src/
   app.ts          buildApp(): assembles plugins and routes, used by tests too
   config/         environment validation
   db/             client, migration runner, schema/
-  lib/            errors, logging, shutdown
-  plugins/        error handler, security (helmet, CORS, rate limit), database
+  domain/         pure rules: catalog, state machine, scoring, intent fallback
+  integrations/   Privy, Arkiv, 0G adapters
+  lib/            errors, logging, shutdown, outbox, idempotency, pagination
+  plugins/        error handler, security, database, integrations, auth, docs
+  repositories/   database queries
   routes/         HTTP routes
-  schemas/        shared Zod schemas and response envelope
-  services/       domain logic (empty)
-  repositories/   database queries (empty)
-  workers/        outbox and background jobs (empty)
-  integrations/   Privy, Arkiv, 0G adapters (empty)
+  schemas/        Zod request and response schemas
+  services/       use cases and transactions
+  workers/        outbox worker, handlers, scheduler
 drizzle/          generated SQL migrations
 scripts/          developer tooling
 test/             Vitest tests
