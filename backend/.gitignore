@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+.local/
+.env
+.env.*
+!.env.example
+*.log
+
+# Engineering playbook: kept local, not versioned
+Rally_v2_Intelligence_Architecture_Playbook*.pdf
