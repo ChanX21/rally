@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",
+    "@privy-io/react-auth": "^3.51.2",
     "next": "16.4.5",
     "react": "19.3.0",
     "react-dom": "19.3.0"
