@@ -1,6 +1,6 @@
 import type { Deps } from '../lib/deps.js';
 import { processOutboxBatch } from './outbox.js';
-import { runScheduledJobs } from './scheduler.js';
+import { queueMatchingSweep, runScheduledJobs } from './scheduler.js';
 
 export interface Workers {
   stop(): Promise<void>;
@@ -53,10 +53,12 @@ export function startWorkers(deps: Deps): Workers {
     guard('scheduler', () => runScheduledJobs(deps)),
   );
 
+  const stopMatchingSweep = loop(120_000, guard('matching-sweep', () => queueMatchingSweep(deps)));
+
   return {
     async stop() {
       stopping = true;
-      await Promise.all([stopOutbox(), stopScheduler()]);
+      await Promise.all([stopOutbox(), stopScheduler(), stopMatchingSweep()]);
     },
   };
 }

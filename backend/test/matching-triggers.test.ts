@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { eq, sql } from 'drizzle-orm';
+import { outboxEvents } from '../src/db/schema/index.js';
 import { afterAll, beforeEach, expect, it } from 'vitest';
 import { createHarness, type Harness, hoursFromNow } from './helpers/harness.js';
 import { compositionInput } from '../src/schemas/formation.js';
@@ -92,4 +95,46 @@ it.each([true, false])('checks existing rallies after a saved preference change 
     expect(matches[0].status).toBe('pending');
     expect((await host.request('GET', `/rallies/${rally.id}/room`)).statusCode).toBe(409);
   }
+});
+
+it.each([true, false])('matches saved preferences across onboarding interests when the Rally exists first: %s', async (rallyFirst) => {
+  const host = await h.onboarded('did:triggers:cross-interest-host', { optInMatching: false });
+  h.ai.respond = ({ input }) => {
+    const parsed = compositionInput.parse({ ...(input as object), requestId: 'test' });
+    const candidate = parsed.candidates.find((person) => person.preferences?.custom_technology === 'I want to practise startup pitches');
+    return candidate ? { schemaVersion: 1, status: 'proposed',
+      memberIds: [...parsed.rally.requiredMembers.map((person) => person.id), candidate.id],
+      roles: [{ memberId: candidate.id, roleId: candidate.roleIds[0] }], reason: 'Shared pitch practice' }
+      : { schemaVersion: 1, status: 'no_fit' };
+  };
+  const makeRally = () => h.rally(host, { category: 'build', goal: 'Someone to hear my pitch', capacity: 2 });
+  let rally = rallyFirst ? await makeRally() : null;
+  await h.drainOutbox();
+  const guest = await h.onboarded('did:triggers:cross-interest-guest', {
+    interests: ['music', 'technology', 'books'],
+    preferences: { custom_technology: 'I want to practise startup pitches' },
+  });
+  if (!rallyFirst) rally = await makeRally();
+  await h.drainOutbox();
+  const matches = (await guest.get('/matches')).matches;
+  expect(matches).toHaveLength(1);
+  expect(matches[0]).toMatchObject({ status: 'pending', source: 'ai', rally: { id: rally!.id } });
+  const sent = h.ai.callsFor('composition')[0]!.input as { candidates: Record<string, unknown>[]; rally: { requiredMembers: Record<string, unknown>[] } };
+  expect(sent.candidates[0]!.preferences).toEqual({ custom_technology: 'I want to practise startup pitches' });
+  for (const person of [...sent.candidates, ...sent.rally.requiredMembers]) expect(person).not.toHaveProperty('interests');
+  expect((await guest.get('/notifications')).items.some((item: { type: string }) => item.type === 'match.proposed')).toBe(true);
+});
+
+
+it('queues existing open Rallies once when the preference-matching migration runs', async () => {
+  const host = await h.onboarded('did:triggers:backfill-host', { optInMatching: false });
+  const rally = await h.rally(host, { capacity: 2 });
+  await h.drainOutbox();
+  const migration = readFileSync(new URL('../drizzle/0008_preference_matching.sql', import.meta.url), 'utf8');
+  await h.app.deps.db.execute(sql.raw(migration));
+  await h.app.deps.db.execute(sql.raw(migration));
+  const jobs = await h.app.deps.db.select().from(outboxEvents)
+    .where(eq(outboxEvents.dedupeKey, `preferences-matching-v1:${rally.id}`));
+  expect(jobs).toHaveLength(1);
+  expect(jobs[0]).toMatchObject({ type: 'match.reevaluate', status: 'pending', payload: { rallyId: rally.id } });
 });

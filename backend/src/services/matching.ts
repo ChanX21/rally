@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 
 import { matchProposals, offers, rallies } from '../db/schema/index.js';
-import { relevantPreferences, matchingPreferences, mergePreferences } from '../domain/questions.js';
+import { relevantPreferences, safePreferences, mergePreferences } from '../domain/questions.js';
 import { SHORTLIST_SIZE } from '../domain/catalog.js';
 import { MATCHABLE } from '../domain/rally-state.js';
 import { rankCandidates, scoreCandidate } from '../domain/scoring.js';
@@ -65,12 +65,10 @@ function scoreAll(rally: Rally, rows: readonly CandidateRow[]): ScoredCandidate[
             rally.windowStart,
             rally.windowEnd,
           );
-    const rank = row.interests.indexOf(rally.category);
     const score = scoreCandidate({
       overlapMin,
       durationMin: rally.durationMin,
       hasWaitingIntent: row.intent_id !== null,
-      interestRank: rank === -1 ? null : rank,
       declaredSkills: row.declared_skills,
       neededRole: rally.neededRole,
       vibeMatch:
@@ -84,7 +82,7 @@ function scoreAll(rally: Rally, rows: readonly CandidateRow[]): ScoredCandidate[
 }
 
 function defaultReason(rally: Rally): string {
-  return `You are both free in this window and interested in ${rally.category}.`;
+  return `You are both available for this ${rally.category} Rally.`;
 }
 
 /** Rule-based group. Same input, same group. It can only select from eligible candidates. */
@@ -163,7 +161,6 @@ async function composeWithEngine(
   const committed = (alias: string, role: string) => ({
     id: alias,
     optedIn: true as const,
-    interests: [rally.category],
     roleIds: [role],
     zoneIds: [rally.zone],
     availableFrom: start,
@@ -193,9 +190,8 @@ async function composeWithEngine(
       },
       candidates: candidates.map((candidate) => ({
         id: candidate.alias,
-        preferences: Object.fromEntries(Object.entries(matchingPreferences(rally.category, mergePreferences(candidate.preferences ?? {}, candidate.intent_preferences ?? {}))).map(([key, value]) => [key, redactPii(value)])),
+        preferences: Object.fromEntries(Object.entries(safePreferences(mergePreferences(candidate.preferences ?? {}, candidate.intent_preferences ?? {}))).map(([key, value]) => [key, redactPii(value)])),
         optedIn: true as const,
-        interests: candidate.interests,
         roleIds: openRoleIds,
         zoneIds: [rally.zone],
         availableFrom: (candidate.intent_start ?? candidate.available_from)!.toISOString(),
@@ -373,7 +369,7 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
     const stillEligible = new Set(
       (await findCandidates(tx, locked, SHORTLIST_SIZE)).filter((current) => {
         const original = candidates.find((candidate) => candidate.user_id === current.user_id);
-        const preferences = (row: CandidateRow) => JSON.stringify(Object.entries(matchingPreferences(locked.category,
+        const preferences = (row: CandidateRow) => JSON.stringify(Object.entries(safePreferences(
           mergePreferences(row.preferences ?? {}, row.intent_preferences ?? {}))).sort());
         return original && preferences(original) === preferences(current);
       }).map((row) => row.user_id),

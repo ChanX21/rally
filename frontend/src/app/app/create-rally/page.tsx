@@ -114,7 +114,7 @@ export default function CreateRallyScreen() {
       <div className="content">
         <h1 className={serif.className}>{stage === "plan" ? "What are we rallying for?" : stage === "questions" || stage === "details" ? "A few details" : stage === "edit" ? "Edit your Rally" : "Ready to Rally?"}</h1>
         {stage === "plan" && <>
-          <p>Describe what you want to do. Rally will use your profile and ask up to three questions about this activity.</p>
+          <p>Describe what you want to do. Rally will use your profile and ask only for the details we still need.</p>
           <label>Your plan<textarea rows={5} maxLength={500} disabled={!!busy} value={text} onChange={(event) => setText(event.target.value)} placeholder="Coffee tomorrow at 5 PM for half an hour?" /></label>
           <p>You will be the host. The default group is you and one guest.</p>
         </>}

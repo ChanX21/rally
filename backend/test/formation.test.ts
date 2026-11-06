@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createFormationEngine } from '../src/services/formation.js';
 import { InferenceError } from '../src/integrations/zero-g.js';
 import type { CompositionInput } from '../src/schemas/formation.js';
-const person = (id: string) => ({ id, optedIn: true as const, interests: ['food'], roleIds: ['buddy'], zoneIds: ['venue'], availableFrom: '2026-11-05T10:00:00Z', availableUntil: '2026-11-05T12:00:00Z' });
+const person = (id: string) => ({ id, optedIn: true as const, roleIds: ['buddy'], zoneIds: ['venue'], availableFrom: '2026-11-05T10:00:00Z', availableUntil: '2026-11-05T12:00:00Z' });
 const intent = { categoryId: 'food', goal: 'snack', startAt: '2026-11-05T11:00:00Z', durationMin: 40, groupMin: 2, groupMax: 3, zoneId: 'venue', vibe: 'any' as const };
 const input: CompositionInput = { requestId: 'request_1', rally: { id: 'rally', intent, requiredMembers: [person('host')], requiredRoleIds: ['buddy'] }, candidates: [person('guest')] };
 const proposal = { schemaVersion: 1, status: 'proposed', memberIds: ['host', 'guest'], roles: [{ memberId: 'guest', roleId: 'buddy' }], reason: 'Shared slot' };

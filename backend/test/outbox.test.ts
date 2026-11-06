@@ -1,11 +1,13 @@
 import { eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { outboxEvents } from '../src/db/schema/index.js';
 import { enqueue } from '../src/lib/outbox.js';
 import { PermanentError } from '../src/workers/handlers.js';
 import { processOutboxBatch, recoverStaleEvents } from '../src/workers/outbox.js';
 import { runScheduledJobs } from '../src/workers/scheduler.js';
+import * as scheduler from '../src/workers/scheduler.js';
+import * as outbox from '../src/workers/outbox.js';
 import { startWorkers } from '../src/workers/runner.js';
 import { createHarness, type Harness } from './helpers/harness.js';
 
@@ -208,4 +210,28 @@ describe('scheduler and runner', () => {
       .toBe('done');
     await workers.stop();
   });
+});
+
+
+it('sweeps matching every two minutes and stops the timer on shutdown', async () => {
+  vi.useFakeTimers();
+  const sweep = vi.spyOn(scheduler, 'queueMatchingSweep').mockResolvedValue(0);
+  vi.spyOn(scheduler, 'runScheduledJobs').mockResolvedValue();
+  vi.spyOn(outbox, 'processOutboxBatch').mockResolvedValue(0);
+  const workers = startWorkers(h.app.deps);
+  try {
+    await vi.advanceTimersByTimeAsync(119_999);
+    expect(sweep).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(sweep).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(sweep).toHaveBeenCalledTimes(2);
+    await workers.stop();
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(sweep).toHaveBeenCalledTimes(2);
+  } finally {
+    await workers.stop();
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  }
 });

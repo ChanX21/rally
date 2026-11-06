@@ -73,3 +73,19 @@ it('backfills existing Rallies after a cache miss without billing on each previe
     .toBe('Coffee: the original networking protocol.');
   expect(h.ai.callsFor('map_dialogue')).toHaveLength(2);
 });
+
+it('recovers dialogue jobs claimed by a deployment without the handler', async () => {
+  const host = await h.onboarded('did:dialogue:rollout-host', { optInMatching: false });
+  const rally = await h.rally(host, { category: 'coffee', goal: 'Coffee break' });
+  const key = dialogueKey(rally);
+  await h.app.deps.db.update(outboxEvents).set({ status: 'dead', attempts: 1, lastError: 'No handler for map.dialogue' }).where(eq(outboxEvents.dedupeKey, key));
+  await h.drainOutbox();
+  const preview = () => h.app.inject({ url: '/activities/preview' });
+  expect((await preview()).json().data.activities[0].dialogue).toBeNull();
+  const [job] = await h.app.deps.db.select().from(outboxEvents).where(eq(outboxEvents.dedupeKey, key));
+  expect(job).toMatchObject({ status: 'pending', attempts: 0, lastError: null });
+  h.ai.respond = () => ({ schemaVersion: 1, dialogue: 'Someone up for coffee?' });
+  await h.drainOutbox();
+  expect((await preview()).json().data.activities[0].dialogue).toBe('Someone up for coffee?');
+  expect(h.ai.callsFor('map_dialogue')).toHaveLength(1);
+});

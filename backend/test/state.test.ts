@@ -66,7 +66,6 @@ describe('scoring', () => {
     overlapMin: 60,
     durationMin: 60,
     hasWaitingIntent: false,
-    interestRank: 0,
     declaredSkills: [],
     neededRole: 'participant',
     vibeMatch: false,

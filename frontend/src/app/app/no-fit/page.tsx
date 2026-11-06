@@ -138,7 +138,7 @@ export default function NoFitScreen() {
           <p role={error ? "alert" : undefined} style={{ margin: 0, fontSize: "14px", lineHeight: 1.5, color: "#766B65" }}>
             {error && !data
               ? errorMessage(error)
-              : "Nobody fits this plan right now. We only look again when someone new joins or plans change."}
+              : "Nobody fits this plan right now. We check again every two minutes and when plans change."}
           </p>
 
           {loaded && data && (

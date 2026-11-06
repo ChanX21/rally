@@ -66,8 +66,8 @@ Both paths lead to the same matching. Neither bypasses consent.
 ### When nobody fits
 
 "No match" is never a dead end. Rally offers to keep the interest active for a limited time, and
-looks again only when something has changed: a new activity, a newly opted-in user, a withdrawal or
-updated availability. Rally then notifies you. It never quietly adds you to anything.
+looks again every two minutes and when something changes: a new activity, a newly opted-in user,
+a withdrawal or updated preferences or availability. Rally then notifies you. It never quietly adds you to anything.
 
 ## Key concepts
 

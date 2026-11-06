@@ -7,6 +7,7 @@ import { errorMessage, type Notification } from "@/lib/api";
 import { notificationPath, timeAgo } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
+import RallyLoader from "@/components/RallyLoader";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -139,7 +140,7 @@ export default function InboxScreen() {
             </p>
           </div>
 
-          {!loaded && <p role="status" className="mono">Loading…</p>}
+          {!loaded && <RallyLoader context="inbox" />}
           {(actionError !== null || (error !== null && !data)) && (
             <p role="alert" style={{ margin: 0, fontSize: "14px", lineHeight: 1.45, color: "#EC562E" }}>
               {actionError ?? errorMessage(error)}

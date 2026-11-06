@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { errorMessage } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
+import RallyLoader from "@/components/RallyLoader";
 
 export function RallyProof({ rallyId }: { rallyId: string }) {
   const { api } = useSession();
@@ -38,7 +39,7 @@ export function RallyProof({ rallyId }: { rallyId: string }) {
 
   return <section className="card" style={{ padding: 16, display: "grid", gap: 12 }} aria-label="Group photo rewards">
     <h2 style={{ fontSize: 18, margin: 0 }}>Photos for group rewards</h2>
-    {!proof && !error && <p role="status">Loading photo status…</p>}
+    {!proof && !error && <RallyLoader context="photos" />}
     {error != null && <p role="alert">{errorMessage(error)}</p>}
     {proof && <>
       <p role="status" style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>

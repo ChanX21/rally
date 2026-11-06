@@ -9,7 +9,6 @@ const timestamp = z.union([z.date(), z.string()]).transform((value) => new Date(
 
 const candidateRow = z.object({
   user_id: z.uuid(),
-  interests: z.array(z.string()),
   declared_skills: z.array(z.string()),
   preferences: z.record(z.string(), z.string()).nullable(),
   available_from: timestamp.nullable(),
@@ -26,7 +25,7 @@ export type CandidateRow = z.infer<typeof candidateRow>;
 
 /**
  * Hard filters, run in SQL first. A person qualifies through an active waiting intent, or through
- * a listed interest plus declared availability. Nothing below uses AI or any public Arkiv data.
+ * declared availability. Nothing below uses AI or any public Arkiv data.
  */
 export async function findCandidates(db: Db, rally: Rally, limit: number, offeredUserId?: string): Promise<CandidateRow[]> {
   // A rally starts at windowStart and runs durationMin, so people must be free for all of that.
@@ -45,7 +44,6 @@ export async function findCandidates(db: Db, rally: Rally, limit: number, offere
   const rows = await db.execute(sql`
     select
       u.id as user_id,
-      p.interests,
       p.declared_skills,
       p.preferences,
       p.available_from,
@@ -96,11 +94,15 @@ export async function findCandidates(db: Db, rally: Rally, limit: number, offere
       and (
         i.id is not null
         or (
-          ${rally.category} = any(p.interests)
-          and p.available_from is not null
+          p.available_from is not null
           and p.available_to is not null
           and p.available_from <= ${start}::timestamptz
           and p.available_to >= ${end}::timestamptz
+          and not exists (
+            select 1 from intents w
+            where w.user_id = u.id and w.status = 'waiting' and w.category = ${rally.category}
+              and (w.expires_at is null or w.expires_at > now())
+          )
         )
       )
       and (${offeredUserId ? sql`true` : sql`not exists (
@@ -141,24 +143,11 @@ export async function findRalliesForUser(db: Db, userId: string, limit: number, 
   const rows = await db.execute(sql`
     select r.id, r.window_start as start
     from rallies r
-    join lateral (
-      select interests from profile_versions v
-      where v.user_id = ${userId}
-      order by v.version desc
-      limit 1
-    ) p on true
     where ${after ? sql`(r.window_start, r.id) > (${after.start.toISOString()}::timestamptz, ${after.id}::uuid)` : sql`true`}
       and r.status in ('open', 'waiting', 'proposed')
       and r.open_seats > 0
       and r.expires_at > now()
       and r.creator_id <> ${userId}
-      and (
-        r.category = any(p.interests)
-        or exists (
-          select 1 from intents w
-          where w.user_id = ${userId} and w.status = 'waiting' and w.category = r.category
-        )
-      )
     order by r.window_start, r.id
     limit ${limit}
   `);

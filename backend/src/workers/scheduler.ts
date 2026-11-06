@@ -16,6 +16,27 @@ import { recoverStaleEvents } from './outbox.js';
 
 const BATCH = 100;
 
+/** Queue each active Rally once per two-minute window, across all service instances. */
+export async function queueMatchingSweep(deps: Deps): Promise<number> {
+  const queued = await deps.db.execute(sql`
+    insert into outbox_events (type, dedupe_key, payload)
+    select 'match.reevaluate',
+      'match.sweep:' || r.id::text || ':' || floor(extract(epoch from now()) / 120)::text,
+      jsonb_build_object('rallyId', r.id)
+    from rallies r
+    where r.status in ('open', 'waiting', 'proposed')
+      and r.published_at is not null and r.open_seats > 0 and r.expires_at > now()
+      and not exists (
+        select 1 from outbox_events job
+        where job.type in ('rally.published', 'match.reevaluate')
+          and job.status in ('pending', 'processing') and job.payload->>'rallyId' = r.id::text
+      )
+    on conflict do nothing
+    returning id
+  `);
+  return queued.length;
+}
+
 export async function expireOffers(deps: Deps): Promise<number> {
   const due = await deps.db
     .selectDistinct({ rallyId: offers.rallyId })
