@@ -8,7 +8,7 @@ const KEYWORDS: readonly [Category, RegExp][] = [
   ['build', /\b(build|hack|code|coding|debug|pitch|demo|review)\b/i],
   ['explore', /\b(explore|walk|tour|sightsee|market|wander)\b/i],
   ['networking', /\b(network|networking|meet people|founders|intro)\b/i],
-  ['wellness', /\b(wellness|yoga|meditation|stretching)\b/i],
+  ['wellness', /\b(wellness|yoga|meditation|stretching|jog|joggin|jogging|run|running)\b/i],
   ['support', /\bsupport\b/i],
 ];
 

@@ -31,7 +31,10 @@ export const intentSchema = z.strictObject({
 }).refine((v) => v.groupMin <= v.groupMax);
 export const parseResult = z.discriminatedUnion('status', [
   z.strictObject({ schemaVersion: z.literal(1), status: z.literal('ready'), intent: intentSchema }),
-  z.strictObject({ schemaVersion: z.literal(1), status: z.literal('needs_answers'), questionIds: ids.min(1).max(3) }),
+  z.strictObject({
+    schemaVersion: z.literal(1), status: z.literal('needs_answers'), questionIds: ids.min(1).max(3),
+    questionTexts: z.record(id, z.string().trim().min(1).max(200)).optional(),
+  }),
 ]);
 const person = z.strictObject({
   preferences: preferenceSchema.optional(),

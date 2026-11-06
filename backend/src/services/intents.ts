@@ -104,7 +104,7 @@ async function runParse(deps: Deps, call: ParseCall) {
       status: 'needs_answers' as const,
       source: 'ai' as const,
       questions: questions.filter((q) => result.questionIds.includes(q.id)).map(
-        ({ id, text, options }) => ({ id, text, options }),
+        ({ id, text, options }) => ({ id, text: redactPii(result.questionTexts?.[id] ?? text), options }),
       ),
       // Nothing is confirmed yet, so the model's silence is not filled in with a guess.
       fields: { goal: fallback.goal },

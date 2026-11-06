@@ -37,3 +37,7 @@ it('keeps unknown plans usable and never mutates the shared catalog', () => {
   activityQuestions('gaming', 'Play chess');
   expect(activityCatalog).toEqual(before);
 });
+
+it.each(['Need someone to go joggin with?', 'Jogging tomorrow', 'Go for a run', 'Running with a buddy'])('recognizes wellness intent: %s', (text) => {
+  expect(parseIntentFallback(text, new Date()).category).toBe('wellness');
+});
