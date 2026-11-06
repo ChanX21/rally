@@ -638,7 +638,8 @@ The completed member roster is frozen under the Rally lock. New joins, cancellat
 stop at the meeting cutoff. Completion does not set arrival or physical-presence timestamps.
 
 A completed group member can submit 1–3 JPEG/PNG photos and an optional note within 48 hours. The
-endpoint requires a stable idempotency key, validates actual bytes, rejects animation/oversized
+endpoint limits submissions to six per authenticated user per hour (shared venue IPs do not share
+the allowance), requires a stable idempotency key, validates actual bytes, rejects animation/oversized
 images, limits decoding to 20 megapixels, strips metadata and resizes to 1024 pixels. At most three
 submissions per Rally, two inference attempts per submission. Duplicate request keys never bill twice.
 Images are private, RLS-protected JSON data in `rally_proofs`, bounded to at most 1 MB normalized per

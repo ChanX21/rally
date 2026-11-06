@@ -46,7 +46,7 @@ export const rallyRoutes: FastifyPluginAsyncZod = async (app) => {
   app.get('/rallies/:id/proof', { ...auth, schema: { ...secured, params: idParams, response: { 200: successSchema(proofViewSchema) } } },
     async (request) => ok(await getProof(deps, requireUser(request).id, request.params.id)));
   app.post('/rallies/:id/proof', { ...auth, bodyLimit: 22 * 1024 * 1024,
-    config: { rateLimit: { max: 6, timeWindow: '1 hour' } },
+    config: { rateLimit: { max: 6, timeWindow: '1 hour', hook: 'preHandler', keyGenerator: (request) => requireUser(request).id } },
     schema: { ...secured, params: idParams, headers: idempotencyHeader, body: proofBody, response: { 200: successSchema(proofViewSchema) } } },
     async (request) => {
       const key = request.headers['idempotency-key'];

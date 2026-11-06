@@ -203,3 +203,12 @@ it('excludes a withdrawn person when a replacement group completes', async () =>
   expect((await group.member.get('/me/rewards')).balance).toBe(0);
   expect((await group.member.request('GET', `/rallies/${group.rally.id}/proof`)).statusCode).toBe(404);
 });
+
+it('rate-limits the authenticated user without blocking other people on the same venue IP', async () => {
+  const { host, rally } = await completed();
+  const stranger = await h.onboarded('did:proof:rate-limit');
+  const body = { images: [await photo()] };
+  for (let i = 0; i < 6; i++) expect((await stranger.request('POST', `/rallies/${rally.id}/proof`, body, headers(`outsider-${i}`))).statusCode).toBe(404);
+  expect((await stranger.request('POST', `/rallies/${rally.id}/proof`, body, headers('outsider-seven'))).statusCode).toBe(429);
+  expect((await host.request('POST', `/rallies/${rally.id}/proof`, body, headers())).statusCode).toBe(200);
+});
