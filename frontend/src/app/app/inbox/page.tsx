@@ -79,7 +79,7 @@ export default function InboxScreen() {
   return (
     <div
       className={`${inter.variable} ${serif.variable} ${mono.variable}`}
-      style={{ background: "#FFF5EF", minHeight: "100vh", display: "flex", justifyContent: "center", padding: "24px 0" }}
+      style={{ background: "#FFF5EF", height: "100dvh", display: "flex", justifyContent: "center", padding: "24px 0" }}
     >
       <style>{`
         a { color: #1C1917; }

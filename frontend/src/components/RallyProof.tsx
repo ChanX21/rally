@@ -63,7 +63,7 @@ export function RallyProof({ rallyId }: { rallyId: string }) {
         <label style={{ display: "grid", gap: 8, fontSize: 14 }}>A short note (optional)
           <textarea value={note} maxLength={300} rows={2} disabled={busy} onChange={(e) => { setNote(e.target.value); requestKey.current = null; }} style={{ font: "inherit", border: "1px solid #D9C8BE", borderRadius: 8, padding: 8 }} />
         </label>
-        <p style={{ margin: 0, fontSize: 12, color: "#766B65", lineHeight: 1.5 }}>Only share photos you have permission to submit. Photos are privately processed with 0G and deleted after 30 days. They are never posted publicly or on-chain.</p>
+        <p style={{ margin: 0, fontSize: 12, color: "#766B65", lineHeight: 1.5 }}>Only share photos you have permission to submit. Photos are privately processed with Rally intelligence and deleted after 30 days. They are never posted publicly or on-chain.</p>
         <button className="btn btn-p" type="button" disabled={busy || !files.length} onClick={() => void submit()}>{busy ? "Sending photos…" : "Submit group photos"}</button>
       </>}
       {!proof.canSubmit && !["processing", "accepted"].includes(proof.state) && <p style={{ margin: 0, fontSize: 13 }}>No further photo submissions are available for this Rally right now. Your Rally remains completed.</p>}

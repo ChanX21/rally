@@ -100,7 +100,7 @@ export default function MatchFoundScreen() {
   return (
     <div
       className={`${inter.variable} ${serif.variable} ${mono.variable}`}
-      style={{ background: "#FFF5EF", minHeight: "100vh", display: "flex", justifyContent: "center", padding: "24px 0" }}
+      style={{ background: "#FFF5EF", height: "100dvh", display: "flex", justifyContent: "center", padding: "24px 0" }}
     >
       <style>{`
         a { color: #1C1917; }
@@ -232,7 +232,7 @@ export default function MatchFoundScreen() {
                 <div className="mono">Why you fit</div>
                 <p style={{ margin: "12px 0 0", fontSize: "15px", lineHeight: 1.4 }}>{match.reason}</p>
                 <div className="mono" style={{ marginTop: "12px" }}>
-                  {match.source === "ai" ? "Composed by 0G · checked by Rally" : "Matched by Rally's rules"}
+                  {match.source === "ai" ? "Composed by Rally intelligence · checked by Rally" : "Matched by Rally's rules"}
                 </div>
               </div>
 

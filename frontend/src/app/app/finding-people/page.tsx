@@ -114,7 +114,7 @@ export default function FindingPeopleScreen() {
   return (
     <div
       className={`${inter.variable} ${serif.variable} ${mono.variable}`}
-      style={{ background: "#FFF5EF", minHeight: "100vh", display: "flex", justifyContent: "center", padding: "24px 0" }}
+      style={{ background: "#FFF5EF", height: "100dvh", display: "flex", justifyContent: "center", padding: "24px 0" }}
     >
       <style>{`
         a { color: #1C1917; }
@@ -140,7 +140,9 @@ export default function FindingPeopleScreen() {
         @keyframes spin { to { transform: rotate(360deg); } }
         .orbit { animation: orbit 6s linear infinite; transform-origin: 50% 50%; }
         @keyframes orbit { to { transform: rotate(360deg); } }
-        @media (prefers-reduced-motion: reduce) { .breathe, .spin, .orbit { animation: none; } }
+        @keyframes stepIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .step-anim { animation: stepIn .5s cubic-bezier(.22,1,.36,1) both; }
+        @media (prefers-reduced-motion: reduce) { .breathe, .spin, .orbit, .step-anim { animation: none; } }
       `}</style>
 
       <div
@@ -209,7 +211,14 @@ export default function FindingPeopleScreen() {
                 const done = i < active;
                 const isActive = i === active;
                 return (
-                  <li key={label} className="step" style={isActive ? { fontWeight: 600 } : !done ? { color: "#766B65" } : undefined}>
+                  <li
+                    key={label}
+                    className="step step-anim"
+                    style={{
+                      animationDelay: `${i * 130}ms`,
+                      ...(isActive ? { fontWeight: 600 } : !done ? { color: "#766B65" } : {}),
+                    }}
+                  >
                     <span className="mark">
                       {done && (
                         <span style={{ width: "24px", height: "24px", borderRadius: "50%", background: "#1C1917", display: "flex", alignItems: "center", justifyContent: "center" }}>

@@ -1,11 +1,9 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback } from "react";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import RallyOrb from "@/components/RallyOrb";
 import { ACTIVE_RALLY_STATUSES, rallyPath } from "@/lib/format";
-import { afterSignInPath, startPlan } from "@/lib/plan";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
 
@@ -17,12 +15,8 @@ const SANS = "var(--font-inter), system-ui, sans-serif";
 const SERIF = "var(--font-serif), Georgia, serif";
 const MONO = "var(--font-mono), monospace";
 
-const suggestions = ["Coffee after the 0G workshop", "Someone to hear my pitch", "Snack run around 5"];
-
 export default function HomeScreen() {
   const { status, me, api } = useSession();
-  const router = useRouter();
-  const [text, setText] = useState("");
   const signedIn = status === "ready" && me?.user.onboarded === true;
 
   // Unread count, plus the one thing most worth coming back to: a match waiting
@@ -50,17 +44,10 @@ export default function HomeScreen() {
   const { data } = usePolled(signedIn ? load : null, 15_000);
   const unread = data?.unread ?? 0;
 
-  const submit = (plan: string) => {
-    const trimmed = plan.trim();
-    if (!trimmed) return;
-    startPlan(trimmed);
-    router.push(status === "ready" && me ? afterSignInPath(me.user.onboarded) : "/app/connect-wallet");
-  };
-
   return (
     <div
       className={`${inter.variable} ${serif.variable} ${mono.variable}`}
-      style={{ background: "#FFF5EF", minHeight: "100vh", display: "flex", justifyContent: "center", padding: "24px 0" }}
+      style={{ background: "#FFF5EF", height: "100dvh", display: "flex", justifyContent: "center", padding: "24px 0" }}
     >
       <style>{`
         a { color: #1C1917; }
@@ -71,15 +58,8 @@ export default function HomeScreen() {
         .mono { font-family: ${MONO}; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: #766B65; }
         .hero { margin: 0; font-family: ${SERIF}; font-weight: 400; font-size: 36px; line-height: 1.05; letter-spacing: -.015em; }
         .em { font-style: italic; color: #315FE8; }
-        .sug { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 52px; padding: 0; border: 0; border-bottom: 1px solid #D9C8BE; background: transparent; font-family: inherit; font-size: 15px; text-align: left; color: #1C1917; cursor: pointer; }
-        .sug:hover { color: #315FE8; }
-        .sug svg { flex-shrink: 0; }
-        .inp { display: flex; align-items: center; gap: 8px; height: 60px; padding: 0 8px 0 20px; border-radius: 999px; border: 1px solid #1C1917; background: #FFFAF7; box-sizing: border-box; }
-        .inp:focus-within { border: 1.5px solid #315FE8; }
-        .inp input::placeholder { color: #766B65; }
-        .send { width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 50%; background: #315FE8; color: #FFF5EF; cursor: pointer; transition: transform .12s ease-out; }
-        .send:hover { color: #FFF5EF; }
-        .send:active { transform: scale(.94); }
+        .btn-browse { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 56px; border-radius: 999px; border: 1px solid #1C1917; background: #FFFAF7; font-family: inherit; font-size: 16px; font-weight: 600; text-decoration: none; color: #1C1917; box-sizing: border-box; transition: background .12s ease-out, color .12s ease-out; }
+        .btn-browse:hover { background: #1C1917; color: #FFF5EF; }
         .breathe { animation: breathe 3.2s ease-in-out infinite; }
         @keyframes breathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.035); } }
         @media (prefers-reduced-motion: reduce) { .breathe { animation: none; } }
@@ -133,10 +113,10 @@ export default function HomeScreen() {
             <RallyOrb variant="active" size={184} />
           </div>
           <h1 className="hero" style={{ marginTop: "32px" }}>
-            Let&apos;s rally <span className="em">for today</span>
+            Rally is <span className="em">looking</span>
           </h1>
           <p style={{ margin: "12px 0 0", maxWidth: "300px", fontSize: "15px", lineHeight: 1.5, color: "#766B65" }}>
-            Say what you want to do and when you&apos;re free. Rally finds the people.
+            We match you into plans nearby that fit. When one does, it lands in your inbox — you always choose.
           </p>
         </div>
 
@@ -157,44 +137,17 @@ export default function HomeScreen() {
               </svg>
             </a>
           )}
-          <div>
-            <div className="mono">Try one</div>
-            <div style={{ marginTop: "4px" }}>
-              {suggestions.map((s) => (
-                <button key={s} className="sug" type="button" onClick={() => submit(s)}>
-                  {s}
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M7 17L17 7M9 7h8v8" />
-                  </svg>
-                </button>
-              ))}
-            </div>
-          </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              submit(text);
-            }}
-          >
-            <label className="inp">
-              <span style={{ position: "absolute", width: "1px", height: "1px", overflow: "hidden", clip: "rect(0 0 0 0)" }}>
-                What do you want to do?
-              </span>
-              <input
-                type="text"
-                maxLength={500}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="I'm free after 4 and want to…"
-                style={{ flex: 1, minWidth: 0, height: "44px", border: 0, outline: "none", background: "transparent", color: "#1C1917", fontFamily: "inherit", fontSize: "16px" }}
-              />
-              <button className="send" type="submit" aria-label="Send">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 19V5M6 11l6-6 6 6" />
-                </svg>
-              </button>
-            </label>
-          </form>
+          {!data?.banner && (
+            <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.5, color: "#766B65", textAlign: "center" }}>
+              No match yet. We only look again when someone new joins or plans change — we&apos;ll notify you.
+            </p>
+          )}
+          <a className="btn-browse" href="/app/discover">
+            Browse live plans
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </a>
         </div>
       </div>
     </div>
