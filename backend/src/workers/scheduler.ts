@@ -5,8 +5,11 @@ import { EXPIRABLE } from '../domain/rally-state.js';
 import type { Deps } from '../lib/deps.js';
 import { lockRally } from '../repositories/rallies.js';
 import { reconcileArkiv } from '../services/arkiv-sync.js';
+import { queueChainWork } from '../services/chain-sync.js';
+import { expireDisputes } from '../services/disputes.js';
 import { expireOffersForRally } from '../services/matches.js';
 import { closeRally } from '../services/rally-lifecycle.js';
+import { applyDuePenalties, penaliseAbsentHost } from '../services/rewards.js';
 import { recoverStaleEvents } from './outbox.js';
 
 const BATCH = 100;
@@ -40,6 +43,7 @@ export async function expireRallies(deps: Deps): Promise<number> {
       const rally = await lockRally(tx, id);
       // Checked again under the lock: the rally may have changed since the query above.
       if (rally && EXPIRABLE.includes(rally.status) && rally.expiresAt <= new Date()) {
+        await penaliseAbsentHost(tx, rally);
         await closeRally(tx, rally, 'expired');
         expired += 1;
       }
@@ -72,7 +76,17 @@ export async function cleanup(deps: Deps): Promise<void> {
 
 /** One job failing must not stop the others. */
 export async function runScheduledJobs(deps: Deps): Promise<void> {
-  const jobs = { recoverStaleEvents, expireOffers, expireRallies, expireIntents, reconcileArkiv, cleanup };
+  const jobs = {
+    recoverStaleEvents,
+    expireOffers,
+    expireRallies,
+    expireIntents,
+    reconcileArkiv,
+    applyDuePenalties,
+    expireDisputes,
+    queueChainWork,
+    cleanup,
+  };
   for (const [name, job] of Object.entries(jobs)) {
     try {
       const result = await job(deps);

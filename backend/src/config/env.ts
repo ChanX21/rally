@@ -88,6 +88,15 @@ const envSchema = z
     ARKIV_QUERY_PAGE_SIZE: z.coerce.number().int().min(1).max(100).default(40),
     ARKIV_QUERY_TIMEOUT_MS: z.coerce.number().int().min(500).default(5000),
 
+    ARC_LEDGER_ENABLED: booleanString.default(false),
+    ARC_RPC_URL: z.url().optional(),
+    ARC_CHAIN_ID: z.coerce.number().int().positive().optional(),
+    ARC_LEDGER_ADDRESS: address.optional(),
+    ARC_TOKEN_ADDRESS: address.optional(),
+    ARC_RELAYER_PRIVATE_KEY: privateKey.optional(),
+    ARC_REF_SECRET: z.string().min(32).optional(),
+    ARC_EXPLORER_URL: z.url().default('https://testnet.arcscan.app'),
+
     REWARDS_CLAIMS_ENABLED: booleanString.default(false),
     REWARD_SIGNER_PRIVATE_KEY: privateKey.optional(),
     REWARD_CLAIM_CONTRACT: address.optional(),
@@ -119,6 +128,24 @@ const envSchema = z
         path: ['PRIVY_APP_SECRET'],
         message: 'PRIVY_APP_ID and PRIVY_APP_SECRET must be set together',
       });
+    }
+    if (env.ARC_LEDGER_ENABLED) {
+      for (const name of [
+        'ARC_RPC_URL',
+        'ARC_CHAIN_ID',
+        'ARC_LEDGER_ADDRESS',
+        'ARC_TOKEN_ADDRESS',
+        'ARC_RELAYER_PRIVATE_KEY',
+        'ARC_REF_SECRET',
+      ] as const) {
+        if (env[name] === undefined) {
+          ctx.addIssue({
+            code: 'custom',
+            path: [name],
+            message: 'is required when ARC_LEDGER_ENABLED=true',
+          });
+        }
+      }
     }
     if (env.REWARDS_CLAIMS_ENABLED) {
       for (const name of [

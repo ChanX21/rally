@@ -1,6 +1,7 @@
 import fp from 'fastify-plugin';
 
 import type { Env } from '../config/env.js';
+import { createArcGateway } from '../integrations/arc/index.js';
 import { createArkivGateway } from '../integrations/arkiv/index.js';
 import { createPrivyVerifier } from '../integrations/privy/index.js';
 import { createZeroG } from '../integrations/zero-g.js';
@@ -33,6 +34,19 @@ export function createIntegrations(env: Env): Integrations {
       schemaName: env.ARKIV_SCHEMA_NAME,
       queryTimeoutMs: env.ARKIV_QUERY_TIMEOUT_MS,
     }),
+    arc:
+      env.ARC_LEDGER_ENABLED &&
+      env.ARC_RPC_URL &&
+      env.ARC_CHAIN_ID &&
+      env.ARC_LEDGER_ADDRESS &&
+      env.ARC_RELAYER_PRIVATE_KEY
+        ? createArcGateway({
+            rpcUrl: env.ARC_RPC_URL,
+            chainId: env.ARC_CHAIN_ID,
+            ledgerAddress: env.ARC_LEDGER_ADDRESS,
+            privateKey: env.ARC_RELAYER_PRIVATE_KEY,
+          })
+        : null,
   };
 }
 

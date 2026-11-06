@@ -218,6 +218,7 @@ export type Rally = {
   vibe: string | null;
   windowStart: string;
   windowEnd: string;
+  meetAt: string;
   durationMin: number;
   zone: string;
   groupMin: number;
@@ -259,6 +260,7 @@ export type UpdateRallyInput = {
   capacity?: number;
   meetingPoint?: string;
   meetingBrief?: string;
+  meetAt?: string;
 };
 
 export type Member = {
@@ -266,6 +268,7 @@ export type Member = {
   displayName: string | null;
   role: string;
   checkedIn: boolean;
+  arrived: boolean;
 };
 
 export type Room = {
@@ -274,6 +277,7 @@ export type Room = {
   goal: string;
   windowStart: string;
   windowEnd: string;
+  meetAt: string;
   zone: string;
   meetingPoint: string | null;
   meetingBrief: string | null;
@@ -359,17 +363,61 @@ export type Notifications = {
   unreadCount: number;
 };
 
+export type RewardEntry = {
+  id: string;
+  rallyId: string | null;
+  reason: string;
+  action: string | null;
+  points: number;
+  policyVersion: number;
+  state: "pending" | "held" | "applied" | "cancelled";
+  appliesAt: string | null;
+  chainTxHash: string | null;
+  createdAt: string;
+};
+
 export type Rewards = {
   balance: number;
-  entries: {
-    id: string;
-    rallyId: string | null;
-    reason: string;
-    points: number;
-    policyVersion: number;
-    createdAt: string;
-  }[];
+  net: number;
+  tier: "Rebuilding" | "New" | "Reliable" | "Trusted";
+  // Null while on-chain records are switched off.
+  chain: {
+    chainId: number;
+    rpcUrl: string | null;
+    tokenAddress: string;
+    explorerUrl: string;
+    address: string | null;
+  } | null;
+  entries: RewardEntry[];
 };
+
+export type DisputeCategory = "no_show_appeal" | "misconduct" | "false_checkin" | "other";
+export type DisputeStatus = "open" | "upheld" | "dismissed" | "false";
+
+export type RaiseDisputeInput = {
+  category: DisputeCategory;
+  subjectId?: string;
+  description?: string;
+};
+
+export type AdminDispute = {
+  id: string;
+  rallyId: string;
+  rallyGoal: string;
+  category: DisputeCategory;
+  description: string;
+  status: DisputeStatus;
+  raiser: { id: string; displayName: string | null; wallet: string | null };
+  subject: { id: string; displayName: string | null; wallet: string | null };
+  resolvedBy: string | null;
+  resolutionNote: string | null;
+  resolvedAt: string | null;
+  chainStatus: "pending" | "queued" | "synced" | "failed";
+  chainTxHash: string | null;
+  createdAt: string;
+};
+
+export type RewardPolicy = { version: number; amounts: Record<string, number> };
 
 export type Page<T> = { items: T[]; nextCursor: string | null };
 
@@ -467,6 +515,10 @@ export function createApiClient(getToken: TokenSource) {
     cancelRally: (id: string) => call<Rally>(`/rallies/${id}/cancel`, { method: "POST" }),
     withdrawFromRally: (id: string) => call<Rally>(`/rallies/${id}/withdraw`, { method: "POST" }),
     getRoom: (id: string) => call<Room>(`/rallies/${id}/room`),
+    markArrived: (id: string) =>
+      call<{ arrivedAt: string; meetAt: string }>(`/rallies/${id}/arrive`, { method: "POST" }),
+    raiseDispute: (id: string, input: RaiseDisputeInput) =>
+      call<{ id: string; status: string }>(`/rallies/${id}/disputes`, { method: "POST", body: input }),
     checkIn: (id: string, presentUserIds: string[]) =>
       call<Rally>(`/rallies/${id}/check-in`, { method: "POST", body: { presentUserIds } }),
     submitFeedback: (id: string, input: FeedbackInput) =>

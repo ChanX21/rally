@@ -440,9 +440,12 @@ lost. Clients poll `GET /notifications`. A unique `dedupe_key` prevents duplicat
 
 ## Smart contract responsibilities
 
-Rally's MVP needs no contract. `contracts/` holds only the optional `RewardClaim` the playbook
-specifies: funded pool, per-user nonce, expiry, authorized signer, chain ID and replay protection. The
-backend signs vouchers only. A voucher is eligibility evidence, not proof of physical presence.
+Core Rally needs no contract. `RallyLedger` and `RallyToken` on Arc Testnet hold a public copy of RALLY
+points and dispute rulings. Postgres stays the source of truth: a scheduler job queues applied entries,
+rulings and policies, and the outbox worker writes them through `integrations/arc`. Entries wait while
+`ARC_LEDGER_ENABLED=false`, then backfill. Nothing on-chain affects matching. See `contracts/README.md`.
+
+The older `RewardClaim` is not deployed, and vouchers stay off behind `REWARDS_CLAIMS_ENABLED`.
 
 ## Errors and retries
 
@@ -539,6 +542,10 @@ Blank counts as unset. `.env.example` has a commented copy.
 | `ARKIV_APP`, `ARKIV_EVENT`, `ARKIV_SCHEMA_NAME` | Rally values | Namespacing |
 | `ARKIV_QUERY_PAGE_SIZE` | `40` | Up to 100 |
 | `ARKIV_QUERY_TIMEOUT_MS` | `5000` | Then preview shows a notice |
+| `ARC_LEDGER_ENABLED` | `false` | Writes RALLY history to Arc Testnet |
+| `ARC_RPC_URL`, `ARC_CHAIN_ID`, `ARC_LEDGER_ADDRESS`, `ARC_TOKEN_ADDRESS` | none | Required when enabled |
+| `ARC_RELAYER_PRIVATE_KEY`, `ARC_REF_SECRET` | none | **Secret**. Required when enabled |
+| `ARC_EXPLORER_URL` | `https://testnet.arcscan.app` | Profile link |
 | `REWARDS_CLAIMS_ENABLED` | `false` | Optional voucher signing |
 | `REWARD_SIGNER_PRIVATE_KEY` | none | **Secret** |
 | `REWARD_CLAIM_CONTRACT`, `REWARD_CHAIN_ID`, `REWARD_TOKEN_UNITS_PER_POINT` | none | Required when enabled |

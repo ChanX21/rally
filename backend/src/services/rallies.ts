@@ -12,6 +12,7 @@ import {
   type Role,
   type Vibe,
 } from '../domain/catalog.js';
+import { ARRIVE_OPENS_BEFORE_MIN, meetTime } from '../domain/reward-policy.js';
 import {
   CANCELLABLE,
   EDITABLE_SCHEDULE,
@@ -43,6 +44,7 @@ import {
   settleRally,
   transition,
 } from './rally-lifecycle.js';
+import { penaliseLateCancel, rewardCheckIn } from './rewards.js';
 
 /** Public-to-members shape. The exact meeting point is only available through the room. */
 export function rallyView(rally: Rally) {
@@ -58,6 +60,7 @@ export function rallyView(rally: Rally) {
     vibe: rally.vibe,
     windowStart: rally.windowStart.toISOString(),
     windowEnd: rally.windowEnd.toISOString(),
+    meetAt: meetTime(rally).toISOString(),
     durationMin: rally.durationMin,
     zone: rally.zone,
     groupMin: rally.groupMin,
@@ -326,6 +329,7 @@ export interface UpdateRallyInput {
   groupMin?: number | undefined;
   capacity?: number | undefined;
   meetingPoint?: string | undefined;
+  meetAt?: Date | undefined;
   meetingBrief?: string | undefined;
 }
 
@@ -407,6 +411,16 @@ export async function updateRally(
     }
     if (input.zone !== undefined) assertZone(deps, input.zone);
 
+    if (input.meetAt !== undefined) {
+      // Fixed once the group forms, so a host cannot move the time to suit their own arrival.
+      if (rally.status === 'formed') {
+        throw new AppError(409, 'SCHEDULE_LOCKED', 'The meeting time cannot change once the group has formed');
+      }
+      if (input.meetAt < schedule.windowStart || input.meetAt > schedule.windowEnd) {
+        throw new AppError(422, 'INVALID_MEET_TIME', 'The meeting time must fall inside the time window');
+      }
+    }
+
     const capacity = input.capacity ?? rally.capacity;
     const groupMin = input.groupMin ?? rally.groupMin;
     if (groupMin > capacity) {
@@ -427,6 +441,7 @@ export async function updateRally(
         zone: input.zone ?? rally.zone,
         meetingPoint: input.meetingPoint ?? rally.meetingPoint,
         meetingBrief: input.meetingBrief ?? rally.meetingBrief,
+        meetAt: input.meetAt ?? rally.meetAt,
         expiresAt: input.windowEnd ?? rally.expiresAt,
         noFitShortlistHash: null,
         version: rally.version + 1,
@@ -450,6 +465,7 @@ export async function cancelRally(deps: Deps, userId: string, rallyId: string) {
     if (!CANCELLABLE.includes(rally.status)) {
       throw new AppError(409, 'INVALID_STATE', `A ${rally.status} rally cannot be cancelled`);
     }
+    await penaliseLateCancel(tx, rally, userId);
     return rallyView(await closeRally(tx, rally, 'cancelled'));
   });
 }
@@ -470,6 +486,7 @@ export async function withdrawFromRally(deps: Deps, userId: string, rallyId: str
     // A retry after a successful withdrawal finds no claim and is simply a no-op.
     if (!claim) return rallyView(rally);
 
+    await penaliseLateCancel(tx, rally, userId);
     await tx
       .update(claims)
       .set({ status: 'withdrawn', releasedAt: new Date() })
@@ -514,6 +531,7 @@ export async function listParticipants(deps: Deps, userId: string, rallyId: stri
     displayName: member.displayName,
     role: member.role,
     checkedIn: member.checkedInAt !== null,
+    arrived: member.arrivedAt !== null,
   }));
 }
 
@@ -530,11 +548,38 @@ export async function getRoom(deps: Deps, userId: string, rallyId: string) {
     goal: rally.goal,
     windowStart: rally.windowStart.toISOString(),
     windowEnd: rally.windowEnd.toISOString(),
+    meetAt: meetTime(rally).toISOString(),
     zone: rally.zone,
     meetingPoint: rally.meetingPoint,
     meetingBrief: rally.meetingBrief,
     members,
   };
+}
+
+/** A member's own "I'm here". Safe to repeat: the first tap is the one that counts. */
+export async function markArrived(deps: Deps, userId: string, rallyId: string) {
+  return deps.db.transaction(async (tx) => {
+    const rally = await lockRally(tx, rallyId);
+    if (!rally) throw notFound('Rally');
+    const claim = await activeClaim(tx, rallyId, userId);
+    if (!claim) throw notFound('Rally');
+
+    const view = (arrivedAt: Date) => ({
+      arrivedAt: arrivedAt.toISOString(),
+      meetAt: meetTime(rally).toISOString(),
+    });
+    if (claim.arrivedAt) return view(claim.arrivedAt);
+    if (rally.status !== 'formed') {
+      throw new AppError(409, 'INVALID_STATE', 'You can only tap in while the group is meeting');
+    }
+    const now = new Date();
+    const opens = meetTime(rally).getTime() - ARRIVE_OPENS_BEFORE_MIN * 60_000;
+    if (now.getTime() < opens) {
+      throw new AppError(409, 'TOO_EARLY', `This opens ${ARRIVE_OPENS_BEFORE_MIN} minutes before the meeting time`);
+    }
+    await tx.update(claims).set({ arrivedAt: now }).where(eq(claims.id, claim.id));
+    return view(now);
+  });
 }
 
 /** Host-attested presence. The playbook is explicit that this proves nothing further. */
@@ -576,6 +621,7 @@ export async function checkIn(
         .where(eq(claims.id, member.claimId));
     }
 
+    await rewardCheckIn(tx, rally, members, present);
     const met = await transition(tx, rally, 'met', { metAt: now });
     await notify(
       tx,

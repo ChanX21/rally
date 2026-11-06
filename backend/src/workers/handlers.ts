@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Deps } from '../lib/deps.js';
 import type { OutboxEventType } from '../lib/outbox.js';
 import { syncRallyListing } from '../services/arkiv-sync.js';
+import { syncDispute, syncPolicy, syncRewardEntry } from '../services/chain-sync.js';
 import { applyVerifiedVouch } from '../services/feedback.js';
 import { evaluateForUser, evaluateRally } from '../services/matching.js';
 
@@ -21,6 +22,9 @@ const rallyPayload = z.object({ rallyId: z.uuid() });
 const userPayload = z.object({ userId: z.uuid() });
 const reevaluatePayload = z.union([rallyPayload, userPayload]);
 const vouchPayload = z.object({ feedbackId: z.uuid() });
+const entryPayload = z.object({ entryId: z.uuid() });
+const policyPayload = z.object({ version: z.number().int().positive() });
+const disputePayload = z.object({ disputeId: z.uuid() });
 
 export type OutboxHandler = (deps: Deps, payload: unknown) => Promise<unknown>;
 
@@ -40,4 +44,10 @@ export const handlers: Record<OutboxEventType, OutboxHandler> = {
     syncRallyListing(deps, parsePayload(rallyPayload, payload).rallyId),
   'vouch.verified': (deps, payload) =>
     applyVerifiedVouch(deps, parsePayload(vouchPayload, payload).feedbackId),
+  'reward.chain_sync': (deps, payload) =>
+    syncRewardEntry(deps, parsePayload(entryPayload, payload).entryId),
+  'reward.policy_sync': (deps, payload) =>
+    syncPolicy(deps, parsePayload(policyPayload, payload).version),
+  'dispute.chain_sync': (deps, payload) =>
+    syncDispute(deps, parsePayload(disputePayload, payload).disputeId),
 };
