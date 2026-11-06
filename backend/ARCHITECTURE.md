@@ -768,11 +768,11 @@ this expendable cache, after which a visible Rally may generate a new line. Exis
 are queued on preview cache misses. No schema migration or additional credentials are required.
 
 `GET /activities/preview` never waits for inference. It returns the current cached `dialogue`, or
-null while generation is pending or failed. Failures use existing outbox retries; core jobs take priority over cosmetic dialogue jobs. No curated joke
+null while generation is pending or failed. Jobs killed by an older deployment with no dialogue handler are requeued on preview. Other failures use existing outbox retries; core jobs take priority over cosmetic dialogue jobs. No curated joke
 is substituted. Old title results cannot appear under an edited title's cache key. Private,
 sensitive, draft, expired and closed Rallies are excluded from public generation/preview as relevant.
 
-Every displayed dot represents a real open Rally and uses that same Rally's generated dialogue.
+Bubbles rotate through available dialogues without repeating a dot before the others speak; unchanged preview polling preserves the rotation. Every displayed dot represents a real open Rally and uses that same Rally's generated dialogue.
 Dots awaiting generation remain visible without speaking. Discovery refreshes its loaded pages
 at 15-second intervals while visible, so completed lines appear without a reload. Up to 26 loaded
 Rallies are shown; positions remain illustrative. Bubbles wrap and stay within the mobile map.

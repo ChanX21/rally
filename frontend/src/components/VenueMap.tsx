@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 // A decorative, non-identifying map of the venue: labelled zones with anonymous
 // dots that drift. Each dot represents a real open Rally; positions are illustrative.
-// Every few seconds a random Rally speaks through its own dot.
+// Every few seconds the next Rally speaks through its own dot.
 
 type Zone = { x: number; y: number; w: number; h: number; label: string; fill: string };
 
@@ -46,13 +46,17 @@ export default function VenueMap({ rallies }: { rallies: readonly MapRally[] }) 
   const [bubble, setBubble] = useState<Bubble | null>(null);
   const activeBubble = bubble && dots.some((dot) => dot.rally.opaqueId === bubble.rallyId && dot.rally.dialogue === bubble.text) ? bubble : null;
 
+  // Keep the rotation running when polling returns the same Rallies.
+  const speakers = JSON.stringify(dots.filter((dot) => dot.rally.dialogue));
   useEffect(() => {
-    const talkingDots = dots.filter((dot) => dot.rally.dialogue);
+    const talkingDots: typeof dots = JSON.parse(speakers);
     if (!talkingDots.length) return;
     let id = 0;
+    let next = Math.floor(Math.random() * talkingDots.length);
     let hide: ReturnType<typeof setTimeout>;
     const pop = () => {
-      const { rally, x, y } = talkingDots[Math.floor(Math.random() * talkingDots.length)];
+      const { rally, x, y } = talkingDots[next];
+      next = (next + 1) % talkingDots.length;
       setBubble({ id: id++, rallyId: rally.opaqueId, x, y, text: rally.dialogue! });
       hide = setTimeout(() => setBubble(null), 2600);
     };
@@ -62,7 +66,7 @@ export default function VenueMap({ rallies }: { rallies: readonly MapRally[] }) 
       clearInterval(timer);
       clearTimeout(hide);
     };
-  }, [dots]);
+  }, [speakers]);
 
   // Wrap longer lines, keep the bubble inside the map, and point to its actual Rally dot.
   let bb: { cx: number; cy: number; bw: number; bh: number; tipX: number; edgeY: number; tipY: number } | null = null;

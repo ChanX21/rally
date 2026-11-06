@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { outboxEvents, rallies } from '../db/schema/index.js';
 import { isSensitive, type Category } from '../domain/catalog.js';
 import { TERMINAL } from '../domain/rally-state.js';
@@ -30,6 +30,10 @@ export async function cachedMapDialogues(db: Db, items: readonly DialogueRally[]
   if (missing.length) await db.insert(outboxEvents).values(missing.map((rally) => ({
     type: 'map.dialogue', dedupeKey: dialogueKey(rally), payload: { rallyId: rally.id, key: dialogueKey(rally) },
   }))).onConflictDoNothing();
+  // An older deployment can claim new jobs before its handler exists.
+  await db.update(outboxEvents).set({ status: 'pending', attempts: 0, nextAttemptAt: new Date(), lastError: null })
+    .where(and(inArray(outboxEvents.dedupeKey, items.map(dialogueKey)),
+      eq(outboxEvents.status, 'dead'), eq(outboxEvents.lastError, 'No handler for map.dialogue')));
   const result = new Map<string, string | null>();
   for (const rally of items) {
     const job = byKey.get(dialogueKey(rally));
