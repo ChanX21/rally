@@ -7,7 +7,9 @@ const KEYWORDS: readonly [Category, RegExp][] = [
   ['workshop', /\b(workshop|class|session|candle|learn)\b/i],
   ['build', /\b(build|hack|code|coding|debug|pitch|demo|review)\b/i],
   ['explore', /\b(explore|walk|tour|sightsee|market|wander)\b/i],
-  ['networking', /\b(network|meet people|founders|intro)\b/i],
+  ['networking', /\b(network|networking|meet people|founders|intro)\b/i],
+  ['wellness', /\b(wellness|yoga|meditation|stretching)\b/i],
+  ['support', /\bsupport\b/i],
 ];
 
 const NOW_WORDS = /\b(now|right now|asap|immediately)\b/i;

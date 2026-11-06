@@ -91,3 +91,27 @@ it('prefills the editable fallback with a relevant saved preference', async () =
   expect(result.status).toBe('needs_review');
   expect(result.intent.preferences).toEqual({ coffee_energy: 'quiet' });
 });
+
+it('shows contextual coffee questions and accepts answers through the existing flow', async () => {
+  const user = await h.onboarded('did:personal:coffee-wording', { preferences: { coffee_energy: 'quiet' } });
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'needs_answers', questionIds: ['start_time', 'duration', 'distance'] });
+  const first = await user.post('/intents/parse', { text: 'Coffee after the 0G workshop' });
+  expect(first.intent.questions.map((q: { id: string; text: string }) => [q.id, q.text])).toEqual([
+    ['start_time', 'What time does the 0G workshop finish?'],
+    ['duration', 'A quick coffee or time to sit and chat—about how many minutes?'],
+    ['distance', 'Stay at the venue or walk to a nearby café?'],
+  ]);
+  expect((await user.get('/intents')).items[0].questions).toEqual(first.intent.questions);
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'ready', intent: {
+    categoryId: 'coffee', goal: 'Coffee after the workshop', startAt: hoursFromNow(1),
+    durationMin: 30, groupMin: 2, groupMax: 3, zoneId: 'venue-nearby', vibe: 'quiet',
+  } });
+  const ready = await user.post(`/intents/${first.intent.id}/answers`, { answers: [
+    { questionId: 'start_time', answer: hoursFromNow(1) },
+    { questionId: 'duration', answer: '30 minutes' },
+    { questionId: 'distance', answer: 'A nearby café' },
+  ] });
+  expect(ready.status).toBe('ready');
+  expect(ready.intent.preferences).toEqual({ coffee_energy: 'quiet' });
+  expect(h.ai.callsFor('intent')).toHaveLength(2);
+});

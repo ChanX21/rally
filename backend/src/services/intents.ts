@@ -10,7 +10,7 @@ import {
   MAX_QUESTIONS, ROLES
 } from '../domain/catalog.js';
 import { parseIntentFallback, redactPii } from '../domain/intent-fallback.js';
-import { activityCatalog, preferencesFromAnswers, relevantPreferences, safePreferences, PERSONAL_QUESTIONS } from '../domain/questions.js';
+import { activityQuestions, preferencesFromAnswers, relevantPreferences, safePreferences, PERSONAL_QUESTIONS } from '../domain/questions.js';
 import { latestProfile } from '../repositories/users.js';
 import type { Deps } from '../lib/deps.js';
 import { AppError, notFound } from '../lib/errors.js';
@@ -48,6 +48,8 @@ function eventEnd(deps: Deps, now: Date): string {
  */
 async function runParse(deps: Deps, call: ParseCall) {
   const now = new Date();
+  const fallbackFields = parseIntentFallback(call.text, now);
+  const questions = activityQuestions(fallbackFields.category, call.text);
   const profile = await latestProfile(deps.db, call.userId);
   const answered = new Set(call.answers.map((answer) => answer.questionId));
   const { result, modelRunId, requestId } = await deps.formation((engine, runId) =>
@@ -55,7 +57,7 @@ async function runParse(deps: Deps, call: ParseCall) {
       requestId: runId,
       text: redactPii(call.text),
       answers: call.answers.map((answer) => ({ ...answer, answer: redactPii(answer.answer) })),
-      questions: activityCatalog.map(({ id, purpose, options }) => ({ id, purpose, options })),
+      questions: questions.map(({ id, purpose, options }) => ({ id, purpose, options })),
       profile: profile ? { interests: profile.interests,
         declaredSkills: [...new Set(profile.declaredSkills.filter((s) => ROLES.some((role) => role === s)))],
         preferences: safePreferences(profile.preferences) } : undefined,
@@ -94,7 +96,6 @@ async function runParse(deps: Deps, call: ParseCall) {
     };
   }
 
-  const fallbackFields = parseIntentFallback(call.text, now);
   const fallback = { ...fallbackFields,
     preferences: relevantPreferences(fallbackFields.category ?? '', safePreferences(profile?.preferences ?? {})) };
   if (result.status === 'needs_answers') {
@@ -102,7 +103,7 @@ async function runParse(deps: Deps, call: ParseCall) {
       ...meta,
       status: 'needs_answers' as const,
       source: 'ai' as const,
-      questions: activityCatalog.filter((q) => result.questionIds.includes(q.id)).map(
+      questions: questions.filter((q) => result.questionIds.includes(q.id)).map(
         ({ id, text, options }) => ({ id, text, options }),
       ),
       // Nothing is confirmed yet, so the model's silence is not filled in with a guess.

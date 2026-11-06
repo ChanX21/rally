@@ -204,7 +204,7 @@ Send the device's zone, from `Intl.DateTimeFormat().resolvedOptions().timeZone`.
     "groupMax": null,
     "zone": null,
     "vibe": null,
-    "questions": [{ "id": "start_time", "text": "When do you want to start?" }],
+    "questions": [{ "id": "start_time", "text": "What date and time should your food meetup start?" }],
     "expiresAt": null,
     "createdAt": "..."
   }

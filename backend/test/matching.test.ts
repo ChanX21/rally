@@ -488,7 +488,7 @@ describe('intent parsing', () => {
     const first = await user.post('/intents/parse', { text: 'snack run' });
     expect(first.status).toBe('needs_answers');
     expect(first.intent.questions).toEqual([
-      { id: 'start_time', text: 'When do you want to start?' },
+      { id: 'start_time', text: 'What date and time should your food meetup start?' },
     ]);
     expect(first.intent.category).toBeNull();
     expect(first.intent.windowStart).toBeNull();

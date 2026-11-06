@@ -76,9 +76,9 @@ export const ONBOARDING_QUESTIONS: readonly QuestionTemplate[] = [
 
 /** Asked only when the answer changes a real matching decision. */
 export const ACTIVITY_QUESTIONS: readonly QuestionTemplate[] = [
-  { id: 'start_time', text: 'When do you want to start?', purpose: 'The start date and time' },
-  { id: 'duration', text: 'How long do you expect it to take?', purpose: 'The duration in minutes' },
-  { id: 'distance', text: 'How far are you willing to go?', purpose: 'Which event zone it happens in' },
-  { id: 'group_fit', text: 'Quiet hangout or chatty group?', purpose: 'The group vibe' },
-  { id: 'group_size', text: 'How many people, including you?', purpose: 'Minimum and maximum group size' },
+  { id: 'start_time', text: 'What date and time would work for this plan?', purpose: 'The start date and time' },
+  { id: 'duration', text: 'About how many minutes would you like to set aside?', purpose: 'The duration in minutes' },
+  { id: 'distance', text: 'Stay at the venue or head somewhere nearby?', purpose: 'Which event zone it happens in' },
+  { id: 'group_fit', text: 'Would you prefer a quieter group or plenty of conversation?', purpose: 'The group vibe' },
+  { id: 'group_size', text: 'A pair or a bigger group—how many people, including you?', purpose: 'Minimum and maximum group size' },
 ];
