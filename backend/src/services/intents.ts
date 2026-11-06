@@ -10,7 +10,7 @@ import {
   MAX_QUESTIONS, ROLES
 } from '../domain/catalog.js';
 import { parseIntentFallback, redactPii } from '../domain/intent-fallback.js';
-import { activityQuestions, preferencesFromAnswers, relevantPreferences, safePreferences, PERSONAL_QUESTIONS } from '../domain/questions.js';
+import { activityQuestions, preferencesFromAnswers, relevantPreferences, safePreferences, PERSONAL_QUESTIONS, validPreferenceAnswer, mergePreferences } from '../domain/questions.js';
 import { latestProfile } from '../repositories/users.js';
 import type { Deps } from '../lib/deps.js';
 import { AppError, notFound } from '../lib/errors.js';
@@ -60,7 +60,7 @@ async function runParse(deps: Deps, call: ParseCall) {
       questions: questions.map(({ id, purpose, options }) => ({ id, purpose, options })),
       profile: profile ? { interests: profile.interests,
         declaredSkills: [...new Set(profile.declaredSkills.filter((s) => ROLES.some((role) => role === s)))],
-        preferences: safePreferences(profile.preferences) } : undefined,
+        preferences: Object.fromEntries(Object.entries(fallbackFields.category ? relevantPreferences(fallbackFields.category, profile.preferences) : safePreferences(profile.preferences)).map(([key, value]) => [key, redactPii(value)])) } : undefined,
       remainingQuestions: Math.max(0, MAX_QUESTIONS - answered.size),
       attempt: call.attempt,
       now: now.toISOString(),
@@ -82,7 +82,7 @@ async function runParse(deps: Deps, call: ParseCall) {
       source: 'ai' as const,
       questions: [],
       fields: {
-        preferences: relevantPreferences(intent.categoryId, { ...safePreferences(profile?.preferences ?? {}), ...intent.preferences, ...preferencesFromAnswers(call.answers) }),
+        preferences: relevantPreferences(intent.categoryId, mergePreferences(profile?.preferences ?? {}, intent.preferences ?? {}, preferencesFromAnswers(call.answers))),
         category: intent.categoryId,
         goal: intent.goal,
         windowStart: start,
@@ -180,8 +180,8 @@ export async function answerIntent(
 
   for (const answer of answers) {
     const question = PERSONAL_QUESTIONS.find((q) => q.id === answer.questionId);
-    if (question && !question.options?.some((o) => o.value === answer.answer)) {
-      throw new AppError(422, 'INVALID_ANSWER', 'Choose an offered option');
+    if (question && !validPreferenceAnswer(answer.answer)) {
+      throw new AppError(422, 'INVALID_ANSWER', 'Enter a preference of up to 120 characters');
     }
   }
   const [claimed] = await deps.db

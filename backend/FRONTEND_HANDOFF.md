@@ -501,7 +501,7 @@ preview cards, and a catalog endpoint. The playbook's vague cards can use `categ
 
 ## Personalized questions and preferences
 
-Onboarding now returns interest-specific questions. A question can include `options: [{ value, label }]`: render a select, submit the option value, and keep the existing text field for questions without options. Do not send the label as the answer. Supported option answers become structured profile preferences server-side; the frontend does not need to duplicate that mapping.
+Onboarding now returns interest-specific questions. A question can include `options: [{ value, label }]`: render suggestions in a text input so the user can choose an option value or enter custom text (up to 120 characters). Keep the 300-character text field for questions without options. Do not send a suggestion label as its structured option value. Supported option answers become structured profile preferences server-side; the frontend does not need to duplicate that mapping.
 
 Intent responses include `preferences`. Keep these in the editable plan, show controls for their known values, and send them when creating a Rally or activating a waiting intent. An explicit user answer overrides model/profile defaults. Changing category should clear unrelated preferences. Unknown or `any` preferences remain eligible, but known conflicting choices are excluded. Acceptance may return `409 MATCH_NO_LONGER_ELIGIBLE` if availability/preferences changed after the invitation.
 
@@ -528,3 +528,19 @@ A vouch is optional feedback only. Route `rally.completed` and `proof.needs_clea
 notifications to the room. `RallyCompleted` is the new reward-history label. New points may be
 pending chain synchronization until the revised contract is deployed/configured; no wallet action
 or stablecoin claim is part of this flow.
+
+
+### Matching and manual preference inputs
+
+New onboarding defaults Receive Rally invites to on, visibly editable before completion. Default
+availability is the next 12 hours, adjustable during onboarding and in Profile. Existing users are not
+opted in retroactively. Profile supports editing/clearing suggestions and custom preferences, plus
+availability and the matching switch. Background matching does not require the app to remain open.
+
+Use `custom_<category>` (for example `custom_gaming: "Rocket League doubles"`) for custom input,
+with at most 120 characters. Keep only the custom or structured choice for a given category; an
+explicit plan preference overrides profile defaults. The existing preferences object is carried
+through intent review, waiting-intent activation and publication. These are soft matching preferences,
+not guarantees of every free-text requirement. Changing a custom preference cancels pending invites
+in that category; old cancelled invites cannot be accepted. Closing an invite does not revoke an
+already accepted seat.

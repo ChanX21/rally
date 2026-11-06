@@ -6,6 +6,7 @@ import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorCode, errorMessage, type Intent, type ParsedIntent } from "@/lib/api";
 import { CATEGORIES, SENSITIVE_CATEGORIES, VIBES, ZONES, displayTime, fromLocalInput, toLocalInput } from "@/lib/format";
 import { clearPlan, readPlan, saveParsed } from "@/lib/plan";
+import { PreferenceInput, PreferenceEditor } from "@/components/PreferenceInput";
 import { useSession } from "@/lib/session";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
@@ -16,12 +17,6 @@ const SANS = "var(--font-inter), system-ui, sans-serif";
 const SERIF = "var(--font-serif), Georgia, serif";
 const MONO = "var(--font-mono), monospace";
 
-const PREFERENCE_OPTIONS: Record<string, string[]> = {
-  gaming_game: ['chess', 'valorant', 'minecraft', 'wow', 'any'],
-  build_role: ['builder', 'reviewer', 'mentor', 'any'], workshop_topic: ['ai', 'web3', 'frontend', 'any'],
-  food_style: ['sit_down', 'takeaway', 'any'], coffee_energy: ['quiet', 'chatty', 'any'],
-  explore_range: ['venue', 'nearby', 'any'], group_energy: ['quiet', 'chatty', 'any'],
-};
 type Form = {
   preferences: Record<string, string>;
   category: string;
@@ -345,10 +340,7 @@ export default function CheckPlanScreen() {
                 <label key={q.id} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   <span style={{ fontSize: "16px", fontWeight: 600 }}>{q.text}</span>
                   {q.options ? (
-                    <select className="qfield" value={answers[q.id] ?? ""} onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}>
-                      <option value="">Choose an option · optional</option>
-                      {q.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
+                    <PreferenceInput className="qfield" value={answers[q.id] ?? ""} options={q.options} onChange={(value) => setAnswers({ ...answers, [q.id]: value })} />
                   ) : (
                   <input
                     className="qfield"
@@ -410,13 +402,10 @@ export default function CheckPlanScreen() {
                     ))}
                   </select>
                 </Field>
-                {Object.entries(form.preferences).map(([key, value]) => (
-                  <Field key={key} label={key.replaceAll('_', ' ')}>
-                    <select value={value} onChange={(e) => setForm((previous) => previous ? { ...previous, preferences: { ...previous.preferences, [key]: e.target.value } } : previous)}>
-                      {(PREFERENCE_OPTIONS[key] ?? [value]).map((option) => <option key={option} value={option}>{option === 'any' ? 'No preference' : option.replaceAll('_', ' ')}</option>)}
-                    </select>
-                  </Field>
-                ))}
+                <div style={{ gridColumn: "1 / -1" }}>
+                  <PreferenceEditor preferences={form.preferences} categories={[form.category]}
+                    onChange={(preferences) => setForm((previous) => previous ? { ...previous, preferences } : previous)} />
+                </div>
                 <Field label="Vibe">
                   <select value={form.vibe} onChange={(e) => set("vibe", e.target.value)}>
                     {VIBES.map((v) => (

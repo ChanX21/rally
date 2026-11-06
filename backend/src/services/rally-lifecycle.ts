@@ -160,6 +160,9 @@ export async function closeRally(
     })),
   );
 
+  for (const userId of new Set(members.map((member) => member.userId))) {
+    await enqueue(tx, { type: 'match.reevaluate', payload: { userId } });
+  }
   await scheduleArkivSync(tx, closed);
   return closed;
 }

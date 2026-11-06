@@ -7,9 +7,10 @@ import {
   ONBOARDING_QUESTIONS,
   REQUIRED_INTERESTS,
 } from '../domain/catalog.js';
-import { onboardingCatalog, PERSONAL_QUESTIONS, preferencesFromAnswers } from '../domain/questions.js';
+import { onboardingCatalog, PERSONAL_QUESTIONS, preferencesFromAnswers, validPreferenceAnswer, mergePreferences, isCustomPreference } from '../domain/questions.js';
 import type { Deps } from '../lib/deps.js';
 import { AppError, notFound } from '../lib/errors.js';
+import { cancelCustomPreferenceOffers } from './matches.js';
 import { enqueue } from '../lib/outbox.js';
 import {
   appendProfile,
@@ -118,8 +119,8 @@ export async function completeOnboarding(deps: Deps, userId: string, input: Onbo
   for (const answer of input.answers) {
     const question = PERSONAL_QUESTIONS.find((q) => q.id === answer.questionId);
     if (question && (!onboardingCatalog(input.interests).some((q) => q.id === question.id)
-      || !question.options?.some((o) => o.value === answer.answer))) {
-      throw new AppError(422, 'INVALID_ANSWER', 'Choose an offered option for your selected interest');
+      || !validPreferenceAnswer(answer.answer))) {
+      throw new AppError(422, 'INVALID_ANSWER', 'Enter a preference of up to 120 characters for your selected interest');
     }
   }
   const derived = preferencesFromAnswers(input.answers);
@@ -137,7 +138,7 @@ export async function completeOnboarding(deps: Deps, userId: string, input: Onbo
     const profile = await appendProfile(tx, userId, {
       interests: input.interests,
       declaredSkills,
-      preferences: { ...input.preferences, ...derived },
+      preferences: mergePreferences(input.preferences, derived),
       availableFrom: input.availableFrom ?? null,
       availableTo: input.availableTo ?? null,
     });
@@ -213,6 +214,11 @@ export async function updateProfile(deps: Deps, userId: string, input: ProfileUp
       .where(eq(users.id, userId))
       .returning();
 
+    if (input.preferences !== undefined) {
+      const changed = new Set([...Object.keys(previous?.preferences ?? {}), ...Object.keys(input.preferences)]
+        .filter((key) => isCustomPreference(key) && previous?.preferences[key] !== input.preferences![key]));
+      if (changed.size) await cancelCustomPreferenceOffers(tx, userId, changed);
+    }
     if (optIn) await enqueue(tx, { type: 'match.reevaluate', payload: { userId } });
     return { user: updated!, profile };
   });

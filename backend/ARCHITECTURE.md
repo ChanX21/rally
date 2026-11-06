@@ -609,11 +609,11 @@ Host publication checks the same schedule-conflict rule as accepting an invitati
 The optional `PRIVY_VERIFICATION_KEY` override is validated at startup as an ES256 SPKI PEM public key. Leave it blank to use Privy's app JWKS endpoint. An invalid override otherwise appears as a generic invalid-token error from the SDK, even for valid frontend tokens. The frontend Privy app ID must match `PRIVY_APP_ID`; a valid-format key from another app will still fail signature verification.
 
 
-## Personalized questionnaires (formation-v4)
+## Personalized questionnaires (formation-v5)
 
-Onboarding catalogs depend on the three selected interests. Gaming asks which game, building asks a declared role, workshops ask a topic, food asks sit-down/takeaway, coffee asks social energy, and exploring asks venue/nearby. Responses are constrained option values, stored in profile preferences; a selected build role is also saved as a declared skill. Legacy generic questions and answers remain accepted. The three-question maximum still applies. Fallback question selection uses the same interest-specific catalog, explicitly marked fallback.
+Onboarding catalogs depend on the three selected interests. Gaming asks which game, building asks a declared role, workshops ask a topic, food asks sit-down/takeaway, coffee asks social energy, and exploring asks venue/nearby. Responses may use offered values or custom text of up to 120 characters. Offered values use the existing structured keys; custom answers use `custom_<category>` in the existing JSON preferences. Only an offered build role becomes a declared skill. Legacy generic questions and answers remain accepted. The three-question maximum still applies. Fallback question selection uses the same interest-specific catalog, explicitly marked fallback.
 
-Activity parsing receives declared interests, allowlisted roles and allowlisted categorical preferences, never the full profile or free-form notes. Current answers override model/default preferences. The model selects relevant activity questions and can return structured preferences on the draft. These preferences are shown as editable controls before publication and are persisted on intents and rallies. A supplied category change discards unrelated preferences.
+Activity parsing receives declared interests, allowlisted roles and allowlisted structured preferences and redacted category-specific custom preferences, never the full profile or unrelated free-form notes. Current answers override model/default preferences. The model selects relevant activity questions and can return structured preferences on the draft. These preferences are shown as editable controls before publication and are persisted on intents and rallies. A supplied category change discards unrelated preferences.
 
 Activity clarification uses model-tailored wording for the specific request, with category templates when wording is omitted. Optional `questionTexts` keys must belong to the selected question IDs, and each text is limited to 200 characters. The prompt preserves question purposes and offered option meanings, skips known details, and avoids unsupported matching criteria. Direct identifiers are redacted before wording is saved. The fallback classifier recognizes jogging (including “joggin”) and running as wellness. Question IDs, answer validation, the three-question limit and the single reparse budget stay the same. Wording is saved with the draft, so existing drafts retain the questions already shown. No extra inference call or schema migration is needed.
 
@@ -621,7 +621,7 @@ Candidate retrieval filters explicitly conflicting activity/profile preferences 
 
 `npm start` runs `db:migrate:prod` through its `prestart` lifecycle before serving requests and stops if migration fails. Render must use `npm start`, with `drizzle/` alongside `dist/` and `DATABASE_MIGRATION_URL` configured for the session pooler. Direct `node dist/index.js` startup skips migration; multiple instances or concurrent deployments must use a serialized migration step. Migration `0005_lyrical_moira_mactaggert.sql` adds non-null JSON preference columns to intents/rallies with empty-object defaults and preserves existing rows. Run `npm run ai:personalization` for four live, synthetic 0G checks. Frontend questionnaires render backend option lists; the plan-review screen allows preference edits. Future preference keys/options must be kept in step with its review option list.
 
-This is bounded template personalization, not arbitrary AI-written interviews. The initial game/topic catalog is small; unsupported preferences should use No preference. No claim is made of calibrated matching quality or dietary/medical safety. Existing profiles are not retroactively interpreted from historical free-text answers.
+Suggested options remain available alongside custom input. Profile supports adding, editing and clearing preferences for all activity categories. Plan-specific choices override profile defaults for that category. Custom preferences inform AI compatibility assessment rather than SQL equality; deterministic fallback uses the existing hard eligibility rules and cannot assess free-text compatibility. No claim is made of calibrated matching quality or dietary/medical safety. Existing profiles are not retroactively interpreted from historical free-text answers.
 
 ## Image evidence feasibility (diagnostic only)
 
@@ -676,3 +676,25 @@ test/proof-live.test.ts` uses a public NASA photo, synthetic group and throwaway
 0G. It proved acceptance and 10 points for both members with one inference and no duplicate payout;
 evidence is in `evidence/proof-full-flow-live-2026-11-06.json`. This does not establish photo freshness,
 identities or fraud resistance; downloaded/staged/modified photos remain a known limitation.
+
+
+### Matching triggers and custom preferences
+
+New onboarding visibly defaults Receive Rally invites to on; users can disable it before submitting.
+The client initially offers 12 hours and lets the user choose another window; Profile can change or
+pause matching and edit availability. Existing users keep their saved opt-in choice. Backend callers
+that omit optInMatching default to true and must still supply availability.
+
+Publishing (not saving a draft), onboarding, enabled profile changes, and waiting-intent activation
+feed the same background matching engine. The user scan processes five Rallies per job, using a
+(window_start, id) cursor to enqueue subsequent pages. New publications can invite an idle user
+without any browser request. Invitations and inbox notifications are committed together and never
+join someone automatically. Declining also checks other Rallies; cancellations, expirations,
+withdrawals and host schedule edits recheck people whose schedules were freed.
+
+Custom preferences stay in the existing JSON columns, with allowlisted custom_<category> keys and
+120-character values; no migration is needed. Suggestions retain exact structured validation. Custom
+text is redacted before model calls and never enters public Arkiv records. Changing or removing a
+category's custom profile preference closes pending invitations in that category and queues both
+sides for reevaluation. Closed invitations remain closed under the existing one-offer-per-Rally rule.
+The engine also checks preference snapshots again after composition before creating invitations.

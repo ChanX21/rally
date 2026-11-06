@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, expect, it } from 'vitest';
 import { createHarness, type Harness, hoursFromNow } from './helpers/harness.js';
 import { compositionInput } from '../src/schemas/formation.js';
+import { relevantPreferences, mergePreferences } from '../src/domain/questions.js';
 
 let h: Harness;
 beforeEach(async () => { await h?.close(); h = await createHarness(); });
@@ -140,4 +141,87 @@ it('persists tailored jogging questions and completes the same answer flow', asy
   ] });
   expect(ready.status).toBe('ready');
   expect(ready.intent).toMatchObject({ category: 'wellness', durationMin: 30, groupMin: 2, groupMax: 2 });
+});
+
+it('saves custom onboarding answers without inventing a verified role', async () => {
+  const user = await h.user('did:custom:onboarding');
+  const result = await user.post('/onboarding/complete', {
+    interests: ['gaming', 'build', 'food'], optInMatching: false,
+    answers: [{ questionId: 'gaming_game', answer: 'Rocket League' }, { questionId: 'build_role', answer: 'Product designer' }],
+  });
+  expect(result.profile.preferences).toEqual({ custom_gaming: 'Rocket League', custom_build: 'Product designer' });
+  expect(result.profile.declaredSkills).not.toContain('Product designer');
+  expect((await user.get('/me')).profile.preferences.custom_gaming).toBe('Rocket League');
+});
+
+it('keeps plan-specific custom preferences ahead of profile defaults', () => {
+  expect(relevantPreferences('gaming', mergePreferences({ gaming_game: 'chess' }, { custom_gaming: 'Rocket League' })))
+    .toEqual({ custom_gaming: 'Rocket League' });
+  expect(relevantPreferences('gaming', mergePreferences({ custom_gaming: 'Rocket League' }, { gaming_game: 'chess' })))
+    .toEqual({ gaming_game: 'chess' });
+});
+
+it('passes private, redacted custom preferences into composition and keeps them out of Arkiv', async () => {
+  const host = await h.onboarded('did:custom:host', { optInMatching: false });
+  const guest = await h.onboarded('did:custom:guest', { preferences: { custom_gaming: 'Rocket League, email me at player@example.com', custom_food: 'Vegetarian' } });
+  const rally = await h.rally(host, { category: 'gaming', capacity: 2, preferences: { custom_gaming: 'Rocket League doubles' } });
+  await h.drainOutbox();
+  const sent = compositionInput.parse({ ...(h.ai.callsFor('composition')[0]!.input as object), requestId: 'test' });
+  expect(sent.rally.intent.preferences).toEqual({ custom_gaming: 'Rocket League doubles' });
+  expect(sent.candidates[0]?.preferences).toEqual({ custom_gaming: 'Rocket League, email me at [email]' });
+  expect((await guest.get('/matches')).matches[0].rally.id).toBe(rally.id);
+  expect(JSON.stringify([...h.arkiv.entities.values()])).not.toMatch(/Rocket League|Vegetarian|example.com/);
+});
+
+it('closes stale custom invites after edits while leaving unrelated preferences alone', async () => {
+  const host = await h.onboarded('did:custom:edit-host', { optInMatching: false });
+  const guest = await h.onboarded('did:custom:edit-guest', { preferences: { custom_gaming: 'Rocket League' } });
+  await h.rally(host, { category: 'gaming', capacity: 2 });
+  await h.drainOutbox();
+  const match = (await guest.get('/matches')).matches[0];
+  await guest.patch('/me/profile', { preferences: { custom_gaming: 'Rocket League', custom_food: 'Vegetarian' } });
+  expect((await guest.get(`/matches/${match.id}`)).status).toBe('pending');
+  await guest.patch('/me/profile', { preferences: { custom_gaming: 'Casual Minecraft', custom_food: 'Vegetarian' } });
+  expect((await guest.get(`/matches/${match.id}`)).status).toBe('cancelled');
+  expect((await guest.request('POST', `/matches/${match.id}/respond`, { response: 'accept' })).statusCode).toBe(409);
+  await guest.patch('/me/profile', { preferences: {} });
+  expect((await guest.get('/me')).profile.preferences).toEqual({});
+});
+
+it('validates custom preference categories and length', async () => {
+  const guest = await h.onboarded('did:custom:validation');
+  for (const preferences of [{ custom_unknown: 'text' }, { custom_gaming: 'x'.repeat(121) }, { custom_gaming: '   ' }]) {
+    expect((await guest.request('PATCH', '/me/profile', { preferences })).statusCode).toBe(400);
+  }
+});
+
+it('persists a custom activity answer through parsing, activation and publication', async () => {
+  const host = await h.onboarded('did:custom:activity', { preferences: { gaming_game: 'chess' } });
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'needs_answers', questionIds: ['gaming_game'] });
+  const first = await host.post('/intents/parse', { text: 'Find a gaming buddy' });
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'ready', intent: {
+    categoryId: 'gaming', goal: 'Play Rocket League', startAt: hoursFromNow(1), durationMin: 30,
+    groupMin: 2, groupMax: 2, zoneId: 'venue-nearby', vibe: 'any',
+  } });
+  const ready = await host.post(`/intents/${first.intent.id}/answers`, { answers: [{ questionId: 'gaming_game', answer: 'Rocket League' }] });
+  expect(ready.intent.preferences).toEqual({ custom_gaming: 'Rocket League' });
+  const rally = await h.rally(host, { category: 'gaming', intentId: ready.intent.id, capacity: 2 });
+  expect(rally.preferences).toEqual({ custom_gaming: 'Rocket League' });
+});
+
+it('does not let a profile default override a custom waiting intent in SQL filtering', async () => {
+  const host = await h.onboarded('did:custom:waiting-host', { optInMatching: false });
+  const guest = await h.onboarded('did:custom:waiting-guest', { preferences: { gaming_game: 'valorant' } });
+  const draft = await guest.post('/intents/parse', { text: 'gaming' });
+  await guest.post(`/intents/${draft.intent.id}/activate`, { category: 'gaming',
+    windowStart: hoursFromNow(0), windowEnd: hoursFromNow(6), durationMin: 30,
+    preferences: { custom_gaming: 'Open to learning another game' } });
+  await h.rally(host, { category: 'gaming', capacity: 2, preferences: { gaming_game: 'chess' } });
+  await h.drainOutbox();
+  expect((await guest.get('/matches')).matches).toHaveLength(1);
+  const sent = compositionInput.parse({ ...(h.ai.callsFor('composition')[0]!.input as object), requestId: 'test' });
+  expect(sent.candidates[0]?.preferences).toEqual({ custom_gaming: 'Open to learning another game' });
+  const match = (await guest.get('/matches')).matches[0];
+  await guest.patch('/me/profile', { preferences: { custom_gaming: 'Casual Minecraft' } });
+  expect((await guest.get(`/matches/${match.id}`)).status).toBe('pending');
 });

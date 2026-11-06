@@ -455,6 +455,7 @@ export async function updateRally(
 
     const settled = await settleRally(tx, updated!);
     await scheduleArkivSync(tx, settled);
+    if (changesSchedule) await enqueue(tx, { type: 'match.reevaluate', payload: { userId } });
     if (settled.status === 'open' || settled.status === 'waiting') {
       await enqueue(tx, { type: 'match.reevaluate', payload: { rallyId: rally.id } });
     }
@@ -519,6 +520,7 @@ export async function withdrawFromRally(deps: Deps, userId: string, rallyId: str
 
     const settled = await settleRally(tx, updated!);
     await scheduleArkivSync(tx, settled);
+    await enqueue(tx, { type: 'match.reevaluate', payload: { userId } });
     return rallyView(settled);
   });
 }

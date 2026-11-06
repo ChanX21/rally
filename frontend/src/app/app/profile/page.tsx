@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useWallets } from "@privy-io/react-auth";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, type ProfileUpdate } from "@/lib/api";
-import { CATEGORIES, categoryLabel, rewardLabel, signedPoints } from "@/lib/format";
+import { CATEGORIES, categoryLabel, rewardLabel, signedPoints, toLocalInput, fromLocalInput } from "@/lib/format";
+import { PreferenceEditor } from "@/components/PreferenceInput";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
 
@@ -26,6 +27,8 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [interestDraft, setInterestDraft] = useState<string[] | null>(null);
+  const [preferenceDraft, setPreferenceDraft] = useState<Record<string, string> | null>(null);
+  const [availabilityDraft, setAvailabilityDraft] = useState<{ start: string; end: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -158,6 +161,8 @@ export default function ProfileScreen() {
         .sw:checked::after { transform: translateX(20px); }
         .sw:focus-visible { outline: 2px solid #315FE8; outline-offset: 2px; }
         input[type=text]:focus { border: 1.5px solid #315FE8 !important; }
+        .availability-field { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+        .availability-field input { width: 100%; min-height: 48px; box-sizing: border-box; padding: 10px 12px; border: 1px solid #D9C8BE; border-radius: 12px; font: inherit; background: #FFFAF7; color: #1C1917; }
       `}</style>
 
       <div
@@ -262,12 +267,25 @@ export default function ProfileScreen() {
             </div>
           </div>
 
+          <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div className="head">
+              <span className="mono">Preferences</span>
+              {preferenceDraft ? <button type="button" disabled={saving} onClick={async () => {
+                if (await save({ preferences: preferenceDraft })) setPreferenceDraft(null);
+              }}>Save preferences</button> : <button type="button" onClick={() => setPreferenceDraft(profile?.preferences ?? {})}>Edit preferences</button>}
+            </div>
+            {preferenceDraft ? <>
+              <PreferenceEditor disabled={saving} preferences={preferenceDraft} onChange={setPreferenceDraft} categories={CATEGORIES.map((c) => c.id)} />
+              <button type="button" className="pick tag" disabled={saving} onClick={() => setPreferenceDraft(null)}>Cancel</button>
+            </> : <span style={{ fontSize: 14, color: "#766B65" }}>Add suggestions or your own preferences for better matches.</span>}
+          </section>
+
           {told.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               <div className="mono">You told us</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {told.map((t) => (
-                  <span key={t} className="tag" style={{ border: "1px solid #D9C8BE" }}>
+                {told.map((t, index) => (
+                  <span key={`${index}:${t}`} className="tag" style={{ border: "1px solid #D9C8BE", maxWidth: "100%", height: "auto", minHeight: 32, whiteSpace: "normal", overflowWrap: "anywhere" }}>
                     {t}
                   </span>
                 ))}
@@ -289,6 +307,30 @@ export default function ProfileScreen() {
               onChange={(e) => setMatching(e.target.checked)}
             />
           </label>
+
+          <section style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <div className="head">
+              <span className="mono">Availability</span>
+              <button type="button" disabled={saving} onClick={() => setAvailabilityDraft({
+                start: toLocalInput(profile?.availableFrom ?? new Date().toISOString()),
+                end: toLocalInput(profile?.availableTo ?? new Date(Date.now() + 12 * 3_600_000).toISOString()),
+              })}>Edit availability</button>
+            </div>
+            {availabilityDraft ? <>
+              <label className="availability-field">Available from<input disabled={saving} type="datetime-local" value={availabilityDraft.start} onChange={(e) => setAvailabilityDraft({ ...availabilityDraft, start: e.target.value })} /></label>
+              <label className="availability-field">Available until<input disabled={saving} type="datetime-local" value={availabilityDraft.end} onChange={(e) => setAvailabilityDraft({ ...availabilityDraft, end: e.target.value })} /></label>
+              <button className="pick tag" type="button" disabled={saving} onClick={async () => {
+                const start = fromLocalInput(availabilityDraft.start), end = fromLocalInput(availabilityDraft.end);
+                if (!start || !end || new Date(end) <= new Date(start) || new Date(end) <= new Date()) {
+                  setError("Choose an availability window ending in the future."); return;
+                }
+                if (await save({ availableFrom: start, availableTo: end })) setAvailabilityDraft(null);
+              }}>Save availability</button>
+              <button className="pick tag" type="button" disabled={saving} onClick={() => setAvailabilityDraft(null)}>Cancel</button>
+            </> : <span style={{ fontSize: 14, color: "#766B65" }}>
+              {profile?.availableTo ? `${new Date(profile.availableTo) > new Date() ? "Available until" : "Availability ended"} ${new Date(profile.availableTo).toLocaleString()}` : "Set when you are free to receive invites."}
+            </span>}
+          </section>
 
           {rewards && (
             <div className="card" style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "14px 16px" }}>

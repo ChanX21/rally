@@ -3,11 +3,12 @@ import { createHash } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 
 import { matchProposals, offers, rallies } from '../db/schema/index.js';
-import { relevantPreferences, safePreferences } from '../domain/questions.js';
+import { relevantPreferences, mergePreferences } from '../domain/questions.js';
 import { SHORTLIST_SIZE } from '../domain/catalog.js';
 import { MATCHABLE } from '../domain/rally-state.js';
 import { rankCandidates, scoreCandidate } from '../domain/scoring.js';
 import { overlapMinutes } from '../domain/time.js';
+import { enqueue } from '../lib/outbox.js';
 import { redactPii } from '../domain/intent-fallback.js';
 import type { Tx } from '../lib/db-types.js';
 import type { Deps } from '../lib/deps.js';
@@ -93,6 +94,7 @@ export function composeDeterministically(
   roles: readonly string[],
   maxMembers: number,
 ): Composition {
+  // shortcut: free-text fit needs inference; deterministic fallback uses hard eligibility only.
   const chosen = candidates.slice(0, maxMembers);
   return {
     members: chosen.map((candidate, index) => ({
@@ -175,7 +177,7 @@ async function composeWithEngine(
         id: rally.opaqueId,
         intent: {
           categoryId: rally.category,
-          preferences: relevantPreferences(rally.category, rally.preferences),
+          preferences: Object.fromEntries(Object.entries(relevantPreferences(rally.category, rally.preferences)).map(([key, value]) => [key, redactPii(value)])),
           goal: redactPii(rally.goal),
           startAt: start,
           durationMin: rally.durationMin,
@@ -190,7 +192,7 @@ async function composeWithEngine(
       },
       candidates: candidates.map((candidate) => ({
         id: candidate.alias,
-        preferences: safePreferences({ ...candidate.preferences, ...candidate.intent_preferences }),
+        preferences: Object.fromEntries(Object.entries(relevantPreferences(rally.category, mergePreferences(candidate.preferences ?? {}, candidate.intent_preferences ?? {}))).map(([key, value]) => [key, redactPii(value)])),
         optedIn: true as const,
         interests: candidate.interests,
         roleIds: openRoleIds,
@@ -371,7 +373,12 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
 
     // State may have moved during the model call. Keep only people who still qualify.
     const stillEligible = new Set(
-      (await findCandidates(tx, locked, SHORTLIST_SIZE)).map((row) => row.user_id),
+      (await findCandidates(tx, locked, SHORTLIST_SIZE)).filter((current) => {
+        const original = candidates.find((candidate) => candidate.user_id === current.user_id);
+        const preferences = (row: CandidateRow) => JSON.stringify(Object.entries(relevantPreferences(locked.category,
+          mergePreferences(row.preferences ?? {}, row.intent_preferences ?? {}))).sort());
+        return original && preferences(original) === preferences(current);
+      }).map((row) => row.user_id),
     );
     const offered = composition.members.filter((member) => stillEligible.has(member.userId));
     const nowPending = await countPendingOffers(tx, rallyId);
@@ -431,9 +438,11 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
 }
 
 /** The onboarding trigger, and updated availability, feed the same engine as a new rally. */
-export async function evaluateForUser(deps: Deps, userId: string): Promise<void> {
-  const rallyIds = await findRalliesForUser(deps.db, userId, 5);
-  for (const rallyId of rallyIds) {
-    await evaluateRally(deps, rallyId);
+export async function evaluateForUser(deps: Deps, userId: string, after?: { id: string; start: Date }): Promise<void> {
+  const batch = await findRalliesForUser(deps.db, userId, 6, after);
+  for (const rally of batch.slice(0, 5)) await evaluateRally(deps, rally.id);
+  if (batch.length > 5) {
+    const last = batch[4]!;
+    await enqueue(deps.db, { type: 'match.reevaluate', payload: { userId, after: { id: last.id, start: last.start.toISOString() } } });
   }
 }

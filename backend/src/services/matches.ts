@@ -3,6 +3,7 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { claims, intents, matchProposals, offers, rallies, userBlocks } from '../db/schema/index.js';
 import { meetTime } from '../domain/reward-policy.js';
 import { ACCEPTING } from '../domain/rally-state.js';
+import { relevantPreferences } from '../domain/questions.js';
 import type { Tx } from '../lib/db-types.js';
 import type { Deps } from '../lib/deps.js';
 import { AppError, notFound } from '../lib/errors.js';
@@ -178,7 +179,26 @@ async function decline(tx: Tx, offer: Offer, rally: Rally) {
     data: { rallyId: rally.id },
     dedupeKey: `match.declined:${offer.id}`,
   });
+  await enqueue(tx, { type: 'match.reevaluate', payload: { userId: offer.candidateId } });
   return rally;
+}
+
+/** The caller holds the user lock; stale custom preferences must not survive in an invite. */
+export async function cancelCustomPreferenceOffers(tx: Tx, userId: string, changed: ReadonlySet<string>) {
+  const pending = await tx.select().from(offers)
+    .where(and(eq(offers.candidateId, userId), eq(offers.status, 'pending')))
+    .orderBy(offers.rallyId);
+  for (const offer of pending) {
+    const rally = await lockRally(tx, offer.rallyId);
+    if (!rally || !changed.has(`custom_${rally.category}`)) continue;
+    const candidate = (await findCandidates(tx, rally, 1, userId))[0];
+    if (candidate && Object.keys(relevantPreferences(rally.category, candidate.intent_preferences ?? {})).length) continue;
+    await tx.update(offers).set({ status: 'cancelled' })
+      .where(and(eq(offers.id, offer.id), eq(offers.status, 'pending')));
+    await refreshProposal(tx, offer.proposalId);
+    await scheduleArkivSync(tx, await settleRally(tx, rally));
+    await enqueue(tx, { type: 'match.reevaluate', payload: { rallyId: rally.id } });
+  }
 }
 
 /**

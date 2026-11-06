@@ -22,7 +22,7 @@ const skills = z.array(shortText(30)).max(10);
 const preferences = z.record(shortText(40), shortText(120)).refine(
   (value) => Object.keys(value).length <= 10,
   'at most 10 preferences',
-).refine((values) => Object.entries(values).every(([key, value]) => !Object.hasOwn(PREFERENCE_CHOICES, key)
+).refine((values) => Object.entries(values).every(([key, value]) => (!Object.hasOwn(PREFERENCE_CHOICES, key) && !key.startsWith('custom_'))
   || preferenceSchema.safeParse({ [key]: value }).success), 'choose a valid structured preference');
 
 export const idParams = z.object({ id: z.uuid() });
@@ -84,7 +84,7 @@ export const onboardingBody = z.object({
   preferences: preferences.default({}),
   availableFrom: dateTime.optional(),
   availableTo: dateTime.optional(),
-  optInMatching: z.boolean(),
+  optInMatching: z.boolean().default(true),
 });
 
 export const profileUpdateBody = z.object({

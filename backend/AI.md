@@ -96,6 +96,14 @@ Prompt version `formation-v2` explicitly lists allowed question, category, zone 
 
 ## Personalization
 
+Prompt `formation-v5` accepts category-specific `custom_<category>` preferences (up to 120 characters)
+alongside existing structured options. Custom questionnaire answers are saved under the custom key,
+never invented structured option values or verified skills. Explicit activity answers take precedence
+over profile defaults. Parsing and composition receive only allowlisted, redacted custom text;
+composition uses it as untrusted fit context, while SQL enforces structured choices and hard
+eligibility. Free-text requirements are not guaranteed, and deterministic fallback does not interpret
+them. No extra inference call is added.
+
 Prompt `formation-v4` also requests activity-specific `questionTexts` for selected clarification IDs. Text is limited to 200 characters and keys must belong to the selected IDs; omitted wording uses the existing templates. The prompt preserves question purposes and option meanings, skips known details, and keeps the three-question budget. It does not add matching criteria such as running pace. Wording is redacted for direct identifiers before being saved with the draft.
 
 Prompt `formation-v3` uses interest-specific catalogs and minimized structured profile context. Onboarding option answers are saved as matching preferences; the declared build role also becomes a declared skill. Activity questions vary with the request and known context; explicit current answers override defaults. Draft preferences are editable and carried into published/waiting activities. Known preference conflicts are filtered in SQL, validated in composition and rechecked at acceptance. Unknown preferences remain eligible.

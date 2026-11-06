@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, type CompleteOnboardingInput, type OnboardingQuestion } from "@/lib/api";
+import { PreferenceInput } from "@/components/PreferenceInput";
 import { useSession } from "@/lib/session";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
@@ -96,7 +97,8 @@ export default function AboutYouScreen() {
   const [qError, setQError] = useState<string | null>(null);
 
   // Final submit (POST /onboarding/complete).
-  const [optIn, setOptIn] = useState(false);
+  const [optIn, setOptIn] = useState(true);
+  const [availableHours, setAvailableHours] = useState(12);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -160,12 +162,12 @@ export default function AboutYouScreen() {
       const trimmedName = name.trim();
       if (trimmedName) body.displayName = trimmedName;
 
-      // Availability is required when opting into matching. "Find me a Rally now"
+      // Availability is required when opting into matching. "Receive Rally invites"
       // means available from now; default the window to the next 12 hours.
       if (optIn) {
         const now = new Date();
         body.availableFrom = now.toISOString();
-        body.availableTo = new Date(now.getTime() + 12 * 60 * 60 * 1000).toISOString();
+        body.availableTo = new Date(now.getTime() + availableHours * 60 * 60 * 1000).toISOString();
       }
 
       // AppGate sees onboarded: true and moves on to the plan or to home.
@@ -174,7 +176,7 @@ export default function AboutYouScreen() {
       setSubmitError(errorMessage(err, "Could not save your profile."));
       setSubmitting(false);
     }
-  }, [api, setMe, picked, optIn, questions, answers, name]);
+  }, [api, setMe, picked, optIn, questions, answers, name, availableHours]);
 
   const footNote = onName
     ? "You can change this later"
@@ -402,10 +404,7 @@ export default function AboutYouScreen() {
                 <label key={q.id} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   <span style={{ fontSize: "16px", fontWeight: 600 }}>{q.text}</span>
                   {q.options ? (
-                    <select className="qfield" value={answers[q.id] ?? ""} onChange={(e) => setAnswer(q.id, e.target.value)}>
-                      <option value="">Choose an option · optional</option>
-                      {q.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                    </select>
+                    <PreferenceInput className="qfield" value={answers[q.id] ?? ""} options={q.options} onChange={(value) => setAnswer(q.id, value)} />
                   ) : (
                   <input
                     className="qfield"
@@ -419,12 +418,21 @@ export default function AboutYouScreen() {
                 </label>
               ))}
 
+            {qStatus === "ready" && optIn && (
+              <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <span>Available for the next</span>
+                <select className="qfield" value={availableHours} onChange={(e) => setAvailableHours(Number(e.target.value))}>
+                  {[1, 2, 4, 8, 12, 24].map((hours) => <option key={hours} value={hours}>{hours} hours</option>)}
+                </select>
+                <span style={{ fontSize: 13, color: "#766B65" }}>Change or pause this anytime in Profile.</span>
+              </label>
+            )}
             {qStatus === "ready" && (
               <label className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", padding: "16px", cursor: "pointer" }}>
                 <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                  <span style={{ fontSize: "15px", fontWeight: 600 }}>Find me a Rally now</span>
+                  <span style={{ fontSize: "15px", fontWeight: 600 }}>Receive Rally invites</span>
                   <span style={{ fontSize: "13px", lineHeight: 1.4, color: "#766B65" }}>
-                    Rally checks live plans against your interests. Any fit goes to your inbox, and you still choose.
+                    Get invites for compatible plans during your availability, even when you leave the app. You choose whether to join.
                   </span>
                 </span>
                 <input

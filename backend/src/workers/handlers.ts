@@ -20,7 +20,7 @@ function parsePayload<T>(schema: z.ZodType<T>, payload: unknown): T {
 }
 
 const rallyPayload = z.object({ rallyId: z.uuid() });
-const userPayload = z.object({ userId: z.uuid() });
+const userPayload = z.object({ userId: z.uuid(), after: z.object({ id: z.uuid(), start: z.iso.datetime().transform((v) => new Date(v)) }).optional() });
 const reevaluatePayload = z.union([rallyPayload, userPayload]);
 const vouchPayload = z.object({ feedbackId: z.uuid() });
 const entryPayload = z.object({ entryId: z.uuid() });
@@ -39,7 +39,7 @@ export const handlers: Record<OutboxEventType, OutboxHandler> = {
     const parsed = parsePayload(reevaluatePayload, payload);
     return 'rallyId' in parsed
       ? evaluateRally(deps, parsed.rallyId)
-      : evaluateForUser(deps, parsed.userId);
+      : evaluateForUser(deps, parsed.userId, parsed.after);
   },
   'arkiv.sync': (deps, payload) =>
     syncRallyListing(deps, parsePayload(rallyPayload, payload).rallyId),

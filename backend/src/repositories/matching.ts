@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { relevantPreferences } from '../domain/questions.js';
+import { relevantPreferences, isCustomPreference } from '../domain/questions.js';
 import type { Db } from '../lib/db-types.js';
 import type { Rally } from './rallies.js';
 
@@ -34,9 +34,14 @@ export async function findCandidates(db: Db, rally: Rally, limit: number, offere
   const start = rally.windowStart.toISOString();
   const end = new Date(rally.windowStart.getTime() + rally.durationMin * 60_000).toISOString();
 
-  const preferenceChecks = Object.entries(relevantPreferences(rally.category, rally.preferences)).map(([key, value]) =>
-    sql`(${value} = 'any' or coalesce(i.preferences->>${key}, p.preferences->>${key}) is null
-      or coalesce(i.preferences->>${key}, p.preferences->>${key}) in ('any', ${value}))`);
+  const preferenceChecks = Object.entries(relevantPreferences(rally.category, rally.preferences))
+    .filter(([key]) => !isCustomPreference(key)).map(([key, value]) => {
+      const customKey = `custom_${rally.category}`;
+      const actual = sql`case when i.preferences ? ${customKey} then null
+        when i.preferences ? ${key} then i.preferences->>${key}
+        when p.preferences ? ${customKey} then null else p.preferences->>${key} end`;
+      return sql`(${value} = 'any' or ${actual} is null or ${actual} in ('any', ${value}))`;
+    });
   const rows = await db.execute(sql`
     select
       u.id as user_id,
@@ -132,9 +137,9 @@ export async function findCandidates(db: Db, rally: Rally, limit: number, offere
 }
 
 /** Matchable rallies a person might fit, soonest first. Each then runs the full engine. */
-export async function findRalliesForUser(db: Db, userId: string, limit: number): Promise<string[]> {
+export async function findRalliesForUser(db: Db, userId: string, limit: number, after?: { id: string; start: Date }): Promise<{ id: string; start: Date }[]> {
   const rows = await db.execute(sql`
-    select r.id
+    select r.id, r.window_start as start
     from rallies r
     join lateral (
       select interests from profile_versions v
@@ -142,7 +147,8 @@ export async function findRalliesForUser(db: Db, userId: string, limit: number):
       order by v.version desc
       limit 1
     ) p on true
-    where r.status in ('open', 'waiting', 'proposed')
+    where ${after ? sql`(r.window_start, r.id) > (${after.start.toISOString()}::timestamptz, ${after.id}::uuid)` : sql`true`}
+      and r.status in ('open', 'waiting', 'proposed')
       and r.open_seats > 0
       and r.expires_at > now()
       and r.creator_id <> ${userId}
@@ -153,11 +159,10 @@ export async function findRalliesForUser(db: Db, userId: string, limit: number):
           where w.user_id = ${userId} and w.status = 'waiting' and w.category = r.category
         )
       )
-    order by r.window_start
+    order by r.window_start, r.id
     limit ${limit}
   `);
   return z
-    .array(z.object({ id: z.uuid() }))
-    .parse([...rows])
-    .map((row) => row.id);
+    .array(z.object({ id: z.uuid(), start: timestamp }))
+    .parse([...rows]);
 }

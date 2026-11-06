@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { type Category, ONBOARDING_QUESTIONS, ACTIVITY_QUESTIONS, type QuestionTemplate } from './catalog.js';
+import { type Category, CATEGORIES, ONBOARDING_QUESTIONS, ACTIVITY_QUESTIONS, type QuestionTemplate } from './catalog.js';
 
 export const PREFERENCE_CHOICES = {
   gaming_game: ['chess', 'valorant', 'minecraft', 'wow', 'any'],
@@ -11,9 +11,11 @@ export const PREFERENCE_CHOICES = {
   group_energy: ['quiet', 'chatty', 'any'],
 } as const;
 export type PreferenceKey = keyof typeof PREFERENCE_CHOICES;
-export const preferenceSchema = z.record(z.string(), z.string()).refine((v) =>
-  Object.entries(v).every(([key, value]) => Object.hasOwn(PREFERENCE_CHOICES, key)
-    && (PREFERENCE_CHOICES[key as PreferenceKey] as readonly string[]).includes(value)), 'unknown preference or option');
+export const customPreferenceText = z.string().trim().min(1).max(120);
+export const isCustomPreference = (key: string) => CATEGORIES.some((category) => key === `custom_${category}`);
+export const preferenceSchema = z.record(z.string().max(40), z.string().trim().min(1).max(120)).refine((v) =>
+  Object.entries(v).every(([key, value]) => isCustomPreference(key) ? customPreferenceText.safeParse(value).success
+    : Object.hasOwn(PREFERENCE_CHOICES, key) && (PREFERENCE_CHOICES[key as PreferenceKey] as readonly string[]).includes(value)), 'unknown preference or option');
 export type Preferences = Record<string, string>;
 const categoryKey: Partial<Record<Category, PreferenceKey>> = {
   gaming: 'gaming_game', build: 'build_role', workshop: 'workshop_topic',
@@ -74,16 +76,35 @@ export function activityQuestions(category: Category | null, text: string): Ques
 }
 
 export function safePreferences(input: Record<string, string>): Preferences {
-  return Object.fromEntries(Object.entries(input).filter(([key, value]) => Object.hasOwn(PREFERENCE_CHOICES, key)
-    && (PREFERENCE_CHOICES[key as PreferenceKey] as readonly string[]).includes(value)));
+  return Object.fromEntries(Object.entries(input).filter(([key, value]) => preferenceSchema.safeParse({ [key]: value }).success));
+}
+export function validPreferenceAnswer(answer: string): boolean {
+  return customPreferenceText.safeParse(answer).success;
 }
 export function preferencesFromAnswers(answers: { questionId: string; answer: string }[]): Preferences {
-  return safePreferences(Object.fromEntries(answers.map((a) => [a.questionId, a.answer.trim().toLowerCase()])));
+  return Object.fromEntries(answers.flatMap(({ questionId, answer }) => {
+    const value = answer.trim().toLowerCase();
+    const category = Object.entries(categoryKey).find(([, key]) => key === questionId)?.[0];
+    return preferenceSchema.safeParse({ [questionId]: value }).success
+      ? [[questionId, value]] : category && validPreferenceAnswer(answer) ? [[`custom_${category}`, answer.trim()]] : [];
+  }));
 }
 export function relevantPreferences(category: string, preferences: Preferences): Preferences {
   const key = categoryKey[category as Category];
-  return key && preferences[key] ? { [key]: preferences[key] } : {};
+  return Object.fromEntries(Object.entries(safePreferences(preferences)).filter(([id]) =>
+    id === `custom_${category}` || (id === key && !preferences[`custom_${category}`])));
+}
+export function mergePreferences(...sources: Preferences[]): Preferences {
+  const merged: Preferences = {};
+  for (const source of sources) {
+    for (const [category, key] of Object.entries(categoryKey)) {
+      if (source[`custom_${category}`]) delete merged[key];
+      else if (source[key]) delete merged[`custom_${category}`];
+    }
+    Object.assign(merged, source);
+  }
+  return merged;
 }
 export function compatiblePreferences(wanted: Preferences, actual: Preferences) {
-  return Object.entries(wanted).every(([key, value]) => value === 'any' || !actual[key] || actual[key] === 'any' || actual[key] === value);
+  return Object.entries(wanted).every(([key, value]) => isCustomPreference(key) || value === 'any' || !actual[key] || actual[key] === 'any' || actual[key] === value);
 }
