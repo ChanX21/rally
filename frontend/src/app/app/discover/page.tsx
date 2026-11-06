@@ -25,6 +25,7 @@ export default function DiscoverScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mapOpen, setMapOpen] = useState(true);
 
   const loadPage = useCallback(async (next?: string) => {
     setLoading(true);
@@ -228,16 +229,28 @@ export default function DiscoverScreen() {
           )}
         </div>
 
-        {/* Venue map — one dot per open rally */}
-        <div style={{ padding: "12px 0 0", flexShrink: 0 }}>
-          <div className="mono" style={{ marginBottom: "8px", padding: "0 24px" }}>
-            Around the venue · {openCount} open
-          </div>
-          <VenueMap rallies={openRallies} />
+        {/* Venue map — one dot per open rally, collapsible */}
+        <div style={{ padding: "4px 0 0", flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setMapOpen((v) => !v)}
+            aria-expanded={mapOpen}
+            className="mono"
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", marginBottom: "2px", padding: "0 24px", minHeight: "28px", fontSize: "10px", border: 0, background: "transparent", color: "inherit", textAlign: "left", cursor: "pointer" }}
+          >
+            <span>Around the venue · {openCount} open</span>
+            <svg
+              width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+              style={{ transform: mapOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform .2s ease" }}
+            >
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+          {mapOpen && <VenueMap rallies={openRallies} />}
         </div>
 
         {/* CTA */}
-        <div style={{ padding: "16px 24px 28px", display: "flex", flexDirection: "column", gap: "8px", flexShrink: 0 }}>
+        <div style={{ padding: "6px 24px 28px", display: "flex", flexDirection: "column", gap: "8px", flexShrink: 0 }}>
           <a className="btn btn-p" href="/app/home">
             Yes, let&apos;s Rally
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

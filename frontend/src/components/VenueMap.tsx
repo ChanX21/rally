@@ -8,9 +8,9 @@ import { useEffect, useMemo, useState } from "react";
 
 type Zone = { x: number; y: number; w: number; h: number; label: string; fill: string };
 
-const PEACH = "#F1D9C9";
-const GREY = "#E7DFD8";
-const BLUE = "#DCE1F5";
+const PEACH = "#FFCEA8";
+const GREY = "#ECE1D6";
+const BLUE = "#C6D1FF";
 
 const ZONES: Zone[] = [
   { x: 64, y: 64, w: 232, h: 96, label: "FOOD COURT", fill: PEACH },
@@ -73,7 +73,7 @@ export default function VenueMap({ rallies }: { rallies: readonly MapRally[] }) 
   if (activeBubble) {
     const bw = Math.min(480, Math.max(180, activeBubble.text.length * 14 + 48));
     const bh = activeBubble.text.length > 55 ? 128 : activeBubble.text.length > 28 ? 96 : 64;
-    const above = activeBubble.y - 18 - bh >= 12;
+    const above = activeBubble.y - 18 - bh >= 54;
     const cx = Math.min(Math.max(activeBubble.x, bw / 2 + 12), 904 - bw / 2 - 12);
     const cy = above ? activeBubble.y - 18 - bh / 2 : activeBubble.y + 18 + bh / 2;
     const tipX = Math.min(Math.max(activeBubble.x, cx - bw / 2 + 20), cx + bw / 2 - 20);
@@ -82,7 +82,7 @@ export default function VenueMap({ rallies }: { rallies: readonly MapRally[] }) 
   }
 
   return (
-    <svg viewBox="0 0 904 540" width="100%" role="img" aria-label={`Illustrative venue map, showing ${dots.length} of ${rallies.length} open Rallies.${activeBubble ? ` ${activeBubble.text}` : ""}`} style={{ display: "block" }}>
+    <svg viewBox="0 46 904 458" width="100%" role="img" aria-label={`Illustrative venue map, showing ${dots.length} of ${rallies.length} open Rallies.${activeBubble ? ` ${activeBubble.text}` : ""}`} style={{ display: "block" }}>
       <style>{`
         .vm-dot0 { animation: vmDrift0 4.5s ease-in-out infinite; }
         .vm-dot1 { animation: vmDrift1 5.5s ease-in-out infinite; }
