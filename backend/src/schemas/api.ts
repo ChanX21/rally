@@ -337,6 +337,7 @@ export const previewSchema = z.object({
   activities: z.array(
     z.object({
       opaqueId: z.string(),
+      dialogue: z.string().max(80),
       category: z.string(),
       zone: z.string(),
       startBucket: z.string(),

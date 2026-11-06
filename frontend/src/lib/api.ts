@@ -349,6 +349,7 @@ export type Matches = { matches: Match[]; waiting: WaitingIntent[] };
 
 export type PreviewActivity = {
   opaqueId: string;
+  dialogue: string;
   category: string;
   zone: string;
   startBucket: string;

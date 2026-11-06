@@ -544,3 +544,11 @@ through intent review, waiting-intent activation and publication. These are soft
 not guarantees of every free-text requirement. Changing a custom preference cancels pending invites
 in that category; old cancelled invites cannot be accepted. Closing an invite does not revoke an
 already accepted seat.
+
+
+### Venue map speech
+
+`GET /activities/preview` returns `dialogue` (a public-safe string of at most 80 characters) for
+each confirmed Rally. Pass open activity records to the venue map so a bubble and its dot always
+refer to the same `opaqueId`. Dialogue is based on the current goal/category without returning
+the raw goal. The map is illustrative and does not reveal participants' real locations.

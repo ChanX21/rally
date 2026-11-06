@@ -1,21 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 // A decorative, non-identifying map of the venue: labelled zones with anonymous
-// dots that drift. The dot count reflects how many rallies are currently open —
-// positions are ambient, never a real location. Every few seconds a speech bubble
-// pops up near a random dot.
+// dots that drift. Each dot represents a real open Rally; positions are illustrative.
+// Every few seconds a random Rally speaks through its own dot.
 
 type Zone = { x: number; y: number; w: number; h: number; label: string; fill: string };
 
 const PEACH = "#F1D9C9";
 const GREY = "#E7DFD8";
 const BLUE = "#DCE1F5";
-
-// Lines a dot can say. For now just a placeholder — the backend will supply real
-// snippets later (e.g. what that group is rallying for).
-const MESSAGES = ["hello"];
 
 const ZONES: Zone[] = [
   { x: 64, y: 64, w: 232, h: 96, label: "FOOD COURT", fill: PEACH },
@@ -41,44 +36,48 @@ const POOL: [number, number][] = [
   [590, 352],
 ];
 
-type Bubble = { id: number; x: number; y: number; text: string };
+type MapRally = { opaqueId: string; dialogue: string };
+type Bubble = { id: number; rallyId: string; x: number; y: number; text: string };
 
-export default function VenueMap({ count = POOL.length }: { count?: number }) {
-  const n = Math.max(0, Math.min(count, POOL.length));
-  const dots = POOL.slice(0, n);
+export default function VenueMap({ rallies }: { rallies: readonly MapRally[] }) {
+  const dots = useMemo(() => rallies.slice(0, POOL.length).map((rally, index) => ({
+    rally, x: POOL[index][0], y: POOL[index][1],
+  })), [rallies]);
   const [bubble, setBubble] = useState<Bubble | null>(null);
+  const activeBubble = bubble && dots.some((dot) => dot.rally.opaqueId === bubble.rallyId) ? bubble : null;
 
   useEffect(() => {
-    if (n === 0) return;
-    const avail = POOL.slice(0, n);
+    if (!dots.length) return;
     let id = 0;
     let hide: ReturnType<typeof setTimeout>;
     const pop = () => {
-      const [x, y] = avail[Math.floor(Math.random() * avail.length)];
-      const text = MESSAGES[Math.floor(Math.random() * MESSAGES.length)];
-      setBubble({ id: id++, x, y, text });
-      hide = setTimeout(() => setBubble(null), 2200);
+      const { rally, x, y } = dots[Math.floor(Math.random() * dots.length)];
+      setBubble({ id: id++, rallyId: rally.opaqueId, x, y, text: rally.dialogue ?? 'Good company, anyone?' });
+      hide = setTimeout(() => setBubble(null), 2600);
     };
-    const timer = setInterval(pop, 3200);
+    const timer = setInterval(pop, 3600);
     pop();
     return () => {
       clearInterval(timer);
       clearTimeout(hide);
     };
-  }, [n]);
+  }, [dots]);
 
-  // Cloud-bubble geometry, clamped to stay inside the frame.
-  let bb: { cx: number; cy: number; bw: number; bh: number; dotX: number } | null = null;
-  if (bubble) {
-    const bw = Math.max(104, bubble.text.length * 17 + 48);
-    const bh = 62;
-    const cx = Math.min(Math.max(bubble.x, bw / 2 + 12), 904 - bw / 2 - 12);
-    const cy = Math.max(bh / 2 + 16, bubble.y - 56 - bh / 2);
-    bb = { cx, cy, bw, bh, dotX: bubble.x };
+  // Wrap longer lines, keep the bubble inside the map, and point to its actual Rally dot.
+  let bb: { cx: number; cy: number; bw: number; bh: number; tipX: number; edgeY: number; tipY: number } | null = null;
+  if (activeBubble) {
+    const bw = Math.min(480, Math.max(180, activeBubble.text.length * 14 + 48));
+    const bh = activeBubble.text.length > 28 ? 96 : 64;
+    const above = activeBubble.y - 18 - bh >= 12;
+    const cx = Math.min(Math.max(activeBubble.x, bw / 2 + 12), 904 - bw / 2 - 12);
+    const cy = above ? activeBubble.y - 18 - bh / 2 : activeBubble.y + 18 + bh / 2;
+    const tipX = Math.min(Math.max(activeBubble.x, cx - bw / 2 + 20), cx + bw / 2 - 20);
+    const edgeY = cy + (above ? bh / 2 - 1 : -bh / 2 + 1);
+    bb = { cx, cy, bw, bh, tipX, edgeY, tipY: edgeY + (above ? 14 : -14) };
   }
 
   return (
-    <svg viewBox="0 0 904 540" width="100%" role="img" aria-label={`Venue map, ${n} rallies open`} style={{ display: "block" }}>
+    <svg viewBox="0 0 904 540" width="100%" role="img" aria-label={`Illustrative venue map, showing ${dots.length} of ${rallies.length} open Rallies.${activeBubble ? ` ${activeBubble.text}` : ""}`} style={{ display: "block" }}>
       <style>{`
         .vm-dot0 { animation: vmDrift0 4.5s ease-in-out infinite; }
         .vm-dot1 { animation: vmDrift1 5.5s ease-in-out infinite; }
@@ -136,27 +135,22 @@ export default function VenueMap({ count = POOL.length }: { count?: number }) {
       {/* Activities donut */}
       <circle cx="250" cy="360" r="14" fill="#FDEFE8" stroke="#EC562E" strokeWidth="6" />
 
-      {/* One dot per open rally */}
-      {dots.map(([x, y], i) => (
-        <circle key={i} className={`vm-dot${i % 4}`} cx={x} cy={y} r="8" fill="#1C1917" />
+      {/* One anonymous dot per displayed Rally; coordinates are illustrative. */}
+      {dots.map(({ rally, x, y }, i) => (
+        <circle key={rally.opaqueId} data-rally-id={rally.opaqueId} className={`vm-dot${i % 4}`} cx={x} cy={y} r="8" fill="#1C1917">
+          <title>{rally.dialogue ?? 'Good company, anyone?'}</title>
+        </circle>
       ))}
 
-      {/* Random speech bubble near a dot */}
-      {bubble && bb && (
-        <g key={bubble.id} className="vm-bubble" fill="#1C1917">
-          <path d={`M${bb.cx - 9} ${bb.cy + bb.bh / 2 - 1} L${bb.cx + 9} ${bb.cy + bb.bh / 2 - 1} L${bb.cx} ${bb.cy + bb.bh / 2 + 13} Z`} />
+      {activeBubble && bb && (
+        <g key={activeBubble.id} className="vm-bubble" data-rally-id={activeBubble.rallyId} fill="#1C1917">
+          <path d={`M${bb.tipX - 9} ${bb.edgeY} L${bb.tipX + 9} ${bb.edgeY} L${bb.tipX} ${bb.tipY} Z`} />
           <rect x={bb.cx - bb.bw / 2} y={bb.cy - bb.bh / 2} width={bb.bw} height={bb.bh} rx="16" />
-          <text
-            x={bb.cx}
-            y={bb.cy + 9}
-            textAnchor="middle"
-            fontFamily="var(--font-inter), system-ui, sans-serif"
-            fontSize="26"
-            fontWeight="600"
-            fill="#FFF5EF"
-          >
-            {bubble.text}
-          </text>
+          <foreignObject x={bb.cx - bb.bw / 2} y={bb.cy - bb.bh / 2} width={bb.bw} height={bb.bh}>
+            <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "8px 20px", boxSizing: "border-box", textAlign: "center", fontFamily: "var(--font-inter), system-ui, sans-serif", fontSize: 26, fontWeight: 600, lineHeight: 1.2, color: "#FFF5EF", overflowWrap: "anywhere" }}>
+              {activeBubble.text}
+            </div>
+          </foreignObject>
         </g>
       )}
     </svg>

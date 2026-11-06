@@ -2,6 +2,7 @@ import { inArray } from 'drizzle-orm';
 
 import { rallies } from '../db/schema/index.js';
 import { TERMINAL, toPublicStatus } from '../domain/rally-state.js';
+import { rallyDialogue } from '../domain/map-dialogue.js';
 import type { Deps } from '../lib/deps.js';
 
 const UNAVAILABLE_NOTICE =
@@ -50,6 +51,9 @@ export async function previewActivities(deps: Deps, query: PreviewQuery) {
             status: rallies.status,
             openSeats: rallies.openSeats,
             visibility: rallies.visibility,
+            goal: rallies.goal,
+            category: rallies.category,
+            expiresAt: rallies.expiresAt,
           })
           .from(rallies)
           .where(inArray(rallies.opaqueId, opaqueIds));
@@ -58,12 +62,13 @@ export async function previewActivities(deps: Deps, query: PreviewQuery) {
   const activities = result.listings.flatMap((listing) => {
     const rally = byOpaqueId.get(listing.opaqueId);
     // Unknown to Rally means someone else wrote it, or it is stale. Do not show either.
-    if (!rally || rally.visibility !== 'public_coarse' || TERMINAL.includes(rally.status)) return [];
+    if (!rally || rally.visibility !== 'public_coarse' || TERMINAL.includes(rally.status) || rally.status === 'draft' || rally.expiresAt <= new Date()) return [];
     const status = toPublicStatus(rally.status, rally.openSeats);
     if (status === 'closed') return [];
     return [
       {
         opaqueId: listing.opaqueId,
+        dialogue: rallyDialogue(rally.goal, rally.category),
         category: listing.category,
         zone: listing.zone,
         startBucket: listing.startBucket,

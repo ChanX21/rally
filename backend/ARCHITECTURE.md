@@ -739,3 +739,17 @@ Acceptance holds the Rally row lock and claims an actual role/seat, so concurren
 overfill the Rally. First valid acceptances win. Filling the last place for a role closes competing
 pending invitations, notifies those users and queues them to check other Rallies. The invitation
 screen refreshes every ten seconds and clearly says that an invitation does not reserve a place.
+
+
+### Venue map dialogue
+
+Public preview responses add a short `dialogue` generated from the current PostgreSQL Rally goal
+and category. Curated title cues (coffee, pitch, chess, debugging, pizza, jogging and stretching)
+produce conversational lines; other activities use a category-specific line. Raw goals, contact
+details and exact locations are never copied into the public response or added to Arkiv. Expired
+and draft Rallies are excluded even before background synchronization catches up.
+
+The discovery map receives open Rally records rather than a count. Every displayed dot carries
+its Rally's opaque ID, and a randomly selected dot shows that Rally's dialogue. Up to 26 loaded
+Rallies are displayed; coordinates remain illustrative. Bubbles wrap and stay inside the mobile
+map, and disappear when their Rally leaves the displayed data. No additional AI call is needed.

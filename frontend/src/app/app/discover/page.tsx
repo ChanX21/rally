@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, getPreview, type PreviewActivity } from "@/lib/api";
 import { bucketLabel, capitalize, categoryPhrase } from "@/lib/format";
@@ -44,7 +44,8 @@ export default function DiscoverScreen() {
   }, [loadPage]);
 
   // One dot on the map per rally that still has room.
-  const openCount = activities.filter((a) => a.status !== "full").length;
+  const openRallies = useMemo(() => activities.filter((a) => a.status !== "full" && a.openSeats > 0), [activities]);
+  const openCount = openRallies.length;
 
   return (
     <div
@@ -202,7 +203,7 @@ export default function DiscoverScreen() {
           <div className="mono" style={{ marginBottom: "8px", padding: "0 24px" }}>
             Around the venue · {openCount} open
           </div>
-          <VenueMap count={openCount} />
+          <VenueMap rallies={openRallies} />
         </div>
 
         {/* CTA */}

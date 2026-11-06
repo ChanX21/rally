@@ -274,7 +274,7 @@ describe('public preview', () => {
     const card = activities.find((a: Json) => a.opaqueId === rally.opaqueId);
     expect(card).toMatchObject({ category: 'gaming', zone: 'venue-floor-2', status: 'open' });
     expect(Object.keys(card).sort()).toEqual(
-      ['category', 'minGroupSize', 'neededRole', 'opaqueId', 'openSeats', 'startBucket', 'status', 'zone'],
+      ['category', 'dialogue', 'minGroupSize', 'neededRole', 'opaqueId', 'openSeats', 'startBucket', 'status', 'zone'],
     );
   });
 
@@ -283,6 +283,23 @@ describe('public preview', () => {
     entityFor(rally.opaqueId)!.openSeats = 99;
     const { activities } = await preview('?category=explore');
     expect(activities.find((a: Json) => a.opaqueId === rally.opaqueId).openSeats).toBe(2);
+  });
+
+  it('ties dialogue to the current Rally title without publishing the raw goal', async () => {
+    const rally = await published({ category: 'build', goal: 'Hear my pitch, private email alice@example.com' });
+    const { activities } = await preview('?category=build');
+    const card = activities.find((a: Json) => a.opaqueId === rally.opaqueId);
+    expect(card.dialogue).toBe('I have a pitch. You have ears?');
+    expect(JSON.stringify(card)).not.toContain('alice@example.com');
+    await creator.patch(`/rallies/${rally.id}`, { expectedVersion: rally.version, goal: 'Coffee after building' });
+    expect((await preview('?category=build')).activities.find((a: Json) => a.opaqueId === rally.opaqueId).dialogue)
+      .toBe('Someone up for coffee?');
+  });
+
+  it('drops a Rally whose expiry passed before the background worker caught up', async () => {
+    const rally = await published({ category: 'explore' });
+    await h.app.deps.db.update(rallies).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(rallies.id, rally.id));
+    expect((await preview('?category=explore')).activities).toEqual([]);
   });
 
   it('drops listings that are stale or written by someone else', async () => {
