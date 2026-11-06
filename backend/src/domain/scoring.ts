@@ -2,8 +2,6 @@ export interface ScoreInput {
   overlapMin: number;
   durationMin: number;
   hasWaitingIntent: boolean;
-  /** Position of the category in the candidate's interests; null when not listed. */
-  interestRank: number | null;
   declaredSkills: readonly string[];
   neededRole: string;
   vibeMatch: boolean;
@@ -21,11 +19,7 @@ export function scoreCandidate(input: ScoreInput): number {
     : input.vibeMatch
       ? 0.6
       : 0.3;
-  const acceptance = input.hasWaitingIntent
-    ? 1
-    : input.interestRank === null
-      ? 0.3
-      : 0.8 - input.interestRank * 0.2;
+  const acceptance = input.hasWaitingIntent ? 1 : 0.8;
   const encore = input.mutualEncore ? 1 : 0;
   return Math.round(45 * feasibility + 30 * complementary + 15 * acceptance + 10 * encore);
 }

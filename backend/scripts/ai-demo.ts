@@ -79,7 +79,7 @@ try {
   console.log(JSON.stringify({ step, status: 'passed', result: parsed }));
 
   const person = (id: string) => ({
-    id, optedIn: true as const, interests: ['food'], roleIds: ['buddy'], zoneIds: ['venue'],
+    id, optedIn: true as const, roleIds: ['buddy'], zoneIds: ['venue'],
     availableFrom: now.toISOString(), availableUntil: until,
   });
   step = 'composition';

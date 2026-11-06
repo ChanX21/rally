@@ -32,7 +32,7 @@ async function matchesFor(user: { get: (url: string) => Promise<Json> }) {
 }
 
 describe('candidate filters', () => {
-  it('matches on compatible interest and availability', async () => {
+  it('matches on compatible preferences and availability', async () => {
     const candidate = await h.onboarded(did('fit'));
     const creator = await creatorFor();
     const rally = await h.rally(creator);
@@ -49,7 +49,6 @@ describe('candidate filters', () => {
   });
 
   it.each([
-    ['a different interest', { interests: ['build', 'coffee', 'gaming'] }],
     ['no opt-in', { optInMatching: false }],
     [
       'availability that misses the window',
@@ -269,7 +268,7 @@ describe('AI composition', () => {
       outcome: 'ok',
       provider: '0xprovider',
       model: 'fake-model',
-      promptVersion: 'formation-v10',
+      promptVersion: 'formation-v11',
       totalTokens: 15,
       cost: '100 usd_micro',
     });
@@ -642,6 +641,9 @@ describe('matching flow regressions', () => {
     expect(h.ai.callsFor('composition')).toHaveLength(1);
     expect(await evaluateRally(h.app.deps, rally.id)).toBe('unchanged');
     await guest.patch('/me/profile', { interests: ['food', 'build', 'workshop'] });
+    await h.drainOutbox();
+    expect(h.ai.callsFor('composition')).toHaveLength(1);
+    await guest.patch('/me/profile', { preferences: { custom_technology: 'Pitch practice' } });
     await h.drainOutbox();
     expect(h.ai.callsFor('composition')).toHaveLength(2);
     expect(await evaluateRally(h.app.deps, rally.id)).toBe('unchanged');

@@ -321,7 +321,9 @@ flowchart TD
   P --> N[Notify candidates]
 ```
 
-Hard filters: same category; window overlap covering the duration; allowed zone; rally status, expiry
+Interests select onboarding questions only; they never filter, rank or enter group composition. Matching scans all active Rallies and compares the full allowlisted, redacted saved preferences against the actual activity goal, including custom preferences filed under another category.
+
+Hard filters: explicit waiting-intent category/zone when present; window overlap covering the duration; allowed zone; rally status, expiry
 and seats; opted-in active user; no block in either direction with any current member; no existing
 claim, pending offer or earlier offer on this rally; no overlapping active commitment.
 
@@ -334,7 +336,7 @@ complementary fit 30%, acceptance likelihood 15%, prior mutual encore 10%. It or
 picks the group when the engine is unavailable.
 
 Everyone reaches the engine under an alias (`m1` for current members, `c1` for candidates), mapped back
-server-side, so real user IDs never cross the boundary. Only interests, eligible roles, zone and
+server-side, so real user IDs never cross the boundary. Only allowlisted redacted preferences, eligible roles, zone and
 availability are sent. Declared skills and display names are not.
 
 ## Atomic acceptance and reservation
@@ -602,7 +604,7 @@ Others: see the Arkiv table above. Which chain and asset any reward contract tar
 
 The shortlist holds `MAX_GROUP - 1` candidates (currently 11), so groups of 10–12 can reach their minimum with the host included. Both retrieval and transactional revalidation use the same bound.
 
-A cached no-fit is keyed by candidate matching data, current member IDs/roles, available roles, activity constraints and group bounds. Changing interests or availability triggers a new composition; unchanged input and display-name-only changes reuse the existing no-fit. The hash is private and stores no raw profile data.
+A cached no-fit is keyed by candidate matching data, current member IDs/roles, available roles, activity constraints and group bounds. Changing preferences or availability triggers a new composition; changes to onboarding interests do not alter the matching hash; unchanged input and display-name-only changes reuse the existing no-fit. The hash is private and stores no raw profile data.
 
 Host publication checks the same schedule-conflict rule as accepting an invitation. Creation with immediate publication, later draft publication and published schedule edits take the user's lock before the Rally lock, so concurrent host actions and acceptance cannot double-book that person. Overlapping drafts remain editable; publication returns `409 SCHEDULE_CONFLICT` until the conflict is resolved. Adjacent non-overlapping windows are allowed.
 
@@ -776,3 +778,10 @@ Bubbles rotate through available dialogues without repeating a dot before the ot
 Dots awaiting generation remain visible without speaking. Discovery refreshes its loaded pages
 at 15-second intervals while visible, so completed lines appear without a reload. Up to 26 loaded
 Rallies are shown; positions remain illustrative. Bubbles wrap and stay within the mobile map.
+
+
+Preference matching migration `0008_preference_matching` queues each existing unexpired, matchable
+Rally once through the normal outbox. Existing offers and consent remain unchanged. Interest edits
+may still emit a reevaluation event, but unchanged matching data reuses any cached no-fit. Explicit
+active waiting intents override general profile availability for their category, so their time and
+zone constraints cannot be bypassed by the broader preference search.

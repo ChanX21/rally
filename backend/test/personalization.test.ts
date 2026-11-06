@@ -216,7 +216,7 @@ it('passes private, redacted custom preferences into composition and keeps them 
   await h.drainOutbox();
   const sent = compositionInput.parse({ ...(h.ai.callsFor('composition')[0]!.input as object), requestId: 'test' });
   expect(sent.rally.intent.preferences).toEqual({ custom_gaming: 'Rocket League doubles' });
-  expect(sent.candidates[0]?.preferences).toEqual({ custom_gaming: 'Rocket League, email me at [email]' });
+  expect(sent.candidates[0]?.preferences).toEqual({ custom_gaming: 'Rocket League, email me at [email]', custom_food: 'Vegetarian' });
   expect((await guest.get('/matches')).matches[0].rally.id).toBe(rally.id);
   expect(JSON.stringify([...h.arkiv.entities.values()])).not.toMatch(/Rocket League|Vegetarian|example.com/);
 });

@@ -44,7 +44,7 @@ export const parseResult = z.discriminatedUnion('status', [
 ]);
 const person = z.strictObject({
   preferences: preferenceSchema.optional(),
-  id, optedIn: z.literal(true), interests: ids, roleIds: ids, zoneIds: ids.min(1),
+  id, optedIn: z.literal(true), roleIds: ids, zoneIds: ids.min(1),
   availableFrom: time, availableUntil: time,
 }).refine((v) => Date.parse(v.availableFrom) < Date.parse(v.availableUntil));
 export const compositionInput = z.strictObject({
