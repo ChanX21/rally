@@ -8,6 +8,7 @@ export function testEnv(overrides: Record<string, string> = {}): Env {
     LOG_LEVEL: 'silent',
     DATABASE_URL: inject('databaseUrl'),
     CORS_ORIGINS: 'https://app.rally.test',
+    ARC_REF_SECRET: 'test-only-reference-secret-32-chars-long',
     ...overrides,
   });
 }

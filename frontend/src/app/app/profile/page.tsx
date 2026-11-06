@@ -2,9 +2,10 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useWallets } from "@privy-io/react-auth";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, type ProfileUpdate } from "@/lib/api";
-import { CATEGORIES, categoryLabel } from "@/lib/format";
+import { CATEGORIES, categoryLabel, rewardLabel, signedPoints } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
 
@@ -28,7 +29,50 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: rewards } = usePolled(useCallback(() => api.getRewards(), [api]));
+  const { data: rewards, refresh: refreshRewards } = usePolled(useCallback(() => api.getRewards(), [api]), 30_000);
+  const { wallets } = useWallets();
+  const [walletNote, setWalletNote] = useState<string | null>(null);
+  const history = rewards?.entries.slice(0, 5) ?? [];
+
+  const appeal = async (rallyId: string) => {
+    setError(null);
+    try {
+      await api.raiseDispute(rallyId, { category: "no_show_appeal" });
+      refreshRewards();
+    } catch (err) {
+      setError(errorMessage(err, "Could not send that."));
+    }
+  };
+
+  // Optional. RALLY only shows in a wallet once it knows about Arc and the token.
+  const addToWallet = async () => {
+    const chain = rewards?.chain;
+    const wallet = wallets[0];
+    if (!chain || !wallet) return;
+    setWalletNote(null);
+    try {
+      const provider = await wallet.getEthereumProvider();
+      await provider.request({
+        method: "wallet_addEthereumChain",
+        params: [
+          {
+            chainId: `0x${chain.chainId.toString(16)}`,
+            chainName: "Arc Testnet",
+            nativeCurrency: { name: "USDC", symbol: "USDC", decimals: 18 },
+            rpcUrls: chain.rpcUrl ? [chain.rpcUrl] : [],
+            blockExplorerUrls: [chain.explorerUrl],
+          },
+        ],
+      });
+      await provider.request({
+        method: "wallet_watchAsset",
+        params: { type: "ERC20", options: { address: chain.tokenAddress, symbol: "RALLY", decimals: 0 } },
+      } as never);
+      setWalletNote("RALLY added to your wallet.");
+    } catch {
+      setWalletNote("Your wallet didn't add it. You can still see everything here.");
+    }
+  };
 
   const savedName = me?.user.displayName ?? "";
   const name = nameDraft ?? savedName;
@@ -247,9 +291,57 @@ export default function ProfileScreen() {
           </label>
 
           {rewards && (
-            <div className="card" style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "16px", padding: "14px 16px" }}>
-              <span style={{ fontSize: "15px", fontWeight: 600 }}>Rally points</span>
-              <span style={{ fontFamily: MONO, fontSize: "15px" }}>{rewards.balance}</span>
+            <div className="card" style={{ display: "flex", flexDirection: "column", gap: "12px", padding: "14px 16px" }}>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "16px" }}>
+                <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+                  <span style={{ fontSize: "15px", fontWeight: 600 }}>RALLY</span>
+                  <span style={{ fontSize: "13px", color: "#766B65" }}>{rewards.tier}</span>
+                </span>
+                <span style={{ fontFamily: MONO, fontSize: "20px" }}>{rewards.net}</span>
+              </div>
+              {history.map((entry) => (
+                <div key={entry.id} style={{ display: "flex", flexDirection: "column", gap: "4px", paddingTop: "8px", borderTop: "1px solid #D9C8BE" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "14px" }}>
+                    <span>{rewardLabel(entry.action)}</span>
+                    <span style={{ fontFamily: MONO }}>
+                      {entry.state === "applied" ? signedPoints(entry.points) : `${signedPoints(entry.points)} if confirmed`}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "13px", color: "#766B65" }}>
+                    <span>{entry.state === "held" ? "Being reviewed" : new Date(entry.createdAt).toLocaleDateString()}</span>
+                    {entry.state === "pending" && entry.action === "NoShow" && entry.rallyId && (
+                      <button
+                        type="button"
+                        onClick={() => void appeal(entry.rallyId ?? "")}
+                        style={{ padding: 0, minHeight: "32px", border: 0, background: "transparent", fontFamily: "inherit", fontSize: "14px", fontWeight: 600, color: "#315FE8", cursor: "pointer" }}
+                      >
+                        I was there
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {rewards.chain?.address && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", paddingTop: "8px", borderTop: "1px solid #D9C8BE", fontSize: "14px", fontWeight: 600 }}>
+                  <a href={`${rewards.chain.explorerUrl}/address/${rewards.chain.address}`} target="_blank" rel="noreferrer" style={{ color: "#315FE8" }}>
+                    Verified on Arc
+                  </a>
+                  {wallets[0] && (
+                    <button
+                      type="button"
+                      onClick={() => void addToWallet()}
+                      style={{ padding: 0, minHeight: "32px", border: 0, background: "transparent", fontFamily: "inherit", fontSize: "14px", fontWeight: 600, color: "#315FE8", cursor: "pointer" }}
+                    >
+                      Add to wallet
+                    </button>
+                  )}
+                </div>
+              )}
+              {walletNote && (
+                <span role="status" style={{ fontSize: "13px", color: "#766B65" }}>
+                  {walletNote}
+                </span>
+              )}
             </div>
           )}
 

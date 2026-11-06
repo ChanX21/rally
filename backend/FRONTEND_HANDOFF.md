@@ -414,8 +414,14 @@ marked a no-show, and loses access to the rally.
   present it as a penalty.
 - A retry is safe, and its `vouches` list comes back empty.
 
-**Rewards:** `GET /me/rewards` returns `{ balance, entries }`. Points are off-chain. Ignore the voucher
-route: on-chain claims are optional, and off by default.
+**Rewards:** `GET /me/rewards` returns `{ balance, net, tier, chain, entries }`. `net` can be negative, and
+`chain` is null while on-chain records are off. Entries in state `pending` are no-shows that can still be
+appealed. Ignore the voucher route: claims are off.
+
+**Arrival:** `POST /rallies/:id/arrive` is the "I'm here" tap, from 30 minutes before `meetAt`. Safe to retry.
+
+**Disputes:** `POST /rallies/:id/disputes` takes `{ category, subjectId, description }`. An appeal needs only
+`{ category: "no_show_appeal" }`. `GET /me/disputes` returns `{ raised, against }`.
 
 ## Notifications
 

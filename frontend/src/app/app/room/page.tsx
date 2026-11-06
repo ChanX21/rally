@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
-import { errorCode, errorMessage } from "@/lib/api";
+import { type DisputeCategory, errorCode, errorMessage } from "@/lib/api";
 import { capitalize, displayTime, initials, zoneLabel } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
@@ -16,6 +16,19 @@ const SANS = "var(--font-inter), system-ui, sans-serif";
 const SERIF = "var(--font-serif), Georgia, serif";
 const MONO = "var(--font-mono), monospace";
 
+const fieldStyle = {
+  width: "100%",
+  height: "44px",
+  padding: "0 12px",
+  boxSizing: "border-box",
+  borderRadius: "12px",
+  border: "1px solid #D9C8BE",
+  background: "#FFFAF7",
+  fontFamily: "inherit",
+  fontSize: "15px",
+  color: "#1C1917",
+} as const;
+
 export default function RoomScreen() {
   // Meeting card and member list; there is no chat. Check-in is attested by the
   // host, and anyone the host doesn't mark present loses access to the rally.
@@ -26,6 +39,11 @@ export default function RoomScreen() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reportWho, setReportWho] = useState("");
+  const [reportKind, setReportKind] = useState<DisputeCategory>("misconduct");
+  const [reportText, setReportText] = useState("");
+  const [reported, setReported] = useState(false);
 
   const load = useCallback(() => api.getRoom(rallyId ?? ""), [api, rallyId]);
   const { data: room, error, loaded, refresh } = usePolled(rallyId ? load : null, 10_000);
@@ -37,6 +55,38 @@ export default function RoomScreen() {
   const formed = room?.status === "formed";
   const met = room?.status === "met" || room?.status === "completed";
   const host = room?.members.find((m) => m.role === "host");
+  const iArrived = room?.members.find((m) => m.userId === myId)?.arrived ?? false;
+
+  const arrive = async () => {
+    if (!rallyId) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await api.markArrived(rallyId);
+      refresh();
+    } catch (err) {
+      setActionError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const report = async () => {
+    const description = reportText.trim();
+    if (!rallyId || !reportWho || !description) return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await api.raiseDispute(rallyId, { category: reportKind, subjectId: reportWho, description });
+      setReported(true);
+      setReporting(false);
+      setReportText("");
+    } catch (err) {
+      setActionError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const checkIn = async () => {
     if (!rallyId) return;
@@ -171,7 +221,7 @@ export default function RoomScreen() {
 
               <div className="card" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px" }}>
-                  <span style={{ fontFamily: MONO, fontSize: "15px", fontWeight: 500 }}>{displayTime(room.windowStart)}</span>
+                  <span style={{ fontFamily: MONO, fontSize: "15px", fontWeight: 500 }}>{displayTime(room.meetAt)}</span>
                   {host && <span style={{ fontSize: "13px", color: "#766B65" }}>Host: {host.userId === myId ? "You" : host.displayName ?? "Rally member"}</span>}
                 </div>
                 <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
@@ -197,7 +247,10 @@ export default function RoomScreen() {
                         <span className={`av${mine ? " you" : ""}`}>{mine ? "You" : initials(m.displayName)}</span>
                         <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                           <span style={{ fontSize: "15px", fontWeight: 600 }}>{mine ? "You" : m.displayName ?? "Rally member"}</span>
-                          <span style={{ fontSize: "13px", color: "#766B65" }}>{capitalize(m.role)}</span>
+                          <span style={{ fontSize: "13px", color: "#766B65" }}>
+                            {capitalize(m.role)}
+                            {tickable && m.arrived ? " · says they're here" : ""}
+                          </span>
                         </span>
                       </>
                     );
@@ -215,7 +268,7 @@ export default function RoomScreen() {
                       <div key={m.userId} className="mem">
                         {row}
                         <span style={{ fontSize: "13px", fontWeight: m.checkedIn ? 600 : 400, color: m.checkedIn ? "#1C1917" : "#766B65" }}>
-                          {m.checkedIn ? "Checked in" : "Confirmed"}
+                          {m.checkedIn ? "Checked in" : m.arrived ? "Here" : "Confirmed"}
                         </span>
                       </div>
                     );
@@ -241,6 +294,11 @@ export default function RoomScreen() {
               {actionError}
             </p>
           )}
+          {room && formed && !iArrived && (
+            <button className="btn btn-p" type="button" disabled={busy} onClick={() => void arrive()}>
+              I&apos;m here
+            </button>
+          )}
           {room && isHost && formed && (
             <button className="btn btn-p" type="button" disabled={busy || presentIds.length === 0} onClick={() => void checkIn()}>
               {presentIds.length === 0 ? "Tick who's here to check in" : `Check in ${presentIds.length + 1} people`}
@@ -259,6 +317,47 @@ export default function RoomScreen() {
                 ? "Anyone you don't tick is marked as a no-show."
                 : "The host checks everyone in at the meeting point."}
             </p>
+          )}
+          {room && reporting && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
+              <select aria-label="Who is this about?" value={reportWho} onChange={(e) => setReportWho(e.target.value)} style={fieldStyle}>
+                <option value="">Who is this about?</option>
+                {others.map((m) => (
+                  <option key={m.userId} value={m.userId}>
+                    {m.displayName ?? "Rally member"}
+                  </option>
+                ))}
+              </select>
+              <select aria-label="What kind of problem?" value={reportKind} onChange={(e) => setReportKind(e.target.value as DisputeCategory)} style={fieldStyle}>
+                <option value="misconduct">Their behaviour</option>
+                <option value="false_checkin">Check-in was wrong</option>
+                <option value="other">Something else</option>
+              </select>
+              <textarea
+                aria-label="What happened?"
+                placeholder="What happened? Only Rally's team reads this."
+                maxLength={1000}
+                rows={3}
+                value={reportText}
+                onChange={(e) => setReportText(e.target.value)}
+                style={{ ...fieldStyle, height: "auto", padding: "12px" }}
+              />
+              <button className="btn btn-p" type="button" disabled={busy || !reportWho || !reportText.trim()} onClick={() => void report()}>
+                Send report
+              </button>
+            </div>
+          )}
+          {reported && (
+            <p role="status" style={{ margin: "4px 0 0", fontSize: "13px", color: "#766B65", textAlign: "center" }}>
+              Report sent. The person won&apos;t see who sent it.
+            </p>
+          )}
+          {room && others.length > 0 && !reporting && (
+            <div className="sub">
+              <button type="button" onClick={() => setReporting(true)}>
+                Report a problem
+              </button>
+            </div>
           )}
           {room && formed && (
             <div className="sub">

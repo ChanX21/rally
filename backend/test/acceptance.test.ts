@@ -464,7 +464,10 @@ describe('after meeting', () => {
       sql`select id from feedback where type = 'vouch' limit 1`,
     );
     await applyVerifiedVouch(h.app.deps, row!.id);
-    const entries = await h.app.deps.db.select().from(rewardLedger);
+    const entries = await h.app.deps.db
+      .select()
+      .from(rewardLedger)
+      .where(eq(rewardLedger.action, 'Vouched'));
     expect(entries).toHaveLength(1);
   });
 

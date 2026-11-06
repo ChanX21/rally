@@ -6,7 +6,10 @@ export type OutboxEventType =
   | 'user.onboarded'
   | 'match.reevaluate'
   | 'arkiv.sync'
-  | 'vouch.verified';
+  | 'vouch.verified'
+  | 'reward.chain_sync'
+  | 'reward.policy_sync'
+  | 'dispute.chain_sync';
 
 export interface OutboxEventInput {
   type: OutboxEventType;

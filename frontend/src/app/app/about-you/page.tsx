@@ -376,6 +376,9 @@ export default function AboutYouScreen() {
                   ? "0G is reading your interests to ask the right things. This takes a few seconds."
                   : "A few questions based on what you picked. Skip any you like."}
               </p>
+              <p style={{ margin: "8px 0 0", fontSize: "13px", lineHeight: 1.4, color: "#766B65" }}>
+                Your Rally points and reliability history are recorded publicly on Arc against your wallet address.
+              </p>
             </div>
 
             {qStatus === "loading" && (

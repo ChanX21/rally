@@ -9,15 +9,22 @@ import {
   notificationsQuery,
   previewQuery,
   previewSchema,
+  adminDisputeSchema,
+  adminDisputesQuery,
+  myDisputesSchema,
+  policyBody,
+  policySchema,
+  resolveDisputeBody,
   rewardsSchema,
   voucherSchema,
 } from '../schemas/api.js';
 import { ok, successSchema } from '../schemas/common.js';
 import { previewActivities } from '../services/activities.js';
-import { getRewards } from '../services/feedback.js';
+import { listAllDisputes, listMyDisputes, resolveDispute } from '../services/disputes.js';
 import { collectMetrics } from '../services/metrics.js';
 import { listNotifications, markAllRead, markRead } from '../services/notifications.js';
 import { issueVoucher } from '../services/reward-voucher.js';
+import { getRewards, latestPolicy, publishPolicy } from '../services/rewards.js';
 
 const secured = { security: [{ bearer: [] }] };
 
@@ -97,6 +104,63 @@ export const miscRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (request) => ok(await issueVoucher(deps, requireUser(request).id, request.params.id)),
+  );
+
+  app.get(
+    '/me/disputes',
+    { ...auth, schema: { ...secured, response: { 200: successSchema(myDisputesSchema) } } },
+    async (request) => ok(await listMyDisputes(deps, requireUser(request).id)),
+  );
+
+  const admin = { onRequest: app.requireAdmin };
+
+  app.get(
+    '/internal/disputes',
+    {
+      ...admin,
+      schema: {
+        ...secured,
+        querystring: adminDisputesQuery,
+        response: { 200: successSchema(z.array(adminDisputeSchema)) },
+      },
+    },
+    async (request) => ok(await listAllDisputes(deps, request.query)),
+  );
+
+  app.post(
+    '/internal/disputes/:id/resolve',
+    {
+      ...admin,
+      schema: {
+        ...secured,
+        params: idParams,
+        body: resolveDisputeBody,
+        response: { 200: successSchema(z.object({ id: z.uuid(), status: z.string() })) },
+      },
+    },
+    async (request) =>
+      ok(
+        await resolveDispute(deps, request.params.id, {
+          outcome: request.body.outcome,
+          note: request.body.note,
+          by: 'admin',
+        }),
+      ),
+  );
+
+  app.get(
+    '/internal/reward-policy',
+    { ...admin, schema: { ...secured, response: { 200: successSchema(policySchema) } } },
+    async () => ok(await latestPolicy(deps.db)),
+  );
+
+  app.put(
+    '/internal/reward-policy',
+    {
+      ...admin,
+      schema: { ...secured, body: policyBody, response: { 200: successSchema(policySchema) } },
+    },
+    async (request) => ok(await publishPolicy(deps, request.body.amounts)),
   );
 
   app.get(
