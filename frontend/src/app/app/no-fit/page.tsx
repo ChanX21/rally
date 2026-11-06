@@ -7,6 +7,7 @@ import RallyOrb from "@/components/RallyOrb";
 import { errorMessage } from "@/lib/api";
 import { displayTime } from "@/lib/format";
 import { useSession } from "@/lib/session";
+import { RallyAiRequests } from "@/components/AiRequests";
 import { usePolled } from "@/lib/usePolled";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
@@ -163,6 +164,7 @@ export default function NoFitScreen() {
               {actionError}
             </p>
           )}
+          <RallyAiRequests rallyId={rallyId} />
         </div>
 
         <div className="foot">

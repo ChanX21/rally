@@ -338,6 +338,7 @@ export const previewSchema = z.object({
     z.object({
       opaqueId: z.string(),
       dialogue: z.string().max(80).nullable(),
+      aiRequestId: z.string().nullable(),
       category: z.string(),
       zone: z.string(),
       startBucket: z.string(),

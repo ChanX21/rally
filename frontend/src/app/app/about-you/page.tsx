@@ -6,6 +6,7 @@ import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, type CompleteOnboardingInput, type OnboardingQuestion } from "@/lib/api";
 import { PreferenceInput } from "@/components/PreferenceInput";
 import { Dropdown } from "@/components/Dropdown";
+import { AiRequests } from "@/components/AiRequests";
 import { useSession } from "@/lib/session";
 import RallyLoader from "@/components/RallyLoader";
 
@@ -490,11 +491,7 @@ export default function AboutYouScreen() {
                 </label>
               ))}
 
-            {qStatus === "ready" && qSource === "ai" && qRequestId && (
-              <p style={{ margin: 0, fontSize: "11px", lineHeight: 1.4, color: "#A89C94", wordBreak: "break-all" }}>
-                request id: {qRequestId} · by 0G
-              </p>
-            )}
+            {qStatus === "ready" && qRequestId && <AiRequests requests={[{ task: "onboarding", requestId: qRequestId, outcome: qSource === "ai" ? "ok" : "fallback" }]} />}
 
             {qStatus === "ready" && optIn && (
               <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>

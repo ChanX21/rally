@@ -561,3 +561,10 @@ loaded preview pages every 15 seconds while visible to pick up completed generat
 A bubble and its dot always refer to the same `opaqueId`. Raw titles are not returned. Coordinates
 are illustrative, not real participant locations. `WORKERS_ENABLED=true` and the existing 0G text
 model credentials are required to generate lines. No database migration is needed.
+
+
+0G evidence: `GET /rallies/:id/ai-receipts` (same access as Rally detail) returns
+`{ receipts: [{ task, requestId, outcome, createdAt }] }`, newest first, latest 50.
+These are provider request IDs, not API error references or internal model-run UUIDs. The shared
+`AiRequests` / `RallyAiRequests` sections show them below screen content, including failure labels.
+Public preview activities add nullable `aiRequestId` for the associated map dialogue only.

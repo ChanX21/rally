@@ -45,6 +45,7 @@ import {
   settleRally,
   transition,
 } from './rally-lifecycle.js';
+import { listAiReceipts } from './ai-receipts.js';
 import { queueMapDialogue } from './map-dialogue.js';
 import { penaliseLateCancel, rewardCheckIn } from './rewards.js';
 
@@ -277,6 +278,12 @@ export async function getRally(deps: Deps, userId: string, rallyId: string) {
   const rally = await findRally(deps.db, rallyId);
   if (!rally || !(await canSee(deps.db, rally, userId))) throw notFound('Rally');
   return { ...rallyView(rally), matchingProgress: await matchingProgress(deps.db, rally) };
+}
+
+export async function getAiReceipts(deps: Deps, userId: string, rallyId: string) {
+  const rally = await findRally(deps.db, rallyId);
+  if (!rally || !(await canSee(deps.db, rally, userId))) throw notFound('Rally');
+  return { receipts: await listAiReceipts(deps.db, rallyId) };
 }
 
 export async function listRallies(

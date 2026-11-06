@@ -800,3 +800,20 @@ the scheduler. Database-time bucket keys deduplicate each Rally across service i
 already queued or processing are skipped. Normal matching revalidates eligibility and seats, keeps
 consent and previous-offer rules, and reuses cached no-fit when matching inputs have not changed.
 The sweep stops with the other workers and requires `WORKERS_ENABLED=true`.
+
+
+### Visible 0G request receipts
+
+`GET /rallies/:id/ai-receipts` applies the same creator/member/invitee authorization as Rally
+details and returns the latest 50 attributable provider IDs with task, outcome and timestamp.
+It never returns model-run UUIDs as substitutes, candidate identities, prompts or private notes.
+`model_runs.rally_id` associates new composition (including no-fit), map and photo calls with the
+Rally; legacy successful planning, proposal and proof runs are also resolved through their stored
+foreign keys. Historical unlinked calls cannot be attributed retroactively.
+
+Onboarding and creation display returned request IDs near the bottom of their content. Matching,
+no-fit, room and feedback screens poll the private receipt list. Public discovery includes only
+`aiRequestId` for each displayed generated dialogue, from that dialogue cache entry; it never
+exposes private matchmaking or photo receipts. Missing IDs render no fabricated receipt; failed
+requests with real IDs retain an explicit failure outcome. Migration `0009_ai_receipts` regenerates
+old unlinked dialogue caches once so their next generated line has its actual request ID.

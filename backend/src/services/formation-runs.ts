@@ -16,6 +16,7 @@ export interface FormationRun<T> {
 
 export type FormationRunner = <T>(
   call: (engine: FormationEngine, runId: string) => Promise<T>,
+  rallyId?: string,
 ) => Promise<FormationRun<T>>;
 
 function outcomeOf(trace: Trace): (typeof modelRuns.$inferInsert)['outcome'] {
@@ -42,7 +43,7 @@ export function createFormationRunner(
   log: FastifyBaseLogger,
   visionInfer: Infer = infer,
 ): FormationRunner {
-  return async (call) => {
+  return async (call, rallyId) => {
     const runId = randomUUID();
     let trace: Trace | undefined;
     const engine = createFormationEngine(infer, (value) => {
@@ -60,6 +61,7 @@ export function createFormationRunner(
     await db.insert(modelRuns).values({
       id: runId,
       task: recorded.task,
+      rallyId: rallyId ?? null,
       promptVersion: recorded.promptVersion,
       model: recorded.model ?? null,
       provider: recorded.provider ?? null,

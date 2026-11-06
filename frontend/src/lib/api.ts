@@ -347,9 +347,12 @@ export type WaitingIntent = {
 
 export type Matches = { matches: Match[]; waiting: WaitingIntent[] };
 
+export type AiRequest = { task: string; requestId: string; outcome?: string; createdAt?: string };
+
 export type PreviewActivity = {
   opaqueId: string;
   dialogue: string | null;
+  aiRequestId: string | null;
   category: string;
   zone: string;
   startBucket: string;
@@ -533,6 +536,7 @@ export function createApiClient(getToken: TokenSource) {
     publishRally: (id: string) => call<Rally>(`/rallies/${id}/publish`, { method: "POST" }),
     cancelRally: (id: string) => call<Rally>(`/rallies/${id}/cancel`, { method: "POST" }),
     withdrawFromRally: (id: string) => call<Rally>(`/rallies/${id}/withdraw`, { method: "POST" }),
+    getAiReceipts: (id: string) => call<{ receipts: AiRequest[] }>(`/rallies/${id}/ai-receipts`),
     getProof: (id: string) => call<RallyProof>(`/rallies/${id}/proof`),
     submitProof: (id: string, input: { images: string[]; note: string }, key: string) =>
       call<RallyProof>(`/rallies/${id}/proof`, { method: "POST", body: input, headers: { "Idempotency-Key": key }, timeoutMs: AI_TIMEOUT_MS }),

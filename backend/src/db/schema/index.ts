@@ -163,6 +163,7 @@ export const modelRuns = pgTable(
   {
     id: id(),
     task: text('task').notNull(),
+    rallyId: uuid('rally_id'),
     promptVersion: text('prompt_version').notNull(),
     model: text('model'),
     provider: text('provider'),
@@ -174,7 +175,7 @@ export const modelRuns = pgTable(
     failureReason: text('failure_reason'),
     createdAt: createdAt(),
   },
-  (table) => [index('model_runs_task_created_idx').on(table.task, table.createdAt)],
+  (table) => [index('model_runs_task_created_idx').on(table.task, table.createdAt), index('model_runs_rally_created_idx').on(table.rallyId, table.createdAt)],
 );
 
 export const intents = pgTable(

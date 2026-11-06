@@ -274,7 +274,7 @@ describe('public preview', () => {
     const card = activities.find((a: Json) => a.opaqueId === rally.opaqueId);
     expect(card).toMatchObject({ category: 'gaming', zone: 'venue-floor-2', status: 'open' });
     expect(Object.keys(card).sort()).toEqual(
-      ['category', 'dialogue', 'minGroupSize', 'neededRole', 'opaqueId', 'openSeats', 'startBucket', 'status', 'zone'],
+      ['aiRequestId', 'category', 'dialogue', 'minGroupSize', 'neededRole', 'opaqueId', 'openSeats', 'startBucket', 'status', 'zone'],
     );
   });
 

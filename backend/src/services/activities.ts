@@ -73,7 +73,8 @@ export async function previewActivities(deps: Deps, query: PreviewQuery) {
     return [
       {
         opaqueId: listing.opaqueId,
-        dialogue: dialogues.get(rally.id) ?? null,
+        dialogue: dialogues.get(rally.id)?.dialogue ?? null,
+        aiRequestId: dialogues.get(rally.id)?.aiRequestId ?? null,
         category: listing.category,
         zone: listing.zone,
         startBucket: listing.startBucket,

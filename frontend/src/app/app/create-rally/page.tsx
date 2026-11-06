@@ -7,6 +7,8 @@ import RallyOrb from "@/components/RallyOrb";
 import { PreferenceEditor, PreferenceInput } from "@/components/PreferenceInput";
 import { errorMessage, type ParsedIntent } from "@/lib/api";
 import { CATEGORIES, SENSITIVE_CATEGORIES, VIBES, ZONES, categoryLabel, zoneLabel, preferenceText, fromLocalInput, rallyPath } from "@/lib/format";
+import { AiRequests } from "@/components/AiRequests";
+import type { AiRequest } from "@/lib/api";
 import { clearRallyCreation } from "@/lib/plan";
 import { draftFromIntent, rallyDraftIssues, rallyDraftProblem, rallyInputFromDraft, type RallyDraft, type RallyDetail } from "@/lib/rally-draft";
 import { useSession } from "@/lib/session";
@@ -42,6 +44,7 @@ export default function CreateRallyScreen() {
   const [stage, setStage] = useState<"plan" | "questions" | "details" | "review" | "edit">("plan");
   const [detailFields, setDetailFields] = useState<RallyDetail[]>([]);
   const [text, setText] = useState("");
+  const [receipts, setReceipts] = useState<AiRequest[]>([]);
   const [parsed, setParsed] = useState<ParsedIntent | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [questionIndex, setQuestionIndex] = useState(0);
@@ -59,6 +62,7 @@ export default function CreateRallyScreen() {
   };
   const accept = (result: ParsedIntent, currentAnswers: Record<string, string> = {}) => {
     const next = draftFromIntent(result.intent, currentAnswers);
+    if (result.aiRequestId) setReceipts((previous) => [...previous, { task: "intent", requestId: result.aiRequestId!, outcome: result.status === "needs_review" ? "fallback" : "ok" }]);
     setParsed(result);
     setQuestionIndex(0);
     setDraft(next);
@@ -223,6 +227,7 @@ export default function CreateRallyScreen() {
         </>}
         {busy && <p role="status" className="loading-row"><RallyOrb variant="searching" size={22} /><span>{busy === "publish" ? "Publishing your Rally…" : "Rally intelligence is reading your plan…"}</span></p>}
         {error && <p className="error" role="alert">{error}</p>}
+        <AiRequests requests={receipts} />
       </div>
       <div className="foot">
         {stage === "plan" && <>

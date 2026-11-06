@@ -198,6 +198,7 @@ async function composeWithEngine(
         availableUntil: (candidate.intent_end ?? candidate.available_to)!.toISOString(),
       })),
     }),
+    rally.id,
   );
 
   if (result.status === 'no_fit') return { kind: 'no_fit' };

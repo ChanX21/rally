@@ -36,7 +36,10 @@ it('generates once per published title and reuses the cached AI output on previe
   await generateMapDialogue(h.app.deps, rally.id, dialogueKey({ id: rally.id, goal: rally.goal, category: rally.category }));
   expect(h.ai.callsFor('map_dialogue')).toHaveLength(1);
   const [trace] = await h.app.deps.db.select().from(modelRuns).where(eq(modelRuns.task, 'map_dialogue'));
-  expect(trace).toMatchObject({ outcome: 'ok', model: 'fake-model' });
+  expect(trace).toMatchObject({ outcome: 'ok', model: 'fake-model', rallyId: rally.id });
+  const publicRow = (await preview()).json().data.activities[0];
+  expect(publicRow.aiRequestId).toBe(trace!.requestId);
+  expect(publicRow.aiRequestId).not.toBe(trace!.id);
 });
 
 it('does not run inference for private Rallies or show canned text when generation fails', async () => {

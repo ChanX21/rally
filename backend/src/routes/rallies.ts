@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
+import { aiReceiptSchema } from '../services/ai-receipts.js';
 import { proofBody, proofViewSchema, getProof, submitProof } from '../services/proofs.js';
 import { requireUser } from '../plugins/auth.js';
 import {
@@ -27,6 +28,7 @@ import {
   checkIn,
   createRally,
   getRally,
+  getAiReceipts,
   getRoom,
   listParticipants,
   listRallies,
@@ -42,6 +44,10 @@ const rallyResponse = { response: { 200: successSchema(rallySchema) } };
 export const rallyRoutes: FastifyPluginAsyncZod = async (app) => {
   const { deps } = app;
   const auth = { onRequest: app.authenticate };
+
+  app.get('/rallies/:id/ai-receipts', { ...auth, schema: { ...secured, params: idParams,
+    response: { 200: successSchema(z.object({ receipts: z.array(aiReceiptSchema) })) } } },
+    async (request) => ok(await getAiReceipts(deps, requireUser(request).id, request.params.id)));
 
   app.get('/rallies/:id/proof', { ...auth, schema: { ...secured, params: idParams, response: { 200: successSchema(proofViewSchema) } } },
     async (request) => ok(await getProof(deps, requireUser(request).id, request.params.id)));

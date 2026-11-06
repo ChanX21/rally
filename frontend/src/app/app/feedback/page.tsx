@@ -6,6 +6,7 @@ import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorCode, errorMessage } from "@/lib/api";
 import { displayTime, initials } from "@/lib/format";
 import { useSession } from "@/lib/session";
+import { RallyAiRequests } from "@/components/AiRequests";
 import { usePolled } from "@/lib/usePolled";
 import { RallyProof } from "@/components/RallyProof";
 
@@ -241,6 +242,7 @@ export default function FeedbackScreen() {
               )}
             </div>
           )}
+          <RallyAiRequests rallyId={room?.rallyId} />
         </div>
 
         <div className="foot">

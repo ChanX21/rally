@@ -85,6 +85,8 @@ it('one proof rewards the whole group exactly once under concurrent submission/w
     const proof = await user.get(`/rallies/${rally.id}/proof`);
     expect(proof).toMatchObject({ state: 'accepted', rewardedCount: 2, canSubmit: false });
     expect(JSON.stringify(proof)).not.toContain('base64');
+    const receipts = await user.get(`/rallies/${rally.id}/ai-receipts`);
+    expect(receipts.receipts).toEqual(expect.arrayContaining([expect.objectContaining({ task: 'proof', outcome: 'ok', requestId: expect.stringMatching(/^req_/) })]));
   }
   const result = await member.request('POST', `/rallies/${rally.id}/proof`, body, headers('other-key'));
   expect(result.statusCode).toBe(409);

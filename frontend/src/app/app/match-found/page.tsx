@@ -7,6 +7,7 @@ import RallyOrb from "@/components/RallyOrb";
 import { errorCode, errorMessage, type Match } from "@/lib/api";
 import { capitalize, countdown, displayTime, zoneLabel } from "@/lib/format";
 import { useSession } from "@/lib/session";
+import { RallyAiRequests } from "@/components/AiRequests";
 import { usePolled } from "@/lib/usePolled";
 import RallyLoader from "@/components/RallyLoader";
 
@@ -255,6 +256,7 @@ export default function MatchFoundScreen() {
               {actionError}
             </p>
           )}
+          <RallyAiRequests rallyId={match?.rally.id} />
         </div>
 
         <div className="foot">

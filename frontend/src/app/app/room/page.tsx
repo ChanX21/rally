@@ -9,6 +9,7 @@ import { Dropdown } from "@/components/Dropdown";
 import { type DisputeCategory, errorCode, errorMessage } from "@/lib/api";
 import { capitalize, displayTime, initials, zoneLabel } from "@/lib/format";
 import { useSession } from "@/lib/session";
+import { RallyAiRequests } from "@/components/AiRequests";
 import { usePolled } from "@/lib/usePolled";
 import RallyLoader from "@/components/RallyLoader";
 
@@ -291,6 +292,7 @@ export default function RoomScreen() {
               )}
             </>
           )}
+          <RallyAiRequests rallyId={room?.rallyId} />
         </div>
 
         <div className="foot">

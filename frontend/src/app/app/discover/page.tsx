@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, getPreview, type PreviewActivity } from "@/lib/api";
 import { bucketLabel, capitalize, categoryPhrase } from "@/lib/format";
+import { AiRequests } from "@/components/AiRequests";
 import VenueMap from "@/components/VenueMap";
 import RallyLogo from "@/components/RallyLogo";
 import RallyLoader from "@/components/RallyLoader";
@@ -233,6 +234,10 @@ export default function DiscoverScreen() {
             Around the venue · {openCount} open
           </div>
           <VenueMap rallies={openRallies} />
+        </div>
+
+        <div style={{ padding: "0 24px", flexShrink: 0 }}>
+          <AiRequests requests={openRallies.flatMap((rally) => rally.dialogue && rally.aiRequestId ? [{ task: "map_dialogue", requestId: rally.aiRequestId }] : [])} />
         </div>
 
         {/* CTA */}

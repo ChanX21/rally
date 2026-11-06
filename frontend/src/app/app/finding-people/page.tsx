@@ -6,6 +6,7 @@ import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import RallyOrb from "@/components/RallyOrb";
 import { errorCode, errorMessage, type Rally } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { RallyAiRequests } from "@/components/AiRequests";
 import { usePolled } from "@/lib/usePolled";
 import { matchingProgressLabels } from "@/lib/format";
 import RallyLoader from "@/components/RallyLoader";
@@ -243,6 +244,7 @@ export default function FindingPeopleScreen() {
               })}
             </ol>
           )}
+          <RallyAiRequests rallyId={rally?.id} />
         </div>
 
         <div className="foot">
