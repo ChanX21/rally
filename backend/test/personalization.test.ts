@@ -7,6 +7,16 @@ let h: Harness;
 beforeEach(async () => { await h?.close(); h = await createHarness(); });
 afterAll(() => h.close());
 
+it('preserves activity preference answers when the reparse falls back', async () => {
+  const user = await h.onboarded('did:personal:reparse-fallback', { preferences: { custom_workshop: 'AI' } });
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'needs_answers', questionIds: ['workshop_topic'] });
+  const first = await user.post('/intents/parse', { text: 'A workshop with someone' });
+  h.ai.respond = () => { throw new Error('Provider unavailable'); };
+  const result = await user.post(`/intents/${first.intent.id}/answers`, { answers: [{ questionId: 'workshop_topic', answer: 'Candle making' }] });
+  expect(result.status).toBe('needs_review');
+  expect(result.intent.preferences).toEqual({ custom_workshop: 'Candle making' });
+});
+
 it('uses edited free-text notes to retry existing rallies, redacts them, and keeps them private', async () => {
   const host = await h.onboarded('did:notes:host', { optInMatching: false });
   const guest = await h.onboarded('did:notes:guest', { preferences: { matching_notes: 'I prefer Minecraft' } });

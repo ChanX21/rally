@@ -97,7 +97,7 @@ async function runParse(deps: Deps, call: ParseCall) {
   }
 
   const fallback = { ...fallbackFields,
-    preferences: relevantPreferences(fallbackFields.category ?? '', safePreferences(profile?.preferences ?? {})) };
+    preferences: relevantPreferences(fallbackFields.category ?? '', mergePreferences(safePreferences(profile?.preferences ?? {}), preferencesFromAnswers(call.answers))) };
   if (result.status === 'needs_answers') {
     return {
       ...meta,

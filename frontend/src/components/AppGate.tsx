@@ -1,8 +1,8 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
-import { afterSignInPath } from "@/lib/plan";
+import { afterSignInPath, CREATE_RALLY_PATH, rememberRallyCreation } from "@/lib/plan";
 import { useSession } from "@/lib/session";
 
 // Readable without login: the QR preview, the prompt, and the login sheet itself.
@@ -32,6 +32,8 @@ export default function AppGate({ children }: { children: React.ReactNode }) {
   const { status, me, error, retry } = useSession();
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const legacyCreateEntry = pathname === ONBOARDING_PATH && searchParams.get("start") === "interests";
   const isPublic = PUBLIC_PATHS.includes(pathname);
   const onboarded = me?.user.onboarded ?? false;
 
@@ -42,12 +44,15 @@ export default function AppGate({ children }: { children: React.ReactNode }) {
       redirect = ONBOARDING_PATH;
     }
     // POST /onboarding/complete only works once. Later edits use the profile screen.
-    if (onboarded && pathname === ONBOARDING_PATH) redirect = afterSignInPath(true);
+    if (onboarded && pathname === ONBOARDING_PATH) redirect = legacyCreateEntry ? CREATE_RALLY_PATH : afterSignInPath(true);
   }
 
   useEffect(() => {
-    if (redirect) router.replace(redirect);
-  }, [redirect, router]);
+    if (legacyCreateEntry || (pathname === CREATE_RALLY_PATH && redirect)) rememberRallyCreation();
+    if (redirect) {
+      router.replace(redirect);
+    }
+  }, [redirect, router, pathname, legacyCreateEntry]);
 
   if (isPublic && !redirect) return <>{children}</>;
   if (status === "unconfigured" || status === "suspended") return <Notice message={error ?? "This account can't sign in."} />;

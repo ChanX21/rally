@@ -751,6 +751,13 @@ No database migration is needed because category columns are text. The bounded A
 now permits 32 entries to accommodate the expanded activity questions; the three-question user
 budget remains unchanged.
 
+Rally creation uses the existing parse/reparse APIs, asks for missing required details and then shows
+a compact summary with an explicit Create Rally action. The complete form is behind Edit details.
+Fallback timestamps are suggestions, so the client requires an actual start time rather than silently
+publishing the guessed time. Default length and group size are visible in the summary. Typed time,
+duration, zone, vibe and group-size answers survive a reparse failure; activity preference answers
+are also preserved in the backend fallback. Existing idempotency and all publish validation remain.
+
 
 ### AI-generated venue map dialogue
 

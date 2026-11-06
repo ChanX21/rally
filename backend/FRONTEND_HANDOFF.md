@@ -217,7 +217,7 @@ Send the device's zone, from `Intl.DateTimeFormat().resolvedOptions().timeZone`.
 | --- | --- | --- |
 | `needs_answers` | AI needs more | `intent.questions`, up to three, then `POST /intents/:id/answers` |
 | `ready` | AI drafted a plan | The plan, **for the user to review and confirm** |
-| `needs_review` | AI failed or gave up | The editable form, prefilled with `intent`. May contain guessed defaults |
+| `needs_review` | AI failed or gave up | Ask for missing required details, then show a compact summary. Fallback timestamps are guesses and require confirmation; the full form is optional under Edit details. |
 
 Answers call, **once per intent**:
 

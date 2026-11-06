@@ -7,6 +7,7 @@ import { ACTIVE_RALLY_STATUSES, rallyPath } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
 import RallyLogo from "@/components/RallyLogo";
+import { CREATE_RALLY_PATH } from "@/lib/plan";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -138,7 +139,7 @@ export default function HomeScreen() {
               No match yet. We only look again when someone new joins or plans change — we&apos;ll notify you.
             </p>
           )}
-          <a className="btn-create" href="/app/about-you?start=interests">
+          <a className="btn-create" href={CREATE_RALLY_PATH}>
             Create your own rally
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 5v14M5 12h14" />
