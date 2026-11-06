@@ -24,6 +24,7 @@
     "arkiv:smoke": "tsx scripts/arkiv-smoke.ts",
     "smoke:journey": "tsx scripts/live-journey.ts",
     "ai:smoke": "node --import tsx scripts/ai-smoke.ts",
+    "ai:vision:probe": "node --import tsx scripts/ai-vision-probe.ts",
     "test:ai": "vitest run --config vitest.ai.config.ts",
     "ai:demo": "node --import tsx scripts/ai-demo.ts",
     "smoke:privy": "tsx scripts/privy-smoke.ts",

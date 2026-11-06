@@ -61,6 +61,7 @@ Prepared statements are disabled because the transaction pooler does not support
 | `npm run arkiv:smoke` | Check Arkiv on the real network; add `-- --write` with a funded key |
 | `npm run smoke:privy` | Real Privy credential check |
 | `npm run smoke:journey` | Whole flow on live 0G and Arkiv, throwaway database, simulated login |
+| `npm run ai:vision:probe` | Paid 0G image capability tests with public sample photos; no users, rewards or production configuration changes |
 
 ## Render deployment
 
