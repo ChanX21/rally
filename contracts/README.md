@@ -4,8 +4,8 @@ Core Rally needs no smart contract. Everything here is optional, and the backend
 
 | Contract | Purpose | Status |
 | --- | --- | --- |
-| `RallyToken` | Non-transferable RALLY points token | Deployed with `RallyLedger` |
-| `RallyLedger` | Public history of point changes and dispute rulings | Target: Arc Testnet |
+| `RallyToken` | Non-transferable RALLY points token | Arc Testnet: `0xb34c92f18E76EAb1a93a9ACDf4e677685498826B` |
+| `RallyLedger` | Public history of point changes and dispute rulings | Arc Testnet: `0xf36Fab5B39f0741Ee549B83Aefa64af7BbE9F642` |
 | `RewardClaim` | Stablecoin payouts for earned points | Not deployed, not planned |
 
 ## RallyLedger and RallyToken
