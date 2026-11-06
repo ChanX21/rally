@@ -168,6 +168,8 @@ export async function queueChainWork(deps: Deps): Promise<number> {
     queued += 1;
   }
 
+  queued += await reopenSkippedCompletions(deps);
+
   const rulings = await deps.db
     .select({ id: disputes.id })
     .from(disputes)
@@ -194,6 +196,41 @@ export async function queueChainWork(deps: Deps): Promise<number> {
 
   await markFailed(deps);
   return queued;
+}
+
+/**
+ * During a deploy, an old worker with the flag off can finish a queued completion without writing it.
+ * Its dedupe key then blocks a new event and the entry stays queued, so the same event runs again.
+ * An entry is marked synced before its event is done, so queued with a done event means it never ran.
+ */
+async function reopenSkippedCompletions(deps: Deps): Promise<number> {
+  if (!deps.env.ARC_COMPLETION_REWARDS_ENABLED) return 0;
+  const skipped = await deps.db
+    .select({ id: rewardLedger.id })
+    .from(rewardLedger)
+    .innerJoin(rallyProofs, eq(rallyProofs.id, rewardLedger.proofId))
+    .innerJoin(outboxEvents, eq(outboxEvents.dedupeKey, sql`'reward.chain_sync:' || ${rewardLedger.id}`))
+    .where(
+      and(
+        eq(rewardLedger.action, 'RallyCompleted'),
+        eq(rewardLedger.state, 'applied'),
+        eq(rewardLedger.chainStatus, 'queued'),
+        eq(rallyProofs.state, 'accepted'),
+        eq(outboxEvents.status, 'done'),
+      ),
+    )
+    .limit(BATCH);
+  if (skipped.length === 0) return 0;
+  await deps.db
+    .update(outboxEvents)
+    .set({ status: 'pending', attempts: 0, nextAttemptAt: new Date(), processedAt: null })
+    .where(
+      and(
+        eq(outboxEvents.status, 'done'),
+        inArray(outboxEvents.dedupeKey, skipped.map(({ id }) => `reward.chain_sync:${id}`)),
+      ),
+    );
+  return skipped.length;
 }
 
 /** Events that ran out of retries. Points stay correct, because Postgres holds them. */

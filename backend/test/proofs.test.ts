@@ -216,6 +216,39 @@ it('pins the reward policy at submission and only syncs new rewards when the rev
   expect(h.arc.records[0]!.evidenceHash).not.toBe(h.arc.records[1]!.evidenceHash);
 });
 
+it('recovers completion rewards a worker skipped while the flag was still off', async () => {
+  const { host, member, rally } = await completed();
+  const { users, rewardLedger } = await import('../src/db/schema/index.js');
+  const { queueChainWork } = await import('../src/services/chain-sync.js');
+  await h.app.deps.db.update(users).set({ walletAddress: '0x1111111111111111111111111111111111111111' }).where(eq(users.id, host.id));
+  await h.app.deps.db.update(users).set({ walletAddress: '0x2222222222222222222222222222222222222222' }).where(eq(users.id, member.id));
+  h.ai.respond = () => assessment;
+  const proof = await host.post(`/rallies/${rally.id}/proof`, { images: [await photo()] }, headers());
+  await assessProof(h.app.deps, proof.id);
+
+  // During a deploy, the new instance queues the work and the old one, with the flag off, finishes it.
+  h.app.deps.env.ARC_COMPLETION_REWARDS_ENABLED = true;
+  expect(await queueChainWork(h.app.deps)).toBe(2);
+  h.app.deps.env.ARC_COMPLETION_REWARDS_ENABLED = false;
+  await h.drainOutbox();
+  expect(h.arc.records).toHaveLength(0);
+
+  // Still off: nothing is reopened.
+  expect(await queueChainWork(h.app.deps)).toBe(0);
+
+  h.app.deps.env.ARC_COMPLETION_REWARDS_ENABLED = true;
+  expect(await queueChainWork(h.app.deps)).toBe(2);
+  await h.drainOutbox();
+  expect(h.arc.records).toHaveLength(2);
+  const rows = await h.app.deps.db.select().from(rewardLedger);
+  expect(rows.every((row) => row.chainStatus === 'synced')).toBe(true);
+
+  // Nothing left to recover, so a later scan does not mint again.
+  expect(await queueChainWork(h.app.deps)).toBe(0);
+  await h.drainOutbox();
+  expect(h.arc.records).toHaveLength(2);
+});
+
 it('excludes a withdrawn person when a replacement group completes', async () => {
   const group = await formedGroup(h);
   await group.member.post(`/rallies/${group.rally.id}/withdraw`);
