@@ -5,6 +5,7 @@ import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, getPreview, type PreviewActivity } from "@/lib/api";
 import { bucketLabel, capitalize, categoryPhrase } from "@/lib/format";
 import VenueMap from "@/components/VenueMap";
+import RallyLogo from "@/components/RallyLogo";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -135,15 +136,7 @@ export default function DiscoverScreen() {
             flexShrink: 0,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <svg width="22" height="22" viewBox="0 0 26 26" aria-hidden="true">
-              <circle cx="13" cy="13" r="11.5" fill="none" stroke="#1C1917" strokeWidth="1.5" />
-              <circle cx="13" cy="8.6" r="2.3" fill="#1C1917" />
-              <circle cx="8.8" cy="15.8" r="2.3" fill="#315FE8" />
-              <circle cx="17.2" cy="15.8" r="2.3" fill="#F06445" />
-            </svg>
-            <span style={{ fontWeight: 600, fontSize: "16px", letterSpacing: "-0.01em" }}>Rally</span>
-          </div>
+          <RallyLogo height={32} />
         </div>
 
         {/* Title */}
