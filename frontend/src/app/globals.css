@@ -36,3 +36,77 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.rally-loader-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  padding: 24px 0;
+}
+
+.rally-loader-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.rally-loader {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 8px 16px 8px 10px;
+  border: 1px solid #e8dfda;
+  border-radius: 999px;
+  background: #fffaf7;
+  font-family: var(--font-inter, var(--font-geist-sans)), system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+}
+
+.rally-loader-text {
+  display: inline-grid;
+}
+
+.rally-loader-sizer,
+.rally-loader-message {
+  grid-area: 1 / 1;
+}
+
+.rally-loader-sizer {
+  visibility: hidden;
+}
+
+.rally-loader-message {
+  background: linear-gradient(90deg, #766b65 35%, #1c1917 50%, #766b65 65%) 100% 0 / 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: rally-loader-shimmer 1.8s linear infinite, rally-loader-in 240ms ease-out;
+}
+
+@keyframes rally-loader-shimmer {
+  to {
+    background-position: 0 0;
+  }
+}
+
+@keyframes rally-loader-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rally-loader-message {
+    background: none;
+    color: #766b65;
+    animation: none;
+  }
+}

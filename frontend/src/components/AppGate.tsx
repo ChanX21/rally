@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
 import { afterSignInPath, CREATE_RALLY_PATH, rememberRallyCreation } from "@/lib/plan";
 import { useSession } from "@/lib/session";
+import RallyLoader from "@/components/RallyLoader";
 
 // Readable without login: the QR preview, the prompt, and the login sheet itself.
 const PUBLIC_PATHS = ["/app/discover", "/app/home", "/app/connect-wallet"];
@@ -11,9 +12,11 @@ const PUBLIC_PATHS = ["/app/discover", "/app/home", "/app/connect-wallet"];
 const NO_ONBOARDING_REDIRECT = ["/app/discover", "/app/connect-wallet"];
 const ONBOARDING_PATH = "/app/about-you";
 
+const SCREEN_STYLE = { background: "#FFF5EF", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px", padding: "24px", textAlign: "center", color: "#1C1917", fontSize: "15px", lineHeight: 1.45 } as const;
+
 function Notice({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div style={{ background: "#FFF5EF", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "16px", padding: "24px", textAlign: "center", color: "#1C1917", fontSize: "15px", lineHeight: 1.45 }}>
+    <div style={SCREEN_STYLE}>
       <span role="status" style={{ maxWidth: "320px" }}>{message}</span>
       {onRetry && (
         <button
@@ -57,6 +60,6 @@ export default function AppGate({ children }: { children: React.ReactNode }) {
   if (isPublic && !redirect) return <>{children}</>;
   if (status === "unconfigured" || status === "suspended") return <Notice message={error ?? "This account can't sign in."} />;
   if (status === "error") return <Notice message={error ?? "Could not sign you in."} onRetry={retry} />;
-  if (status === "loading" || redirect) return <Notice message="One moment…" />;
+  if (status === "loading" || redirect) return <div style={SCREEN_STYLE}><RallyLoader context="signin" /></div>;
   return <>{children}</>;
 }

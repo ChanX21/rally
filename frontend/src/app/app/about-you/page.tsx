@@ -7,6 +7,7 @@ import { errorMessage, type CompleteOnboardingInput, type OnboardingQuestion } f
 import { PreferenceInput } from "@/components/PreferenceInput";
 import { Dropdown } from "@/components/Dropdown";
 import { useSession } from "@/lib/session";
+import RallyLoader from "@/components/RallyLoader";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -329,9 +330,6 @@ export default function AboutYouScreen() {
         .qfield { width: 100%; height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid #D9C8BE; background: #FFFAF7; font-family: inherit; font-size: 15px; color: #1C1917; box-sizing: border-box; outline: none; transition: border-color .12s ease-out; }
         .qfield:focus { border: 1.5px solid #315FE8; }
         .qfield::placeholder { color: #766B65; }
-        .spin { width: 28px; height: 28px; border-radius: 50%; border: 2.5px solid #E8DFDA; border-top-color: #315FE8; animation: spin .8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @media (prefers-reduced-motion: reduce) { .spin { animation-duration: 2.4s; } }
         .foot { padding: 16px 24px 32px; display: flex; flex-direction: column; gap: 12px; flex-shrink: 0; }
       `}</style>
 
@@ -458,10 +456,7 @@ export default function AboutYouScreen() {
             </div>
 
             {qStatus === "loading" && (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", padding: "40px 0" }}>
-                <span className="spin" aria-hidden="true" />
-                <span className="mono" role="status">Thinking about what to ask you…</span>
-              </div>
+              <RallyLoader context="questions" />
             )}
 
             {qStatus === "error" && (

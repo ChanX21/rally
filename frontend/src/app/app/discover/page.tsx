@@ -6,6 +6,7 @@ import { errorMessage, getPreview, type PreviewActivity } from "@/lib/api";
 import { bucketLabel, capitalize, categoryPhrase } from "@/lib/format";
 import VenueMap from "@/components/VenueMap";
 import RallyLogo from "@/components/RallyLogo";
+import RallyLoader from "@/components/RallyLoader";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -163,6 +164,7 @@ export default function DiscoverScreen() {
               {notice}
             </p>
           )}
+          {loading && !notice && activities.length === 0 && <RallyLoader context="discover" />}
           {!loading && !notice && activities.length === 0 && (
             <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.45, color: "#766B65" }}>
               Nothing is live yet. We&apos;ll match you in as soon as something fits.

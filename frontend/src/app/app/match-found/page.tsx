@@ -8,6 +8,7 @@ import { errorCode, errorMessage, type Match } from "@/lib/api";
 import { capitalize, countdown, displayTime, zoneLabel } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
+import RallyLoader from "@/components/RallyLoader";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -175,7 +176,7 @@ export default function MatchFoundScreen() {
         </div>
 
         <div style={{ flex: 1, minHeight: 0, padding: "32px 24px 0", display: "flex", flexDirection: "column", gap: "24px", overflowY: "auto", position: "relative" }}>
-          {!loaded && <p role="status" className="mono">Loading…</p>}
+          {!loaded && <RallyLoader context="match" />}
 
           {loaded && !match && (
             <div>

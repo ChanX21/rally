@@ -8,6 +8,7 @@ import { errorCode, errorMessage, type Rally } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
 import { matchingProgressLabels } from "@/lib/format";
+import RallyLoader from "@/components/RallyLoader";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -192,7 +193,7 @@ export default function FindingPeopleScreen() {
               </p>
             </>
           ) : (
-            <p role="status" className="mono" style={{ marginTop: "24px" }}>Loading…</p>
+            <RallyLoader context="rally" />
           )}
 
           {rally && !over && (
