@@ -20,6 +20,7 @@ export type Session = {
   error: string | null;
   api: ApiClient;
   loginError: string | null;
+  openingGoogle: boolean;
   connectWallet: () => void;
   loginWithGoogle: () => void;
   logout: () => Promise<void>;
@@ -30,6 +31,7 @@ export type Session = {
 const noToken = async () => null;
 
 const GOOGLE_LOGIN_FAILED = "Google sign-in didn't finish. Please try again.";
+const GOOGLE_REDIRECT_WAIT_MS = 8000;
 
 // Privy's standalone getter reads the live session, so one client serves the whole app.
 const privyApi = createApiClient(getAccessToken);
@@ -40,6 +42,7 @@ const UNCONFIGURED: Session = {
   error: "Login is not configured. Set NEXT_PUBLIC_PRIVY_APP_ID in frontend/.env.local.",
   api: createApiClient(noToken),
   loginError: null,
+  openingGoogle: false,
   connectWallet: () => {},
   loginWithGoogle: () => {},
   logout: async () => {},
@@ -65,8 +68,12 @@ function PrivySession({ children }: { children: React.ReactNode }) {
   const [handshake, setHandshake] = useState<Handshake | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const userId = authenticated ? (user?.id ?? null) : null;
+  const [openingGoogle, setOpeningGoogle] = useState(false);
   const { initOAuth } = useLoginWithOAuth({
-    onError: () => setLoginError(GOOGLE_LOGIN_FAILED),
+    onError: () => {
+      setOpeningGoogle(false);
+      setLoginError(GOOGLE_LOGIN_FAILED);
+    },
   });
 
   const connectWallet = useCallback(() => {
@@ -76,7 +83,14 @@ function PrivySession({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = useCallback(() => {
     setLoginError(null);
-    initOAuth({ provider: "google" }).catch(() => setLoginError(GOOGLE_LOGIN_FAILED));
+    setOpeningGoogle(true);
+    initOAuth({ provider: "google" })
+      // Success leaves the page. If that never happens, the buttons must not stay locked.
+      .then(() => setTimeout(() => setOpeningGoogle(false), GOOGLE_REDIRECT_WAIT_MS))
+      .catch(() => {
+        setOpeningGoogle(false);
+        setLoginError(GOOGLE_LOGIN_FAILED);
+      });
   }, [initOAuth]);
 
   // POST /auth/session once per login, before anything else, then GET /me.
@@ -136,7 +150,7 @@ function PrivySession({ children }: { children: React.ReactNode }) {
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   const value = useMemo<Session>(() => {
-    const base = { api: privyApi, loginError, connectWallet, loginWithGoogle, logout, retry, setMe };
+    const base = { api: privyApi, loginError, openingGoogle, connectWallet, loginWithGoogle, logout, retry, setMe };
     if (!ready) return { ...base, status: "loading", me: null, error: null };
     if (!userId) return { ...base, status: "signed-out", me: null, error: null };
     // Ignore results from an earlier login or attempt.
@@ -150,7 +164,7 @@ function PrivySession({ children }: { children: React.ReactNode }) {
       me: null,
       error: handshake.error ?? null,
     };
-  }, [loginError, connectWallet, loginWithGoogle, logout, retry, setMe, ready, userId, handshake, attempt]);
+  }, [loginError, openingGoogle, connectWallet, loginWithGoogle, logout, retry, setMe, ready, userId, handshake, attempt]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

@@ -43,7 +43,8 @@ export default function MatchFoundScreen() {
   const { api } = useSession();
   const router = useRouter();
   const matchId = useSearchParams().get("id");
-  const [busy, setBusy] = useState(false);
+  const [acting, setActing] = useState<"accept" | "decline" | "withdraw" | null>(null);
+  const busy = acting !== null;
   const [actionError, setActionError] = useState<string | null>(null);
   const [alreadyAccepted, setAlreadyAccepted] = useState(false);
   const [now, setNow] = useState<number | null>(null);
@@ -71,7 +72,7 @@ export default function MatchFoundScreen() {
 
   const respond = async (response: "accept" | "decline") => {
     if (!match) return;
-    setBusy(true);
+    setActing(response);
     setActionError(null);
     try {
       const updated = await api.respondToMatch(match.id, response);
@@ -80,20 +81,20 @@ export default function MatchFoundScreen() {
     } catch (err) {
       setAlreadyAccepted(errorCode(err) === "ALREADY_ACCEPTED");
       setActionError(respondError(err));
-      setBusy(false);
+      setActing(null);
     }
   };
 
   const withdraw = async () => {
     if (!match) return;
-    setBusy(true);
+    setActing("withdraw");
     setActionError(null);
     try {
       await api.withdrawFromRally(match.rally.id);
       router.replace("/app/home");
     } catch (err) {
       setActionError(errorMessage(err));
-      setBusy(false);
+      setActing(null);
     }
   };
 
@@ -262,10 +263,10 @@ export default function MatchFoundScreen() {
           {pending && !alreadyAccepted ? (
             <>
               <button className="btn btn-s" type="button" disabled={busy} onClick={() => void respond("decline")}>
-                Decline
+                {acting === "decline" ? "Declining…" : "Decline"}
               </button>
               <button className="btn btn-p" type="button" disabled={busy} onClick={() => void respond("accept")}>
-                Accept
+                {acting === "accept" ? "Accepting…" : "Accept"}
               </button>
             </>
           ) : alreadyAccepted ? (
@@ -274,7 +275,7 @@ export default function MatchFoundScreen() {
                 Keep my seat
               </a>
               <button className="btn btn-p" type="button" disabled={busy} onClick={() => void withdraw()}>
-                Withdraw
+                {acting === "withdraw" ? "Withdrawing…" : "Withdraw"}
               </button>
             </>
           ) : (

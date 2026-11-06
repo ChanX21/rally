@@ -78,6 +78,7 @@ export default function FindingPeopleScreen() {
   const [meetingPoint, setMeetingPoint] = useState("");
   const [meetClock, setMeetClock] = useState("");
   const [busy, setBusy] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(() => api.getRally(rallyId ?? ""), [api, rallyId]);
@@ -286,13 +287,13 @@ export default function FindingPeopleScreen() {
                   )
                 }
               >
-                {busy ? "Saving…" : "Open the room"}
+                {busy && !leaving ? "Saving…" : "Open the room"}
               </button>
             </>
           )}
           {rally?.status === "draft" && isCreator && (
             <button className="btn btn-p" type="button" disabled={busy} onClick={() => void act(() => api.publishRally(rally.id))}>
-              Publish this plan
+              {busy && !leaving ? "Publishing…" : "Publish this plan"}
             </button>
           )}
           {rally?.status === "formed" && (
@@ -311,9 +312,12 @@ export default function FindingPeopleScreen() {
               className="lnk"
               type="button"
               disabled={busy}
-              onClick={() => void act(() => (isCreator ? api.cancelRally(rally.id) : api.withdrawFromRally(rally.id)))}
+              onClick={() => {
+                setLeaving(true);
+                void act(() => (isCreator ? api.cancelRally(rally.id) : api.withdrawFromRally(rally.id))).finally(() => setLeaving(false));
+              }}
             >
-              {isCreator ? "Cancel this Rally" : "Withdraw"}
+              {leaving ? (isCreator ? "Cancelling…" : "Withdrawing…") : isCreator ? "Cancel this Rally" : "Withdraw"}
             </button>
           )}
           <a className="lnk" href="/app/home" style={{ textDecoration: "underline" }}>

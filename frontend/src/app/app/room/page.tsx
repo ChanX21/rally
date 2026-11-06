@@ -41,7 +41,8 @@ export default function RoomScreen() {
   const router = useRouter();
   const rallyId = useSearchParams().get("id");
   const [present, setPresent] = useState<Record<string, boolean>>({});
-  const [busy, setBusy] = useState(false);
+  const [acting, setActing] = useState<"arrive" | "report" | "checkIn" | "leave" | null>(null);
+  const busy = acting !== null;
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [reporting, setReporting] = useState(false);
@@ -64,7 +65,7 @@ export default function RoomScreen() {
 
   const arrive = async () => {
     if (!rallyId) return;
-    setBusy(true);
+    setActing("arrive");
     setActionError(null);
     try {
       await api.markArrived(rallyId);
@@ -72,14 +73,14 @@ export default function RoomScreen() {
     } catch (err) {
       setActionError(errorMessage(err));
     } finally {
-      setBusy(false);
+      setActing(null);
     }
   };
 
   const report = async () => {
     const description = reportText.trim();
     if (!rallyId || !reportWho || !description) return;
-    setBusy(true);
+    setActing("report");
     setActionError(null);
     try {
       await api.raiseDispute(rallyId, { category: reportKind, subjectId: reportWho, description });
@@ -89,13 +90,13 @@ export default function RoomScreen() {
     } catch (err) {
       setActionError(errorMessage(err));
     } finally {
-      setBusy(false);
+      setActing(null);
     }
   };
 
   const checkIn = async () => {
     if (!rallyId) return;
-    setBusy(true);
+    setActing("checkIn");
     setActionError(null);
     try {
       await api.checkIn(rallyId, presentIds);
@@ -104,7 +105,7 @@ export default function RoomScreen() {
       setActionError(errorMessage(err));
       if (errorCode(err) === "INVALID_STATE") refresh();
     } finally {
-      setBusy(false);
+      setActing(null);
     }
   };
 
@@ -114,7 +115,7 @@ export default function RoomScreen() {
       setConfirmLeave(true);
       return;
     }
-    setBusy(true);
+    setActing("leave");
     setActionError(null);
     try {
       // The creator can't withdraw (409 CREATOR_CANNOT_WITHDRAW), so the host cancels instead.
@@ -122,7 +123,7 @@ export default function RoomScreen() {
       router.replace("/app/home");
     } catch (err) {
       setActionError(errorMessage(err));
-      setBusy(false);
+      setActing(null);
     }
   };
 
@@ -302,12 +303,12 @@ export default function RoomScreen() {
           )}
           {room && formed && !room.proofFlow && !iArrived && (
             <button className="btn btn-p" type="button" disabled={busy} onClick={() => void arrive()}>
-              I&apos;m here
+              {acting === "arrive" ? "Letting them know…" : <>I&apos;m here</>}
             </button>
           )}
           {room && isHost && formed && !room.proofFlow && (
             <button className="btn btn-p" type="button" disabled={busy || presentIds.length === 0} onClick={() => void checkIn()}>
-              {presentIds.length === 0 ? "Tick who's here to check in" : `Check in ${presentIds.length + 1} people`}
+              {acting === "checkIn" ? "Checking in…" : presentIds.length === 0 ? "Tick who's here to check in" : `Check in ${presentIds.length + 1} people`}
             </button>
           )}
           {room && met && (
@@ -356,7 +357,7 @@ export default function RoomScreen() {
                 style={{ ...fieldStyle, height: "auto", padding: "12px" }}
               />
               <button className="btn btn-p" type="button" disabled={busy || !reportWho || !reportText.trim()} onClick={() => void report()}>
-                Send report
+                {acting === "report" ? "Sending…" : "Send report"}
               </button>
             </div>
           )}
@@ -375,7 +376,7 @@ export default function RoomScreen() {
           {room && formed && (
             <div className="sub">
               <button type="button" disabled={busy} onClick={() => void leave()}>
-                {confirmLeave ? "Tap again to confirm" : isHost ? "Cancel this Rally" : "Leave this Rally"}
+                {acting === "leave" ? (isHost ? "Cancelling…" : "Leaving…") : confirmLeave ? "Tap again to confirm" : isHost ? "Cancel this Rally" : "Leave this Rally"}
               </button>
             </div>
           )}

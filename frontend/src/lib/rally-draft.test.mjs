@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { draftFromIntent, rallyDraftIssues, rallyDraftProblem, rallyInputFromDraft } from "./rally-draft.ts";
+import { draftFromIntent, rallyDraftIssues, rallyDraftProblem, rallyInputFromDraft, TYPED_AREA_ZONE } from "./rally-draft.ts";
 
 const intent = () => ({ id: "intent-1", category: "coffee", goal: "Coffee and conversation", windowStart: new Date(Date.now() + 3600000).toISOString(), durationMin: 30, groupMin: null, groupMax: null, zone: "venue-floor-1", vibe: "any", preferences: { custom_coffee: "Quiet conversation" } });
 
@@ -23,7 +23,7 @@ test("explicit user sizes and ranges survive review", () => {
 
 test("invalid or incomplete plans cannot be published", () => {
   const valid = draftFromIntent(intent());
-  for (const patch of [{ goal: " " }, { category: "unknown" }, { start: "" }, { start: "2020-01-01T12:00" }, { durationMin: "0" }, { durationMin: "30.5" }, { groupMin: "4", capacity: "2" }, { capacity: "13" }, { zone: "unknown" }, { vibe: "unknown" }]) {
+  for (const patch of [{ goal: " " }, { category: "unknown" }, { start: "" }, { start: "2020-01-01T12:00" }, { durationMin: "0" }, { durationMin: "30.5" }, { groupMin: "4", capacity: "2" }, { capacity: "13" }, { zone: " " }, { vibe: "unknown" }]) {
     assert.ok(rallyDraftProblem({ ...valid, ...patch }));
     assert.throws(() => rallyInputFromDraft({ ...valid, ...patch }, "intent-1"));
   }
@@ -50,4 +50,14 @@ test("typed answers survive an AI reparse failure and preserve the user's actual
   assert.equal(input.vibe, "quiet");
   assert.equal(input.capacity, 4);
   assert.equal(input.groupMin, 4);
+});
+
+test("a typed meeting area stays private while the public zone stays coarse", () => {
+  const valid = draftFromIntent(intent());
+  const typed = rallyInputFromDraft({ ...valid, zone: "  Pavilion 2 " }, "intent-1");
+  assert.equal(typed.zone, TYPED_AREA_ZONE);
+  assert.equal(typed.meetingPoint, "Pavilion 2");
+  const picked = rallyInputFromDraft({ ...valid, zone: "venue-floor-1" }, "intent-1");
+  assert.equal(picked.zone, "venue-floor-1");
+  assert.equal("meetingPoint" in picked, false);
 });

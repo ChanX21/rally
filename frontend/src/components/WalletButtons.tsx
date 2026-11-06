@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { afterSignInPath } from "@/lib/plan";
+import RallyLoader from "@/components/RallyLoader";
 import { useSession } from "@/lib/session";
 
 const Chevron = () => (
@@ -12,7 +13,7 @@ const Chevron = () => (
 );
 
 export default function WalletButtons() {
-  const { status, me, error, loginError, connectWallet, loginWithGoogle, retry } = useSession();
+  const { status, me, error, loginError, openingGoogle, connectWallet, loginWithGoogle, retry } = useSession();
   const router = useRouter();
 
   // AppGate leaves this page alone, so routing after the handshake happens here.
@@ -25,13 +26,8 @@ export default function WalletButtons() {
     else start();
   };
 
-  const disabled = status === "loading" || status === "ready" || status === "unconfigured" || status === "suspended";
-  const message =
-    status === "loading"
-      ? "Signing you in…"
-      : status === "unconfigured" || status === "suspended" || status === "error"
-        ? error
-        : loginError;
+  const disabled = openingGoogle || status === "loading" || status === "ready" || status === "unconfigured" || status === "suspended";
+  const message = status === "unconfigured" || status === "suspended" || status === "error" ? error : loginError;
 
   return (
     <>
@@ -54,12 +50,12 @@ export default function WalletButtons() {
             <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
           </svg>
         </span>
-        Continue with Google
+        {openingGoogle ? "Opening Google…" : "Continue with Google"}
         <Chevron />
       </button>
       <div style={{ textAlign: "center", fontSize: "13px", color: "#766B65" }}>No wallet? Google sets one up for you.</div>
-      {message && (
-        <div className="mono" style={{ textAlign: "center", color: status === "loading" ? undefined : "#EC562E" }} role="status">
+      {status === "loading" ? <RallyLoader context="signin" /> : message && (
+        <div className="mono" style={{ textAlign: "center", color: "#EC562E" }} role="status">
           {message}
         </div>
       )}

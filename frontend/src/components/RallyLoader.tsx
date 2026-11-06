@@ -39,6 +39,16 @@ const CONTEXTS = {
     orb: "shaping",
     messages: ["Flipping through the album…", "Looking for your group photo…", "Checking who's in frame…"],
   },
+  plan: {
+    label: "Reading your plan",
+    orb: "composing",
+    messages: ["Reading your plan…", "Working out the details…", "Checking what's missing…", "Nearly there…"],
+  },
+  publish: {
+    label: "Creating your Rally",
+    orb: "weaving",
+    messages: ["Creating your Rally…", "Saving your plan…", "Setting up your Rally…", "Almost ready…"],
+  },
   questions: {
     label: "Choosing your questions",
     orb: "composing",
