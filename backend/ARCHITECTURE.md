@@ -785,3 +785,11 @@ Rally once through the normal outbox. Existing offers and consent remain unchang
 may still emit a reevaluation event, but unchanged matching data reuses any cached no-fit. Explicit
 active waiting intents override general profile availability for their category, so their time and
 zone constraints cannot be bypassed by the broader preference search.
+
+
+A separate worker loop sweeps published, unexpired, matchable Rallies with open seats every two
+minutes. It queues `match.reevaluate` through the existing outbox rather than calling inference in
+the scheduler. Database-time bucket keys deduplicate each Rally across service instances; Rallies
+already queued or processing are skipped. Normal matching revalidates eligibility and seats, keeps
+consent and previous-offer rules, and reuses cached no-fit when matching inputs have not changed.
+The sweep stops with the other workers and requires `WORKERS_ENABLED=true`.

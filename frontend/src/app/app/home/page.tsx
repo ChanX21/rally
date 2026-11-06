@@ -136,7 +136,7 @@ export default function HomeScreen() {
           )}
           {!data?.banner && (
             <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.5, color: "#766B65", textAlign: "center" }}>
-              No match yet. We only look again when someone new joins or plans change — we&apos;ll notify you.
+              No match yet. We check again every two minutes and when plans change — we&apos;ll notify you.
             </p>
           )}
           <a className="btn-create" href={CREATE_RALLY_PATH}>
