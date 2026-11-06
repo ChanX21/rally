@@ -45,6 +45,19 @@ export function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+export function preferenceText(key: string, value: string): string {
+  if (key.startsWith("custom_")) return `${categoryLabel(key.slice(7))}: ${value}`;
+  const labels: Record<string, string> = {
+    gaming_game: "Gaming", build_role: "Building", workshop_topic: "Workshops",
+    food_style: "Food", coffee_energy: "Coffee", explore_range: "Exploring", group_energy: "Group atmosphere",
+  };
+  const values: Record<string, string> = {
+    any: "No preference", ai: "AI", web3: "Web3", wow: "World of Warcraft",
+    sit_down: "Sit-down meals", venue: "Stay at the venue", nearby: "Nearby places",
+  };
+  return `${labels[key] ?? capitalize(key.replaceAll("_", " "))}: ${values[value] ?? capitalize(value.replaceAll("_", " "))}`;
+}
+
 export function displayTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
 }

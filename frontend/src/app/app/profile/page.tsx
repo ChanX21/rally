@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useWallets } from "@privy-io/react-auth";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, type ProfileUpdate } from "@/lib/api";
-import { CATEGORIES, categoryLabel, rewardLabel, signedPoints, toLocalInput, fromLocalInput } from "@/lib/format";
+import { CATEGORIES, categoryLabel, preferenceText, rewardLabel, signedPoints, toLocalInput, fromLocalInput } from "@/lib/format";
 import { PreferenceEditor } from "@/components/PreferenceInput";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
@@ -31,8 +31,10 @@ export default function ProfileScreen() {
   const [availabilityDraft, setAvailabilityDraft] = useState<{ start: string; end: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
 
   const { data: rewards, refresh: refreshRewards } = usePolled(useCallback(() => api.getRewards(), [api]), 30_000);
+  const { data: refreshedMe } = usePolled(useCallback(() => api.getMe(), [api]), 15_000);
   const { wallets } = useWallets();
   const [walletNote, setWalletNote] = useState<string | null>(null);
   const history = rewards?.entries.slice(0, 5) ?? [];
@@ -77,16 +79,24 @@ export default function ProfileScreen() {
     }
   };
 
-  const savedName = me?.user.displayName ?? "";
+  // A background feedback update may arrive after login; don't replace a newer local save.
+  const currentMe = (refreshedMe?.profile?.version ?? 0) > (me?.profile?.version ?? 0) ? refreshedMe : me;
+  const savedName = currentMe?.user.displayName ?? "";
   const name = nameDraft ?? savedName;
-  const profile = me?.profile ?? null;
-  const told = profile ? [...profile.declaredSkills, ...Object.values(profile.preferences)] : [];
+  const profile = currentMe?.profile ?? null;
 
   const save = async (update: ProfileUpdate) => {
     setSaving(true);
     setError(null);
+    setSaveNote(null);
     try {
-      setMe(await api.updateProfile(update));
+      const saved = await api.updateProfile(update);
+      setMe(saved);
+      if (update.preferences || update.interests || update.availableFrom || update.availableTo || update.optInMatching === true) {
+        setSaveNote(saved.user.optInMatching
+          ? "Saved. Rally is checking existing activities within your availability. You'll get an invitation if there's a fit."
+          : "Saved. Turn on Open to matches to receive invitations.");
+      }
       return true;
     } catch (err) {
       setError(errorMessage(err, "Could not save that."));
@@ -277,14 +287,20 @@ export default function ProfileScreen() {
             {preferenceDraft ? <>
               <PreferenceEditor disabled={saving} preferences={preferenceDraft} onChange={setPreferenceDraft} categories={CATEGORIES.map((c) => c.id)} />
               <button type="button" className="pick tag" disabled={saving} onClick={() => setPreferenceDraft(null)}>Cancel</button>
-            </> : <span style={{ fontSize: 14, color: "#766B65" }}>Add suggestions or your own preferences for better matches.</span>}
+            </> : <>
+              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: "#766B65" }}>What you&apos;ve told Rally to use for matching. Edit anytime; clear a field to remove it from matching.</p>
+              {Object.keys(profile?.preferences ?? {}).length ? <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.6, overflowWrap: "anywhere" }}>
+                {Object.entries(profile!.preferences).map(([key, value]) => <li key={key}>{preferenceText(key, value)}</li>)}
+              </ul> : <span style={{ fontSize: 14, color: "#766B65" }}>No preferences saved yet.</span>}
+              {profile && <span style={{ fontSize: 12, color: "#766B65" }}>Profile last updated {new Date(profile.lastUpdatedAt).toLocaleString()}</span>}
+            </>}
           </section>
 
-          {told.length > 0 && (
+          {(profile?.declaredSkills.length ?? 0) > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div className="mono">You told us</div>
+              <div className="mono">Skills you shared</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                {told.map((t, index) => (
+                {profile!.declaredSkills.map((t, index) => (
                   <span key={`${index}:${t}`} className="tag" style={{ border: "1px solid #D9C8BE", maxWidth: "100%", height: "auto", minHeight: 32, whiteSpace: "normal", overflowWrap: "anywhere" }}>
                     {t}
                   </span>
@@ -292,6 +308,18 @@ export default function ProfileScreen() {
               </div>
             </div>
           )}
+
+          <section style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span className="mono">From Rally feedback</span>
+            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: "#766B65" }}>Vouches record what others appreciated. They don&apos;t overwrite your preferences.</p>
+            {profile?.evidence?.length ? <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.6, overflowWrap: "anywhere" }}>
+              {profile.evidence.map((entry, index) => <li key={`${entry.rallyId}:${index}`}>
+                {entry.contribution} <span style={{ color: "#766B65", fontSize: 12 }}>— Vouch, {new Date(entry.at).toLocaleDateString()}</span>
+              </li>)}
+            </ul> : <span style={{ fontSize: 14, color: "#766B65" }}>No vouches recorded yet.</span>}
+          </section>
+
+          {saveNote && <p role="status" style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: "#315FE8" }}>{saveNote}</p>}
 
           <label className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px", padding: "14px 16px", cursor: "pointer" }}>
             <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
@@ -303,7 +331,7 @@ export default function ProfileScreen() {
               type="checkbox"
               role="switch"
               disabled={saving}
-              checked={me?.user.optInMatching ?? false}
+              checked={currentMe?.user.optInMatching ?? false}
               onChange={(e) => setMatching(e.target.checked)}
             />
           </label>

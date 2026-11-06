@@ -117,6 +117,7 @@ export type Profile = {
   interests: string[];
   interestsVersion: number;
   declaredSkills: string[];
+  evidence: { type: "vouch"; rallyId: string; contribution: string; at: string }[];
   preferences: Record<string, string>;
   availableFrom: string | null;
   availableTo: string | null;

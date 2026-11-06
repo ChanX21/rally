@@ -690,7 +690,8 @@ The client initially offers 12 hours and lets the user choose another window; Pr
 pause matching and edit availability. Existing users keep their saved opt-in choice. Backend callers
 that omit optInMatching default to true and must still supply availability.
 
-Publishing (not saving a draft), onboarding, enabled profile changes, and waiting-intent activation
+Publishing (not saving a draft), onboarding, enabled profile changes (including new verified-vouch
+evidence), and waiting-intent activation
 feed the same background matching engine. The user scan processes five Rallies per job, using a
 (window_start, id) cursor to enqueue subsequent pages. New publications can invite an idle user
 without any browser request. Invitations and inbox notifications are committed together and never
@@ -703,3 +704,9 @@ text is redacted before model calls and never enters public Arkiv records. Chang
 category's custom profile preference closes pending invitations in that category and queues both
 sides for reevaluation. Closed invitations remain closed under the existing one-offer-per-Rally rule.
 The engine also checks preference snapshots again after composition before creating invitations.
+
+Profile shows saved preferences as labeled text, with declared skills and received vouches shown
+separately. It refreshes every 15 seconds while visible so background feedback appears without a
+new login. Editing or clearing preferences queues matching when opted in; availability and consent
+still apply. Vouches do not overwrite explicit preferences, and inferred tags are recorded evidence,
+not additional declared interests or a learned preference model.

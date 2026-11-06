@@ -184,7 +184,7 @@ export async function applyVerifiedVouch(deps: Deps, feedbackId: string): Promis
     const [rally] = await tx.select().from(rallies).where(eq(rallies.id, vouch.rallyId));
     if (rally?.status !== 'completed') return;
 
-    await lockUser(tx, recipientId);
+    const recipient = await lockUser(tx, recipientId);
 
     const profile = await latestProfile(tx, recipientId);
     const at = new Date().toISOString();
@@ -207,6 +207,9 @@ export async function applyVerifiedVouch(deps: Deps, feedbackId: string): Promis
           { tag: rally.category, confidence: 0.6, source: `vouch:${vouch.id}`, at },
         ],
       });
+      if (recipient?.optInMatching) {
+        await enqueue(tx, { type: 'match.reevaluate', payload: { userId: recipientId } });
+      }
     }
 
     if (rally.proofFlow) return;

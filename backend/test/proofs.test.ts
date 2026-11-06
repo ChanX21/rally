@@ -1,11 +1,12 @@
 import { afterAll, beforeEach, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import sharp from 'sharp';
-import { feedback, rallies, rallyProofs, rewardLedger } from '../src/db/schema/index.js';
+import { feedback, outboxEvents, rallies, rallyProofs, rewardLedger } from '../src/db/schema/index.js';
 import { completeDueRallies } from '../src/services/completion.js';
 import { assessProof, cleanupProofPhotos, normalizeProofImages } from '../src/services/proofs.js';
 import { applyDuePenalties } from '../src/services/rewards.js';
 import { expireRallies } from '../src/workers/scheduler.js';
+import { applyVerifiedVouch } from '../src/services/feedback.js';
 import { formedGroup, setMeetAt } from './helpers/rewards.js';
 import { createHarness, type Harness } from './helpers/harness.js';
 
@@ -49,6 +50,22 @@ it('records optional vouches without host check-in or points and disables compla
   const report = await host.request('POST', `/rallies/${rally.id}/disputes`, { category: 'other', subjectId: member.id, description: 'A complaint' });
   expect(report.statusCode).toBe(409);
   expect(report.json().error.code).toBe('REPORTS_DISABLED');
+});
+
+it.each([true, false])('rechecks matching once after vouch evidence changes with opt-in %s', async (enabled) => {
+  const { host, member, rally } = await completed();
+  await member.patch('/me/profile', { optInMatching: enabled });
+  await h.drainOutbox();
+  const eventsForMember = async () => (await h.app.deps.db.select().from(outboxEvents)
+    .where(eq(outboxEvents.type, 'match.reevaluate'))).filter((event) => event.payload.userId === member.id);
+  const before = (await eventsForMember()).length;
+  await host.post(`/rallies/${rally.id}/feedback`, { happened: true, vouches: [{ recipientId: member.id, contribution: 'Great company' }] });
+  await h.drainOutbox();
+  expect((await eventsForMember()).length - before).toBe(enabled ? 1 : 0);
+  const [vouch] = await h.app.deps.db.select().from(feedback).where(eq(feedback.type, 'vouch'));
+  await applyVerifiedVouch(h.app.deps, vouch!.id);
+  expect((await eventsForMember()).length - before).toBe(enabled ? 1 : 0);
+  expect((await member.get('/me')).profile.preferences).toEqual({});
 });
 
 it('one proof rewards the whole group exactly once under concurrent submission/worker retries', async () => {

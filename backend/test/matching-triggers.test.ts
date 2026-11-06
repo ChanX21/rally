@@ -74,3 +74,22 @@ it('reevaluates someone whose accepted Rally is cancelled', async () => {
   await h.drainOutbox();
   expect((await guest.get('/matches')).matches.some((match: { rally: { id: string } }) => match.rally.id === second.id)).toBe(true);
 });
+
+it.each([true, false])('checks existing rallies after a saved preference change when matching is %s', async (enabled) => {
+  const host = await h.onboarded('did:triggers:preference-host', { optInMatching: false });
+  const guest = await h.onboarded('did:triggers:preference-guest', {
+    optInMatching: enabled, preferences: { gaming_game: 'valorant' },
+  });
+  const rally = await h.rally(host, { category: 'gaming', capacity: 2, preferences: { gaming_game: 'chess' } });
+  await h.drainOutbox();
+  expect((await guest.get('/matches')).matches).toHaveLength(0);
+  await guest.patch('/me/profile', { preferences: { gaming_game: 'chess' } });
+  await h.drainOutbox();
+  const matches = (await guest.get('/matches')).matches;
+  expect(matches).toHaveLength(enabled ? 1 : 0);
+  if (enabled) {
+    expect(matches[0].rally.id).toBe(rally.id);
+    expect(matches[0].status).toBe('pending');
+    expect((await host.request('GET', `/rallies/${rally.id}/room`)).statusCode).toBe(409);
+  }
+});
