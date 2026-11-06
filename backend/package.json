@@ -28,6 +28,7 @@
     "test:ai": "vitest run --config vitest.ai.config.ts",
     "ai:demo": "node --import tsx scripts/ai-demo.ts",
     "smoke:privy": "tsx scripts/privy-smoke.ts",
+    "smoke:arc": "node --env-file=.env --import tsx scripts/arc-smoke.ts",
     "ai:personalization": "node --import tsx scripts/ai-personalization-demo.ts"
   },
   "dependencies": {

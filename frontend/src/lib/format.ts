@@ -100,6 +100,25 @@ export function rallyPath(status: string, id: string): string {
   return `/app/finding-people?rally=${id}`;
 }
 
+const REWARD_LABELS: Record<string, string> = {
+  OnTime: "On time",
+  HostCompleted: "Hosted a Rally",
+  Vouched: "Someone vouched for you",
+  Late: "Arrived late",
+  LateCancel: "Cancelled late",
+  NoShow: "Marked absent",
+  ComplaintUpheld: "Report upheld against you",
+  FalseComplaint: "False report",
+};
+
+export function rewardLabel(action: string | null): string {
+  return (action && REWARD_LABELS[action]) ?? "Rally points";
+}
+
+export function signedPoints(points: number): string {
+  return points > 0 ? `+${points}` : String(points);
+}
+
 // Routes each notification type to its screen, per the handoff table.
 export function notificationPath(type: string, data: Record<string, string>): string {
   const { matchId, rallyId } = data;
@@ -114,6 +133,9 @@ export function notificationPath(type: string, data: Record<string, string>): st
     case "rally.met":
       return rallyId ? `/app/feedback?id=${rallyId}` : "/app/home";
     case "reward.earned":
+    case "reward.penalty":
+    case "reward.no_show_pending":
+    case "dispute.resolved":
       return "/app/profile";
     case "rally.waiting":
     case "match.accepted":

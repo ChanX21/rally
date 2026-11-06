@@ -68,6 +68,20 @@ export const verificationState = pgEnum('verification_state', [
   'flagged',
   'rejected',
 ]);
+export const rewardEntryState = pgEnum('reward_entry_state', [
+  'pending',
+  'held',
+  'applied',
+  'cancelled',
+]);
+export const chainStatus = pgEnum('chain_status', ['pending', 'queued', 'synced', 'failed']);
+export const disputeCategory = pgEnum('dispute_category', [
+  'no_show_appeal',
+  'misconduct',
+  'false_checkin',
+  'other',
+]);
+export const disputeStatus = pgEnum('dispute_status', ['open', 'upheld', 'dismissed', 'false']);
 export const outboxStatus = pgEnum('outbox_status', ['pending', 'processing', 'done', 'dead']);
 export const arkivSyncStatus = pgEnum('arkiv_sync_status', ['pending', 'synced', 'deleted']);
 export const modelRunOutcome = pgEnum('model_run_outcome', [
@@ -82,6 +96,8 @@ export const users = pgTable('users', {
   id: id(),
   privyDid: text('privy_did').notNull().unique(),
   walletAddress: text('wallet_address'),
+  // Set at the first chain write, so one person's public history stays on one address.
+  rewardAddress: text('reward_address'),
   status: userStatus('status').notNull().default('active'),
   displayName: text('display_name'),
   optInMatching: boolean('opt_in_matching').notNull().default(false),
@@ -224,6 +240,7 @@ export const rallies = pgTable(
     openSeats: integer('open_seats').notNull(),
     meetingPoint: text('meeting_point'),
     meetingBrief: text('meeting_brief'),
+    meetAt: timestamptz('meet_at'),
     expiresAt: timestamptz('expires_at').notNull(),
     // A model no_fit for this shortlist. Waits for supply to change before spending another call.
     noFitShortlistHash: text('no_fit_shortlist_hash'),
@@ -342,6 +359,7 @@ export const claims = pgTable(
     offerId: uuid('offer_id').references(() => offers.id),
     status: claimStatus('status').notNull().default('active'),
     checkedInAt: timestamptz('checked_in_at'),
+    arrivedAt: timestamptz('arrived_at'),
     releasedAt: timestamptz('released_at'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -402,9 +420,68 @@ export const rewardLedger = pgTable(
     policyVersion: integer('policy_version').notNull(),
     antiAbuse: text('anti_abuse').notNull(),
     idempotencyKey: text('idempotency_key').notNull().unique(),
+    action: text('action'),
+    state: rewardEntryState('state').notNull().default('applied'),
+    appliesAt: timestamptz('applies_at'),
+    groupKey: text('group_key'),
+    chainStatus: chainStatus('chain_status').notNull().default('pending'),
+    chainTxHash: text('chain_tx_hash'),
     createdAt: createdAt(),
   },
-  (table) => [index('reward_ledger_subject_idx').on(table.subjectUserId, table.createdAt)],
+  (table) => [
+    index('reward_ledger_subject_idx').on(table.subjectUserId, table.createdAt),
+    index('reward_ledger_due_idx')
+      .on(table.appliesAt)
+      .where(sql`${table.state} = 'pending'`),
+    index('reward_ledger_chain_idx')
+      .on(table.createdAt)
+      .where(sql`${table.state} = 'applied' and ${table.chainStatus} = 'pending'`),
+  ],
+);
+
+export const rewardPolicies = pgTable('reward_policies', {
+  version: integer('version').primaryKey(),
+  amounts: jsonb('amounts').$type<Record<string, number>>().notNull(),
+  chainTxHash: text('chain_tx_hash'),
+  createdAt: createdAt(),
+});
+
+export const disputes = pgTable(
+  'disputes',
+  {
+    id: id(),
+    rallyId: uuid('rally_id')
+      .notNull()
+      .references(() => rallies.id),
+    raisedBy: uuid('raised_by')
+      .notNull()
+      .references(() => users.id),
+    subjectId: uuid('subject_id')
+      .notNull()
+      .references(() => users.id),
+    category: disputeCategory('category').notNull(),
+    description: text('description').notNull(),
+    status: disputeStatus('status').notNull().default('open'),
+    // The no-show entry an appeal is holding back.
+    heldEntryId: uuid('held_entry_id').references(() => rewardLedger.id),
+    resolvedBy: text('resolved_by'),
+    resolutionNote: text('resolution_note'),
+    resolvedAt: timestamptz('resolved_at'),
+    chainStatus: chainStatus('chain_status').notNull().default('pending'),
+    chainTxHash: text('chain_tx_hash'),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex('disputes_once_key').on(
+      table.rallyId,
+      table.raisedBy,
+      table.subjectId,
+      table.category,
+    ),
+    index('disputes_status_idx').on(table.status, table.createdAt),
+    index('disputes_subject_idx').on(table.subjectId, table.createdAt),
+    index('disputes_raiser_idx').on(table.raisedBy, table.createdAt),
+  ],
 );
 
 export const rewardVouchers = pgTable('reward_vouchers', {

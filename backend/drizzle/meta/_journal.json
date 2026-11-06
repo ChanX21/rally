@@ -43,6 +43,13 @@
       "when": 1793926488570,
       "tag": "0005_lyrical_moira_mactaggert",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793929331486,
+      "tag": "0006_rally_rewards",
+      "breakpoints": true
     }
   ]
 }

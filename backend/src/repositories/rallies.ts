@@ -66,6 +66,7 @@ export async function activeMembers(db: Db, rallyId: string) {
       role: rallySlots.role,
       displayName: users.displayName,
       checkedInAt: claims.checkedInAt,
+      arrivedAt: claims.arrivedAt,
     })
     .from(claims)
     .innerJoin(rallySlots, eq(rallySlots.id, claims.slotId))

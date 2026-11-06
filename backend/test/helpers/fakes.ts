@@ -1,3 +1,4 @@
+import type { ArcGateway, ArcRecord, ArcRuling } from '../../src/integrations/arc/index.js';
 import type {
   ArkivGateway,
   Listing,
@@ -130,5 +131,38 @@ export class FakeArkiv implements ArkivGateway {
       listings,
       nextAfter: matching.length > filter.limit ? (listings.at(-1)?.entityKey ?? null) : null,
     });
+  }
+}
+
+/** Stands in for the chain. Applies the contract's key rule, so retries can be tested. */
+export class FakeArc implements ArcGateway {
+  readonly records: ArcRecord[] = [];
+  readonly rulings: ArcRuling[] = [];
+  readonly policies: { version: number; amounts: number[] }[] = [];
+  fail = false;
+  private tx = 0;
+
+  private hash(): `0x${string}` {
+    if (this.fail) throw new Error('RPC unavailable');
+    this.tx += 1;
+    return `0x${this.tx.toString(16).padStart(64, '0')}`;
+  }
+
+  record(input: ArcRecord) {
+    const hash = this.hash();
+    if (!this.records.some((row) => row.key === input.key)) this.records.push(input);
+    return Promise.resolve(hash);
+  }
+
+  recordRuling(input: ArcRuling) {
+    const hash = this.hash();
+    if (!this.rulings.some((row) => row.key === input.key)) this.rulings.push(input);
+    return Promise.resolve(hash);
+  }
+
+  publishPolicy(version: number, amounts: number[]) {
+    const hash = this.hash();
+    this.policies.push({ version, amounts });
+    return Promise.resolve(hash);
   }
 }

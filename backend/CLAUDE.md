@@ -188,7 +188,11 @@ never query the database. Domain code has no I/O.
 
 ## Contracts
 
-- Rally's MVP needs no contract. See `contracts/README.md` for the optional rewards claim.
+- Rally's MVP needs no contract. See `contracts/README.md` for `RallyLedger`, `RallyToken` and the
+  unused rewards claim.
+- `REWARD_ACTIONS` and the dispute enums in the backend must keep the order of the enums in
+  `RallyLedger.sol`, and `DEFAULT_AMOUNTS` must match `DeployLedger.s.sol`. Run `npm run smoke:arc` after
+  changing either side.
 - The backend only signs claim vouchers, behind `REWARDS_CLAIMS_ENABLED`, and never holds user funds.
 - The voucher format in `services/reward-voucher.ts` must stay in step with the contract's EIP-712
   type. Change both together and run both test suites.

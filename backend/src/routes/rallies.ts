@@ -3,6 +3,8 @@ import { z } from 'zod';
 
 import { requireUser } from '../plugins/auth.js';
 import {
+  arrivalSchema,
+  raiseDisputeBody,
   checkInBody,
   createRallyBody,
   feedbackBody,
@@ -16,6 +18,7 @@ import {
   updateRallyBody,
 } from '../schemas/api.js';
 import { ok, successSchema } from '../schemas/common.js';
+import { raiseDispute } from '../services/disputes.js';
 import { submitFeedback } from '../services/feedback.js';
 import {
   cancelRally,
@@ -25,6 +28,7 @@ import {
   getRoom,
   listParticipants,
   listRallies,
+  markArrived,
   publishRally,
   updateRally,
   withdrawFromRally,
@@ -129,6 +133,30 @@ export const rallyRoutes: FastifyPluginAsyncZod = async (app) => {
       schema: { ...secured, params: idParams, response: { 200: successSchema(roomSchema) } },
     },
     async (request) => ok(await getRoom(deps, requireUser(request).id, request.params.id)),
+  );
+
+  app.post(
+    '/rallies/:id/arrive',
+    {
+      ...auth,
+      schema: { ...secured, params: idParams, response: { 200: successSchema(arrivalSchema) } },
+    },
+    async (request) => ok(await markArrived(deps, requireUser(request).id, request.params.id)),
+  );
+
+  app.post(
+    '/rallies/:id/disputes',
+    {
+      ...auth,
+      schema: {
+        ...secured,
+        params: idParams,
+        body: raiseDisputeBody,
+        response: { 200: successSchema(z.object({ id: z.uuid(), status: z.string() })) },
+      },
+    },
+    async (request) =>
+      ok(await raiseDispute(deps, requireUser(request).id, request.params.id, request.body)),
   );
 
   app.post(

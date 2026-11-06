@@ -5,7 +5,7 @@ import { type App, buildApp } from '../../src/app.js';
 import { processOutboxBatch } from '../../src/workers/outbox.js';
 import { createTestDatabase, type TestDatabase } from './db.js';
 import { testEnv } from './env.js';
-import { fakeAuth, FakeArkiv, FakeInfer } from './fakes.js';
+import { FakeArc, fakeAuth, FakeArkiv, FakeInfer } from './fakes.js';
 
 type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
 
@@ -30,6 +30,7 @@ export interface Harness {
   database: TestDatabase;
   ai: FakeInfer;
   arkiv: FakeArkiv;
+  arc: FakeArc;
   wallets: Record<string, string>;
   user(did: string): Promise<TestUser>;
   onboarded(did: string, overrides?: Record<string, unknown>): Promise<TestUser>;
@@ -42,10 +43,11 @@ export async function createHarness(envOverrides: Record<string, string> = {}): 
   const database = await createTestDatabase();
   const ai = new FakeInfer();
   const arkiv = new FakeArkiv();
+  const arc = new FakeArc();
   const wallets: Record<string, string> = {};
   const app = await buildApp({
     env: testEnv({ DATABASE_URL: database.url, RATE_LIMIT_MAX: '100000', ...envOverrides }),
-    integrations: { auth: fakeAuth(wallets), infer: ai.infer, arkiv },
+    integrations: { auth: fakeAuth(wallets), infer: ai.infer, arkiv, arc },
   });
   await app.ready();
 
@@ -76,6 +78,7 @@ export async function createHarness(envOverrides: Record<string, string> = {}): 
     database,
     ai,
     arkiv,
+    arc,
     wallets,
     async user(did) {
       const response = await app.inject({

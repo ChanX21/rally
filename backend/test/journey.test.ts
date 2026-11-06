@@ -155,7 +155,8 @@ describe('end-to-end journey', () => {
     await h.drainOutbox();
 
     const ashaRewards = await asha.get('/me/rewards');
-    expect(ashaRewards.balance).toBe(25);
+    // 25 for the vouch, and 5 for hosting a rally that happened.
+    expect(ashaRewards.balance).toBe(30);
     const ashaProfile = await asha.get('/me');
     expect(ashaProfile.profile.evidence).toHaveLength(1);
 

@@ -1,4 +1,4 @@
-import { and, count, desc, eq, gte, sql } from 'drizzle-orm';
+import { and, count, eq, gte, sql } from 'drizzle-orm';
 
 import { feedback, rallies, rewardLedger } from '../db/schema/index.js';
 import type { Tx } from '../lib/db-types.js';
@@ -6,14 +6,12 @@ import type { Deps } from '../lib/deps.js';
 import { AppError, notFound } from '../lib/errors.js';
 import { notify } from '../lib/notify.js';
 import { enqueue } from '../lib/outbox.js';
+import { MAX_EARNED_PER_DAY, MAX_PER_COUNTERPARTY } from '../domain/reward-policy.js';
 import { activeMembers, lockRally } from '../repositories/rallies.js';
 import { appendProfile, latestProfile, lockUser } from '../repositories/users.js';
 import { transition } from './rally-lifecycle.js';
+import { earnedToday, latestPolicy, rewardHostCompleted } from './rewards.js';
 
-export const REWARD_POLICY_VERSION = 1;
-export const POINTS_PER_VOUCH = 25;
-export const MAX_POINTS_PER_DAY = 100;
-export const MAX_POINTS_PER_COUNTERPARTY = 50;
 export const MAX_VOUCHES_GIVEN_PER_DAY = 5;
 
 export interface FeedbackInput {
@@ -121,6 +119,7 @@ export async function submitFeedback(
 
     if (rally.status === 'met' && input.happened) {
       rally = await transition(tx, rally, 'completed', { completedAt: new Date() });
+      await rewardHostCompleted(tx, rally, present);
     }
 
     const vouchResults: { recipientId: string; verification: string }[] = [];
@@ -210,13 +209,6 @@ export async function applyVerifiedVouch(deps: Deps, feedbackId: string): Promis
     }
 
     const key = `vouch:${vouch.id}`;
-    const startOfDay = new Date(Date.now() - 86_400_000);
-    const [today] = await tx
-      .select({ total: sql<number>`coalesce(sum(${rewardLedger.delta}), 0)::int` })
-      .from(rewardLedger)
-      .where(
-        and(eq(rewardLedger.subjectUserId, recipientId), gte(rewardLedger.createdAt, startOfDay)),
-      );
     const [fromGiver] = await tx
       .select({ total: sql<number>`coalesce(sum(${rewardLedger.delta}), 0)::int` })
       .from(rewardLedger)
@@ -225,9 +217,11 @@ export async function applyVerifiedVouch(deps: Deps, feedbackId: string): Promis
         and(eq(rewardLedger.subjectUserId, recipientId), eq(feedback.giverId, vouch.giverId)),
       );
 
+    const policy = await latestPolicy(tx);
+    const points = policy.amounts.Vouched;
     const capped =
-      (today?.total ?? 0) + POINTS_PER_VOUCH > MAX_POINTS_PER_DAY ||
-      (fromGiver?.total ?? 0) + POINTS_PER_VOUCH > MAX_POINTS_PER_COUNTERPARTY;
+      (await earnedToday(tx, recipientId)) + points > MAX_EARNED_PER_DAY ||
+      (fromGiver?.total ?? 0) + points > MAX_PER_COUNTERPARTY;
     if (capped) {
       deps.log.info({ feedbackId }, 'vouch reward skipped: cap reached');
       return;
@@ -239,8 +233,9 @@ export async function applyVerifiedVouch(deps: Deps, feedbackId: string): Promis
         subjectUserId: recipientId,
         rallyId: rally.id,
         reason: 'completed_and_vouched',
-        delta: POINTS_PER_VOUCH,
-        policyVersion: REWARD_POLICY_VERSION,
+        action: 'Vouched',
+        delta: points,
+        policyVersion: policy.version,
         antiAbuse: 'passed',
         idempotencyKey: key,
       })
@@ -252,31 +247,10 @@ export async function applyVerifiedVouch(deps: Deps, feedbackId: string): Promis
         userId: recipientId,
         type: 'reward.earned',
         title: 'Someone vouched for you',
-        body: `You earned ${POINTS_PER_VOUCH} points: "${vouch.contribution ?? ''}"`,
+        body: `You earned ${points} RALLY: "${vouch.contribution ?? ''}"`,
         data: { rallyId: rally.id },
         dedupeKey: `reward.earned:${vouch.id}`,
       });
     }
   });
 }
-
-export async function getRewards(deps: Deps, userId: string) {
-  const rows = await deps.db
-    .select()
-    .from(rewardLedger)
-    .where(eq(rewardLedger.subjectUserId, userId))
-    .orderBy(desc(rewardLedger.createdAt))
-    .limit(100);
-  return {
-    balance: rows.reduce((total, row) => total + row.delta, 0),
-    entries: rows.map((row) => ({
-      id: row.id,
-      rallyId: row.rallyId,
-      reason: row.reason,
-      points: row.delta,
-      policyVersion: row.policyVersion,
-      createdAt: row.createdAt.toISOString(),
-    })),
-  };
-}
-

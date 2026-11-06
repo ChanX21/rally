@@ -61,12 +61,21 @@ function describe(rally: Rally, isCreator: boolean): { title1: string; title2: s
   }
 }
 
+// A plan is for one day, so a clock time is read on the day its window starts.
+function meetTimeOn(windowStart: string, clock: string): string {
+  const [hours, minutes] = clock.split(":").map(Number);
+  const date = new Date(windowStart);
+  date.setHours(hours ?? 0, minutes ?? 0, 0, 0);
+  return date.toISOString();
+}
+
 export default function FindingPeopleScreen() {
   // The live status of one rally, polled from the server. Every state in the handoff's table lands here.
   const { api, me } = useSession();
   const router = useRouter();
   const rallyId = useSearchParams().get("rally");
   const [meetingPoint, setMeetingPoint] = useState("");
+  const [meetClock, setMeetClock] = useState("");
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -241,11 +250,28 @@ export default function FindingPeopleScreen() {
                 value={meetingPoint}
                 onChange={(e) => setMeetingPoint(e.target.value)}
               />
+              <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", fontSize: "14px", color: "#766B65" }}>
+                Meeting time (optional)
+                <input
+                  type="time"
+                  value={meetClock}
+                  onChange={(e) => setMeetClock(e.target.value)}
+                  style={{ height: "44px", padding: "0 12px", borderRadius: "12px", border: "1px solid #D9C8BE", background: "#FFFAF7", fontFamily: "inherit", fontSize: "15px", color: "#1C1917" }}
+                />
+              </label>
               <button
                 className="btn btn-p"
                 type="button"
                 disabled={busy || !meetingPoint.trim()}
-                onClick={() => void act(() => api.updateRally(rally.id, { expectedVersion: rally.version, meetingPoint: meetingPoint.trim() }))}
+                onClick={() =>
+                  void act(() =>
+                    api.updateRally(rally.id, {
+                      expectedVersion: rally.version,
+                      meetingPoint: meetingPoint.trim(),
+                      ...(meetClock ? { meetAt: meetTimeOn(rally.windowStart, meetClock) } : {}),
+                    })
+                  )
+                }
               >
                 {busy ? "Saving…" : "Open the room"}
               </button>

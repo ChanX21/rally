@@ -191,6 +191,7 @@ export const updateRallyBody = z.object({
   capacity: z.number().int().min(MIN_GROUP).max(MAX_GROUP).optional(),
   meetingPoint: shortText(300).optional(),
   meetingBrief: shortText(500).optional(),
+  meetAt: dateTime.optional(),
 });
 
 export const rallyStatusSchema = z.enum([
@@ -218,6 +219,7 @@ export const rallySchema = z.object({
   vibe: z.string().nullable(),
   windowStart: isoString,
   windowEnd: isoString,
+  meetAt: isoString,
   durationMin: z.number(),
   zone: z.string(),
   groupMin: z.number(),
@@ -237,7 +239,10 @@ export const participantSchema = z.object({
   displayName: z.string().nullable(),
   role: z.string(),
   checkedIn: z.boolean(),
+  arrived: z.boolean(),
 });
+
+export const arrivalSchema = z.object({ arrivedAt: isoString, meetAt: isoString });
 
 export const roomSchema = z.object({
   rallyId: z.uuid(),
@@ -245,6 +250,7 @@ export const roomSchema = z.object({
   goal: z.string(),
   windowStart: isoString,
   windowEnd: isoString,
+  meetAt: isoString,
   zone: z.string(),
   meetingPoint: z.string().nullable(),
   meetingBrief: z.string().nullable(),
@@ -356,17 +362,112 @@ export const notificationsQuery = paginationQuery.extend({
 
 export const rewardsSchema = z.object({
   balance: z.number(),
+  net: z.number(),
+  tier: z.enum(['Rebuilding', 'New', 'Reliable', 'Trusted']),
+  chain: z
+    .object({
+      chainId: z.number(),
+      rpcUrl: z.string().nullable(),
+      tokenAddress: z.string(),
+      explorerUrl: z.string(),
+      address: z.string().nullable(),
+    })
+    .nullable(),
   entries: z.array(
     z.object({
       id: z.uuid(),
       rallyId: z.uuid().nullable(),
       reason: z.string(),
+      action: z.string().nullable(),
       points: z.number(),
       policyVersion: z.number(),
+      state: z.enum(['pending', 'held', 'applied', 'cancelled']),
+      appliesAt: z.string().nullable(),
+      chainTxHash: z.string().nullable(),
       createdAt: z.string(),
     }),
   ),
 });
+
+const disputeCategorySchema = z.enum(['no_show_appeal', 'misconduct', 'false_checkin', 'other']);
+const disputeStatusSchema = z.enum(['open', 'upheld', 'dismissed', 'false']);
+
+export const raiseDisputeBody = z.object({
+  category: disputeCategorySchema,
+  subjectId: z.uuid().optional(),
+  description: shortText(1000).optional(),
+});
+
+export const myDisputesSchema = z.object({
+  raised: z.array(
+    z.object({
+      id: z.uuid(),
+      rallyId: z.uuid(),
+      category: disputeCategorySchema,
+      description: z.string(),
+      status: disputeStatusSchema,
+      createdAt: isoString,
+      resolvedAt: z.string().nullable(),
+    }),
+  ),
+  // Only rulings, with no text or raiser, so nobody can work out who complained.
+  against: z.array(
+    z.object({
+      id: z.uuid(),
+      rallyId: z.uuid(),
+      category: disputeCategorySchema,
+      status: disputeStatusSchema,
+      resolvedAt: z.string().nullable(),
+    }),
+  ),
+});
+
+const disputePartySchema = z.object({
+  id: z.uuid(),
+  displayName: z.string().nullable(),
+  wallet: z.string().nullable(),
+});
+
+export const adminDisputeSchema = z.object({
+  id: z.uuid(),
+  rallyId: z.uuid(),
+  rallyGoal: z.string(),
+  category: disputeCategorySchema,
+  description: z.string(),
+  status: disputeStatusSchema,
+  raiser: disputePartySchema,
+  subject: disputePartySchema,
+  resolvedBy: z.string().nullable(),
+  resolutionNote: z.string().nullable(),
+  resolvedAt: z.string().nullable(),
+  chainStatus: z.enum(['pending', 'queued', 'synced', 'failed']),
+  chainTxHash: z.string().nullable(),
+  createdAt: isoString,
+});
+
+export const adminDisputesQuery = z.object({
+  userId: z.uuid().optional(),
+  status: disputeStatusSchema.optional(),
+});
+
+export const resolveDisputeBody = z.object({
+  outcome: z.enum(['upheld', 'dismissed', 'false']),
+  note: shortText(1000).optional(),
+});
+
+const policyAmounts = z.object({
+  OnTime: z.number().int(),
+  HostCompleted: z.number().int(),
+  Vouched: z.number().int(),
+  Late: z.number().int(),
+  LateCancel: z.number().int(),
+  NoShow: z.number().int(),
+  ComplaintUpheld: z.number().int(),
+  FalseComplaint: z.number().int(),
+});
+
+export const policyBody = z.object({ amounts: policyAmounts });
+export const policySchema = z.object({ version: z.number(), amounts: policyAmounts });
 
 export const voucherSchema = z.object({
   domain: z.object({

@@ -134,8 +134,12 @@ After an activity, participants can confirm it happened and vouch for a specific
 as "helped my pitch". Vouches add evidence to a profile, but do not change identity. Abuse controls
 prevent self-vouching, require the same completed activity, cap points and flag suspicious patterns.
 
-Points are off-chain. An optional on-chain claim exists only for when anti-fraud checks pass, and
-core Rally never depends on it.
+People earn RALLY for showing up and contributing, and lose it for arriving late, cancelling late or not
+coming. RALLY has no monetary value, cannot be transferred, and never affects matching. The database
+holds the balance, and Arc Testnet holds a public copy of the history against the user's login wallet.
+Nothing on-chain includes names, complaint text or locations, and a complaint reaches the chain only
+after a ruling. A no-show waits 24 hours and can be appealed. Core Rally works with the chain switched
+off.
 
 ## Privacy requirements
 
@@ -144,6 +148,8 @@ Rally coordinates real people, so accidental exposure matters more than clever a
 - Exact meeting points, names, profiles, answers, consent and feedback stay in Rally's private
   database. The meeting point is visible only to the formed group.
 - Public listings contain only coarse, non-personal information.
+- Reward history is public and permanently tied to a wallet address, so onboarding says so. It holds only
+  action codes, outcomes and hashes.
 - Listings expire from live queries, but public chain history may retain them. Rally does not promise
   erasure from history, which is why nothing personal is published.
 - AI sees pseudonymous, minimal context, never a name, wallet or exact location.

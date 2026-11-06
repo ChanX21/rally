@@ -2,6 +2,7 @@ import type { FastifyBaseLogger } from 'fastify';
 
 import type { Env } from '../config/env.js';
 import type { Database } from '../db/client.js';
+import type { ArcGateway } from '../integrations/arc/index.js';
 import type { ArkivGateway } from '../integrations/arkiv/index.js';
 import type { AuthVerifier } from '../integrations/privy/index.js';
 import type { Infer } from '../integrations/zero-g.js';
@@ -12,6 +13,7 @@ export interface Integrations {
   auth: AuthVerifier | null;
   infer: Infer;
   arkiv: ArkivGateway | null;
+  arc: ArcGateway | null;
 }
 
 export interface Deps extends Omit<Integrations, 'infer'> {
