@@ -23,7 +23,7 @@ test("explicit user sizes and ranges survive review", () => {
 
 test("invalid or incomplete plans cannot be published", () => {
   const valid = draftFromIntent(intent());
-  for (const patch of [{ goal: " " }, { category: "unknown" }, { start: "" }, { start: "2020-01-01T12:00" }, { durationMin: "0" }, { durationMin: "30.5" }, { groupMin: "4", capacity: "2" }, { capacity: "13" }, { zone: " " }, { vibe: "unknown" }]) {
+  for (const patch of [{ goal: " " }, { category: "unknown" }, { start: "" }, { start: "2020-01-01T12:00" }, { durationMin: "0" }, { durationMin: "3" }, { durationMin: "30.5" }, { groupMin: "4", capacity: "2" }, { capacity: "13" }, { zone: " " }, { vibe: "unknown" }]) {
     assert.ok(rallyDraftProblem({ ...valid, ...patch }));
     assert.throws(() => rallyInputFromDraft({ ...valid, ...patch }, "intent-1"));
   }

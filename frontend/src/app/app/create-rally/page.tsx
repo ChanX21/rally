@@ -89,8 +89,25 @@ export default function CreateRallyScreen() {
     catch (err) { setError(errorMessage(err, "Could not read your plan.")); }
     finally { setBusy(null); }
   };
+  const answerIssue = (questionId: string) => {
+    if (!parsed || !answers[questionId]?.trim()) return null;
+    const fields: Partial<Record<string, RallyDetail>> = { start_time: "start", duration: "durationMin", group_size: "capacity", distance: "zone", group_fit: "vibe" };
+    const field = fields[questionId];
+    return field ? rallyDraftIssues(draftFromIntent(parsed.intent, answers))[field] ?? null : null;
+  };
+  const editAnsweredDetails = () => {
+    if (parsed) setDraft(draftFromIntent(parsed.intent, answers));
+    setBlocked(false);
+    setStage("edit");
+  };
   const answer = async () => {
     if (!parsed || busy) return;
+    const invalid = parsed.intent.questions.findIndex((question) => answerIssue(question.id));
+    if (invalid !== -1) {
+      setQuestionIndex(invalid);
+      setError(answerIssue(parsed.intent.questions[invalid]!.id));
+      return;
+    }
     const filled = parsed.intent.questions.map((question) => {
       const value = (answers[question.id] ?? "").trim();
       // The AI only gets the coarse area. The typed place is reapplied from `answers` in the draft.
@@ -101,7 +118,10 @@ export default function CreateRallyScreen() {
     if (!filled.length) { if (draft) review(draft); return; }
     setBusy("answers"); setError(null);
     try { accept(await api.answerIntent(parsed.intent.id, filled), answers); }
-    catch (err) { setError(errorMessage(err, "Could not read your answers. Try again or edit the details.")); }
+    catch (err) {
+      editAnsweredDetails();
+      setError(errorMessage(err, "Could not read your answers. Finish your plan in the editable details below."));
+    }
     finally { setBusy(null); }
   };
   const publish = async () => {
@@ -285,11 +305,14 @@ export default function CreateRallyScreen() {
         {stage === "questions" && <>
           {questionIndex > 0 && <button className="link" disabled={!!busy} onClick={() => setQuestionIndex((index) => index - 1)}>Previous question</button>}
           {busySlot || <button className="primary" onClick={() => {
+            const issue = answerIssue(questions[questionIndex]!.id);
+            setError(issue);
+            if (issue) return;
             if (questionIndex < questions.length - 1) setQuestionIndex((index) => index + 1);
             else void answer();
           }}>Continue</button>}
           <AiRequests requests={receipts.slice(-1)} />
-          <button className="link" disabled={!!busy} onClick={() => { setError(null); setStage("edit"); }}>Edit details myself</button>
+          <button className="link" disabled={!!busy} onClick={() => { setError(null); editAnsweredDetails(); }}>Edit details myself</button>
         </>}
         {stage === "review" && <>
           {problem && <p className="error" role="alert">{problem}</p>}

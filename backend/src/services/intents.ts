@@ -179,6 +179,14 @@ export async function answerIntent(
   }
 
   for (const answer of answers) {
+    const bounds = answer.questionId === 'duration' ? { min: 5, max: 480, label: 'Duration in minutes' }
+      : answer.questionId === 'group_size' ? { min: 2, max: MAX_GROUP, label: 'Group size including you' } : null;
+    if (bounds && /^[+-]?\d+(?:\.\d+)?$/.test(answer.answer.trim())) {
+      const value = Number(answer.answer);
+      if (!Number.isInteger(value) || value < bounds.min || value > bounds.max) {
+        throw new AppError(422, 'INVALID_ANSWER', `${bounds.label} must be a whole number from ${bounds.min} to ${bounds.max}`);
+      }
+    }
     const question = PERSONAL_QUESTIONS.find((q) => q.id === answer.questionId);
     if (question && !validPreferenceAnswer(answer.answer)) {
       throw new AppError(422, 'INVALID_ANSWER', 'Enter a preference of up to 120 characters');

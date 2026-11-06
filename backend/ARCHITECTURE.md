@@ -821,3 +821,11 @@ old unlinked dialogue caches once so their next generated line has its actual re
 The receipt UI shows only the newest relevant request as a compact `0G request: <id>` line under
 the screen's action buttons. Matching screens show composition IDs, and photo controls show proof
 IDs separately. The full authorized history remains available through the receipt API.
+
+
+Creation validates supplied numeric clarification answers before spending the one reparse: duration
+is 5–480 whole minutes and group size is 2–12 including the creator. The client validates each
+answered step and rechecks earlier answers before submission, including start times that have since
+passed. Invalid numeric API answers return 422 without consuming the reparse budget. A failed
+answer request opens editable details with the typed answers preserved, rather than repeatedly
+retrying a potentially consumed parse. Manual review and publication remain subject to validation.
