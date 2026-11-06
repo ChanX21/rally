@@ -210,6 +210,7 @@ export type RallyStatus =
   | "expired";
 
 export type Rally = {
+  matchingProgress?: { identified: number; accepted: number };
   proofFlow: boolean;
   completedAt: string | null;
   id: string;

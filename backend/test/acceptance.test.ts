@@ -42,6 +42,25 @@ const activeClaims = async (rallyId: string) =>
     .where(and(eq(claims.rallyId, rallyId), eq(claims.status, 'active')));
 
 describe('accepting', () => {
+  it('shows zero progress when no invitation or acceptance exists', async () => {
+    const creator = await h.onboarded(did('progress-host'), { optInMatching: false });
+    const rally = await h.rally(creator);
+    await h.drainOutbox();
+    expect((await creator.get(`/rallies/${rally.id}`)).matchingProgress).toEqual({ identified: 0, accepted: 0 });
+  });
+
+  it('reports real matching progress without counting the host or withdrawn seats as accepted', async () => {
+    const { candidates, creator, rally, matchIds } = await setUp(2, { groupMin: 3 });
+    expect((await creator.get(`/rallies/${rally.id}`)).matchingProgress).toEqual({ identified: 2, accepted: 0 });
+    await candidates[0]!.post(`/matches/${matchIds[0]}/respond`, { response: 'accept' });
+    expect((await creator.get(`/rallies/${rally.id}`)).matchingProgress).toEqual({ identified: 2, accepted: 1 });
+    expect((await candidates[0]!.get(`/rallies/${rally.id}`)).matchingProgress).toEqual({ identified: 2, accepted: 1 });
+    await candidates[0]!.post(`/rallies/${rally.id}/withdraw`);
+    expect((await creator.get(`/rallies/${rally.id}`)).matchingProgress).toEqual({ identified: 2, accepted: 0 });
+    const outsider = await h.onboarded(did('progress-outsider'), { optInMatching: false });
+    expect((await outsider.request('GET', `/rallies/${rally.id}`)).statusCode).toBe(404);
+  });
+
   it('claims a seat and moves the group through ready to formed', async () => {
     const { candidates, creator, rally, matchIds } = await setUp(1, {
       meetingPoint: 'Hotel lobby, table 7',

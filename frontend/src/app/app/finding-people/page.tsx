@@ -16,8 +16,6 @@ const SANS = "var(--font-inter), system-ui, sans-serif";
 const SERIF = "var(--font-serif), Georgia, serif";
 const MONO = "var(--font-mono), monospace";
 
-const STEPS = ["Plan published", "Looking for people", "People are deciding", "Meeting point set"];
-
 // How far along the steps each state is. A rally can move backward: a withdrawal
 // can return it to open or proposed, so this always follows the server.
 const STEP_FOR_STATUS: Partial<Record<Rally["status"], number>> = {
@@ -39,11 +37,11 @@ function describe(rally: Rally, isCreator: boolean): { title1: string; title2: s
       return { title1: "Not published", title2: "yet", sub: "Nobody can see this plan until you publish it." };
     case "open":
     case "waiting":
-      return { title1: "Finding", title2: "your people", sub: "You can leave this screen. We'll put the result in your inbox." };
     case "proposed":
-      return isCreator
-        ? { title1: "People are", title2: "deciding", sub: "Nobody is added without saying yes. We'll tell you when enough have." }
-        : { title1: "Waiting for", title2: "the others", sub: "You said yes. The group forms when enough people have." };
+      return rally.matchingProgress
+        ? { title1: `${rally.matchingProgress.identified} ${rally.matchingProgress.identified === 1 ? "match" : "matches"}`, title2: "identified",
+          sub: `${rally.matchingProgress.accepted} accepted. You can leave this screen—we'll notify you when the group is ready.` }
+        : { title1: "Connecting", title2: "your Rally", sub: "Checking matches. You can leave this screen; we'll notify you when there's an update." };
     case "ready":
       return isCreator
         ? { title1: "Enough people.", title2: "Where to meet?", sub: "Only the group ever sees this. The room opens once you set it." }
@@ -84,8 +82,7 @@ export default function FindingPeopleScreen() {
 
   useEffect(() => {
     if (!rallyId) router.replace("/app/home");
-    else if (rally?.status === "waiting" && rally.creatorId === me?.user.id) router.replace(`/app/no-fit?rally=${rallyId}`);
-  }, [rallyId, rally, me, router]);
+  }, [rallyId, router]);
 
   const isCreator = rally?.creatorId === me?.user.id;
 
@@ -109,6 +106,10 @@ export default function FindingPeopleScreen() {
   const over = rally?.status === "cancelled" || rally?.status === "expired";
   const needsMeetingPoint = rally?.status === "ready" && isCreator && !rally.hasMeetingPoint;
   const canLeave = rally && ["draft", "open", "waiting", "proposed", "ready"].includes(rally.status);
+  const steps = ["Plan published",
+    rally?.matchingProgress ? `${rally.matchingProgress.identified} ${rally.matchingProgress.identified === 1 ? "match" : "matches"} identified` : "Checking matches",
+    rally?.matchingProgress ? `${rally.matchingProgress.accepted} accepted` : "Acceptance updates",
+    "Meeting point set"];
 
   return (
     <div
@@ -204,7 +205,7 @@ export default function FindingPeopleScreen() {
                 backgroundRepeat: "no-repeat",
               }}
             >
-              {STEPS.map((label, i) => {
+              {steps.map((label, i) => {
                 const done = i < active;
                 const isActive = i === active;
                 return (

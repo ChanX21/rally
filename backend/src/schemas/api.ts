@@ -209,6 +209,7 @@ export const rallyStatusSchema = z.enum([
 ]);
 
 export const rallySchema = z.object({
+  matchingProgress: z.object({ identified: z.number().int().nonnegative(), accepted: z.number().int().nonnegative() }).optional(),
   proofFlow: z.boolean(),
   completedAt: isoString.nullable(),
   preferences: preferenceSchema,

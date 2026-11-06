@@ -720,3 +720,10 @@ The page refreshes every 15 seconds while visible, preserving unsaved edits. Sav
 Cancel edits loads the latest profile. Editing or clearing preferences queues matching when opted
 in. Vouches do not overwrite explicit preferences, and inferred tags are recorded evidence, not
 additional declared interests or a learned preference model.
+
+`GET /rallies/:id` includes `matchingProgress` for authorized viewers: `identified` counts distinct
+people actually invited (including past invitations) or currently joined; `accepted` counts current
+non-host participants. The host is excluded from both, and withdrawing reduces accepted. The
+connecting screen polls these counts and shows “X matches identified / Y accepted”; a no-fit stays
+on that screen with zero counts. It does not invent a shortlist size or redirect to a waiting page.
+Other Rally response shapes may omit progress, so clients show a loading description until GET.

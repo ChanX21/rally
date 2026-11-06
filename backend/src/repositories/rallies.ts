@@ -44,6 +44,24 @@ export async function countActiveClaims(db: Db, rallyId: string): Promise<number
   return row?.value ?? 0;
 }
 
+/** Counts people actually invited or joined, excluding the host; withdrawn seats aren't accepted. */
+export async function matchingProgress(db: Db, rally: Rally) {
+  const [progress] = await db.execute<{ identified: number; accepted: number }>(sql`
+    with accepted as (
+      select ${claims.userId} as user_id from ${claims}
+      where ${claims.rallyId} = ${rally.id} and ${claims.status} = 'active'
+        and ${claims.userId} <> ${rally.creatorId}
+    ), identified as (
+      select ${offers.candidateId} as user_id from ${offers}
+      where ${offers.rallyId} = ${rally.id} and ${offers.candidateId} <> ${rally.creatorId}
+      union select user_id from accepted
+    )
+    select (select count(*)::int from identified) as identified,
+           (select count(*)::int from accepted) as accepted
+  `);
+  return progress!;
+}
+
 export async function countPendingOffers(db: Db, rallyId: string): Promise<number> {
   const [row] = await db
     .select({ value: count() })

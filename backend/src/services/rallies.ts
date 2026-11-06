@@ -33,6 +33,7 @@ import {
   findRally,
   hasScheduleConflict,
   lockRally,
+  matchingProgress,
   openSlots,
   type Rally,
 } from '../repositories/rallies.js';
@@ -273,7 +274,7 @@ export async function publishRally(deps: Deps, userId: string, rallyId: string) 
 export async function getRally(deps: Deps, userId: string, rallyId: string) {
   const rally = await findRally(deps.db, rallyId);
   if (!rally || !(await canSee(deps.db, rally, userId))) throw notFound('Rally');
-  return rallyView(rally);
+  return { ...rallyView(rally), matchingProgress: await matchingProgress(deps.db, rally) };
 }
 
 export async function listRallies(
