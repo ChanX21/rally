@@ -36,7 +36,7 @@ const POOL: [number, number][] = [
   [590, 352],
 ];
 
-type MapRally = { opaqueId: string; dialogue: string };
+type MapRally = { opaqueId: string; dialogue: string | null };
 type Bubble = { id: number; rallyId: string; x: number; y: number; text: string };
 
 export default function VenueMap({ rallies }: { rallies: readonly MapRally[] }) {
@@ -44,15 +44,16 @@ export default function VenueMap({ rallies }: { rallies: readonly MapRally[] }) 
     rally, x: POOL[index][0], y: POOL[index][1],
   })), [rallies]);
   const [bubble, setBubble] = useState<Bubble | null>(null);
-  const activeBubble = bubble && dots.some((dot) => dot.rally.opaqueId === bubble.rallyId) ? bubble : null;
+  const activeBubble = bubble && dots.some((dot) => dot.rally.opaqueId === bubble.rallyId && dot.rally.dialogue === bubble.text) ? bubble : null;
 
   useEffect(() => {
-    if (!dots.length) return;
+    const talkingDots = dots.filter((dot) => dot.rally.dialogue);
+    if (!talkingDots.length) return;
     let id = 0;
     let hide: ReturnType<typeof setTimeout>;
     const pop = () => {
-      const { rally, x, y } = dots[Math.floor(Math.random() * dots.length)];
-      setBubble({ id: id++, rallyId: rally.opaqueId, x, y, text: rally.dialogue ?? 'Good company, anyone?' });
+      const { rally, x, y } = talkingDots[Math.floor(Math.random() * talkingDots.length)];
+      setBubble({ id: id++, rallyId: rally.opaqueId, x, y, text: rally.dialogue! });
       hide = setTimeout(() => setBubble(null), 2600);
     };
     const timer = setInterval(pop, 3600);
@@ -67,7 +68,7 @@ export default function VenueMap({ rallies }: { rallies: readonly MapRally[] }) 
   let bb: { cx: number; cy: number; bw: number; bh: number; tipX: number; edgeY: number; tipY: number } | null = null;
   if (activeBubble) {
     const bw = Math.min(480, Math.max(180, activeBubble.text.length * 14 + 48));
-    const bh = activeBubble.text.length > 28 ? 96 : 64;
+    const bh = activeBubble.text.length > 55 ? 128 : activeBubble.text.length > 28 ? 96 : 64;
     const above = activeBubble.y - 18 - bh >= 12;
     const cx = Math.min(Math.max(activeBubble.x, bw / 2 + 12), 904 - bw / 2 - 12);
     const cy = above ? activeBubble.y - 18 - bh / 2 : activeBubble.y + 18 + bh / 2;
@@ -138,7 +139,7 @@ export default function VenueMap({ rallies }: { rallies: readonly MapRally[] }) 
       {/* One anonymous dot per displayed Rally; coordinates are illustrative. */}
       {dots.map(({ rally, x, y }, i) => (
         <circle key={rally.opaqueId} data-rally-id={rally.opaqueId} className={`vm-dot${i % 4}`} cx={x} cy={y} r="8" fill="#1C1917">
-          <title>{rally.dialogue ?? 'Good company, anyone?'}</title>
+          <title>{rally.dialogue ?? 'Rally dialogue is being generated'}</title>
         </circle>
       ))}
 

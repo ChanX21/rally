@@ -285,15 +285,21 @@ describe('public preview', () => {
     expect(activities.find((a: Json) => a.opaqueId === rally.opaqueId).openSeats).toBe(2);
   });
 
-  it('ties dialogue to the current Rally title without publishing the raw goal', async () => {
+  it('ties cached AI dialogue to the current title without publishing the raw goal', async () => {
+    h.ai.respond = () => ({ schemaVersion: 1, dialogue: 'Pitch me your idea; I will bring the ears.' });
     const rally = await published({ category: 'build', goal: 'Hear my pitch, private email alice@example.com' });
     const { activities } = await preview('?category=build');
     const card = activities.find((a: Json) => a.opaqueId === rally.opaqueId);
-    expect(card.dialogue).toBe('I have a pitch. You have ears?');
+    expect(card.dialogue).toBe('Pitch me your idea; I will bring the ears.');
     expect(JSON.stringify(card)).not.toContain('alice@example.com');
+    expect(JSON.stringify(h.ai.callsFor('map_dialogue')[0]?.input)).not.toContain('alice@example.com');
     await creator.patch(`/rallies/${rally.id}`, { expectedVersion: rally.version, goal: 'Coffee after building' });
+    expect((await preview('?category=build')).activities.find((a: Json) => a.opaqueId === rally.opaqueId).dialogue).toBeNull();
+    h.ai.respond = () => ({ schemaVersion: 1, dialogue: 'Refactoring my caffeine levels. Join me?' });
+    await h.drainOutbox();
     expect((await preview('?category=build')).activities.find((a: Json) => a.opaqueId === rally.opaqueId).dialogue)
-      .toBe('Someone up for coffee?');
+      .toBe('Refactoring my caffeine levels. Join me?');
+    expect(h.ai.callsFor('map_dialogue')).toHaveLength(2);
   });
 
   it('drops a Rally whose expiry passed before the background worker caught up', async () => {

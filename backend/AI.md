@@ -115,3 +115,17 @@ Prompt `formation-v4` also requests activity-specific `questionTexts` for select
 Prompt `formation-v3` uses interest-specific catalogs and minimized structured profile context. Onboarding option answers are saved as matching preferences; the declared build role also becomes a declared skill. Activity questions vary with the request and known context; explicit current answers override defaults. Draft preferences are editable and carried into published/waiting activities. Known preference conflicts are filtered in SQL, validated in composition and rechecked at acceptance. Unknown preferences remain eligible.
 
 Apply backend migrations before deployment. `npm run ai:personalization` compares gaming/build/workshop with food/coffee/explore and asserts a gaming-specific question/answer round trip against real 0G. It uses four paid calls with synthetic input and no database writes. See `evidence/personalization-live-2026-11-06.json`.
+
+
+## Map dialogue generation
+
+Prompt `formation-v9` adds a `map_dialogue` task through the existing text-inference adapter and
+FormationRunner. It writes one original, playful, activity-specific invitation from a redacted title,
+not a keyword-selected template. The strict result is `{ "schemaVersion": 1, "dialogue": "..." }`,
+with a single public-safe line of up to 80 characters. Generation runs in the background, once per
+cached title/category revision, with standard outbox retries. Preview reads do not wait for AI and
+return null rather than canned dialogue until a validated generated result is available.
+
+A real synthetic-title check returned valid dialogue from `qwen3.7-flash` in 32.36 seconds after an
+earlier 60-second timeout. See `evidence/map-dialogue-live-2026-11-06.json`; no production database
+rows were written by that check.

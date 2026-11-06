@@ -50,11 +50,12 @@ export class FakeInfer {
     }
   };
 
-  callsFor(task: 'onboarding' | 'intent' | 'composition'): FakeCall[] {
+  callsFor(task: 'onboarding' | 'intent' | 'composition' | 'map_dialogue'): FakeCall[] {
     const marker = {
       onboarding: 'relevant question',
       intent: 'Extract activity intent',
       composition: 'Propose a compatible group',
+      map_dialogue: 'Write one original, playful',
     }[task];
     return this.calls.filter((call) => call.system.includes(marker));
   }

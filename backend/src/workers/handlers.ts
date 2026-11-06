@@ -7,6 +7,7 @@ import { syncDispute, syncPolicy, syncRewardEntry } from '../services/chain-sync
 import { assessProof } from '../services/proofs.js';
 import { applyVerifiedVouch } from '../services/feedback.js';
 import { evaluateForUser, evaluateRally } from '../services/matching.js';
+import { generateMapDialogue } from '../services/map-dialogue.js';
 
 /** A bad payload can never succeed, so retrying is pointless. */
 export class PermanentError extends Error {
@@ -31,6 +32,10 @@ export type OutboxHandler = (deps: Deps, payload: unknown) => Promise<unknown>;
 
 /** Delivery is at-least-once, so every handler must be safe to run twice. */
 export const handlers: Record<OutboxEventType, OutboxHandler> = {
+  'map.dialogue': (deps, payload) => {
+    const input = parsePayload(z.object({ rallyId: z.uuid(), key: z.string().min(1).max(200) }), payload);
+    return generateMapDialogue(deps, input.rallyId, input.key);
+  },
   'rally.published': (deps, payload) =>
     evaluateRally(deps, parsePayload(rallyPayload, payload).rallyId),
   'user.onboarded': (deps, payload) =>

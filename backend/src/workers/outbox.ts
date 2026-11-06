@@ -32,13 +32,14 @@ async function claimBatch(deps: Deps): Promise<OutboxEvent[]> {
       sql`${outboxEvents.id} in (
         select id from outbox_events
         where status = 'pending' and next_attempt_at <= now()
-        order by next_attempt_at
+        order by case when type = 'map.dialogue' then 1 else 0 end, next_attempt_at
         limit ${BATCH_SIZE}
         for update skip locked
       )`,
     )
     .returning();
-  return rows.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  return rows.sort((a, b) => Number(a.type === 'map.dialogue') - Number(b.type === 'map.dialogue')
+    || a.createdAt.getTime() - b.createdAt.getTime());
 }
 
 export async function recoverStaleEvents(deps: Deps): Promise<number> {

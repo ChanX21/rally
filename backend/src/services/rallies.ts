@@ -45,6 +45,7 @@ import {
   settleRally,
   transition,
 } from './rally-lifecycle.js';
+import { queueMapDialogue } from './map-dialogue.js';
 import { penaliseLateCancel, rewardCheckIn } from './rewards.js';
 
 /** Public-to-members shape. The exact meeting point is only available through the room. */
@@ -133,6 +134,7 @@ async function publishLocked(tx: Tx, rally: Rally): Promise<Rally> {
     payload: { rallyId: published.id },
     dedupeKey: `rally.published:${published.id}`,
   });
+  if (published.visibility === 'public_coarse') await queueMapDialogue(tx, published);
   return published;
 }
 
@@ -456,6 +458,7 @@ export async function updateRally(
 
     const settled = await settleRally(tx, updated!);
     await scheduleArkivSync(tx, settled);
+    if (input.goal !== undefined && settled.visibility === 'public_coarse' && settled.publishedAt) await queueMapDialogue(tx, settled);
     if (changesSchedule) await enqueue(tx, { type: 'match.reevaluate', payload: { userId } });
     if (settled.status === 'open' || settled.status === 'waiting') {
       await enqueue(tx, { type: 'match.reevaluate', payload: { rallyId: rally.id } });

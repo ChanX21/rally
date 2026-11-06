@@ -1,0 +1,27 @@
+{
+  "task": "map_dialogue",
+  "date": "2026-11-06",
+  "productionDatabaseWrites": false,
+  "input": {
+    "title": "Rally for coffee and a break from debugging",
+    "category": "coffee"
+  },
+  "model": "qwen3.7-flash",
+  "attempts": [
+    {
+      "result": "timeout",
+      "timeoutMs": 60000,
+      "latencyMs": 60006
+    },
+    {
+      "result": "valid",
+      "timeoutMs": 120000,
+      "latencyMs": 32360,
+      "providerRequestId": "178e7595-2da9-40c7-bc05-5e1d9359dcf8"
+    }
+  ],
+  "output": {
+    "schemaVersion": 1,
+    "dialogue": "Escaping the codebase for coffee? I could use the company."
+  }
+}

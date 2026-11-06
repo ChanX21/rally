@@ -37,6 +37,16 @@ const makeDue = (id: string) =>
     .where(eq(outboxEvents.id, id));
 
 describe('outbox processing', () => {
+  it('claims and processes core jobs before cosmetic dialogue jobs', async () => {
+    for (let n = 0; n < 6; n++) await enqueue(h.app.deps.db, { type: 'map.dialogue', payload: { n } });
+    await enqueue(h.app.deps.db, { type: 'rally.published', payload: {} });
+    const seen: string[] = [];
+    expect(await processOutboxBatch(h.app.deps, {
+      'rally.published': async () => { seen.push('matching'); },
+      'map.dialogue': async () => { seen.push('dialogue'); },
+    })).toBe(5);
+    expect(seen).toEqual(['matching', 'dialogue', 'dialogue', 'dialogue', 'dialogue']);
+  });
   it('marks handled events done', async () => {
     await add();
     const seen: unknown[] = [];

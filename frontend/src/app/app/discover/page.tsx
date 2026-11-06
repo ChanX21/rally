@@ -43,6 +43,40 @@ export default function DiscoverScreen() {
     void loadPage();
   }, [loadPage]);
 
+  useEffect(() => {
+    if (loading) return;
+    let alive = true;
+    let refreshing = false;
+    const timer = setInterval(async () => {
+      if (document.hidden || refreshing) return;
+      refreshing = true;
+      try {
+        const fresh: PreviewActivity[] = [];
+        let next: string | undefined;
+        let pagesLeft = Math.max(1, Math.ceil(activities.length / 20));
+        do {
+          const page = await getPreview({ limit: 20, cursor: next });
+          if (!page.available) {
+            if (alive) setNotice(page.notice);
+            return;
+          }
+          fresh.push(...page.activities);
+          next = page.nextCursor ?? undefined;
+        } while (next && --pagesLeft > 0);
+        if (alive) {
+          setActivities(fresh);
+          setCursor(next ?? null);
+          setNotice(null);
+        }
+      } catch (err) {
+        if (alive) setNotice(errorMessage(err));
+      } finally {
+        refreshing = false;
+      }
+    }, 15_000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [activities.length, loading]);
+
   // One dot on the map per rally that still has room.
   const openRallies = useMemo(() => activities.filter((a) => a.status !== "full" && a.openSeats > 0), [activities]);
   const openCount = openRallies.length;

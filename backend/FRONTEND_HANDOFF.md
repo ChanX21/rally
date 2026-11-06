@@ -546,9 +546,13 @@ in that category; old cancelled invites cannot be accepted. Closing an invite do
 already accepted seat.
 
 
-### Venue map speech
+### AI-generated venue map speech
 
-`GET /activities/preview` returns `dialogue` (a public-safe string of at most 80 characters) for
-each confirmed Rally. Pass open activity records to the venue map so a bubble and its dot always
-refer to the same `opaqueId`. Dialogue is based on the current goal/category without returning
-the raw goal. The map is illustrative and does not reveal participants' real locations.
+`GET /activities/preview` returns `dialogue: string | null` for each confirmed Rally. The string is
+an original 0G-generated line of at most 80 characters, cached by the current title/category; null
+means generation is pending or unavailable. Keep the Rally dot visible but show no substitute
+speech when null. Never call AI from the browser or on each bubble animation. Discovery polls its
+loaded preview pages every 15 seconds while visible to pick up completed generation and edits.
+A bubble and its dot always refer to the same `opaqueId`. Raw titles are not returned. Coordinates
+are illustrative, not real participant locations. `WORKERS_ENABLED=true` and the existing 0G text
+model credentials are required to generate lines. No database migration is needed.

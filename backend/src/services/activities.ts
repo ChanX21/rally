@@ -2,7 +2,8 @@ import { inArray } from 'drizzle-orm';
 
 import { rallies } from '../db/schema/index.js';
 import { TERMINAL, toPublicStatus } from '../domain/rally-state.js';
-import { rallyDialogue } from '../domain/map-dialogue.js';
+import { cachedMapDialogues } from './map-dialogue.js';
+import { isSensitive, type Category } from '../domain/catalog.js';
 import type { Deps } from '../lib/deps.js';
 
 const UNAVAILABLE_NOTICE =
@@ -47,6 +48,7 @@ export async function previewActivities(deps: Deps, query: PreviewQuery) {
       ? []
       : await deps.db
           .select({
+            id: rallies.id,
             opaqueId: rallies.opaqueId,
             status: rallies.status,
             openSeats: rallies.openSeats,
@@ -57,18 +59,21 @@ export async function previewActivities(deps: Deps, query: PreviewQuery) {
           })
           .from(rallies)
           .where(inArray(rallies.opaqueId, opaqueIds));
-  const byOpaqueId = new Map(confirmed.map((rally) => [rally.opaqueId, rally]));
+  const visible = confirmed.filter((rally) => rally.visibility === 'public_coarse' && !isSensitive(rally.category as Category)
+    && rally.status !== 'draft' && !TERMINAL.includes(rally.status) && rally.status !== 'met' && rally.expiresAt > new Date());
+  const dialogues = await cachedMapDialogues(deps.db, visible);
+  const byOpaqueId = new Map(visible.map((rally) => [rally.opaqueId, rally]));
 
   const activities = result.listings.flatMap((listing) => {
     const rally = byOpaqueId.get(listing.opaqueId);
     // Unknown to Rally means someone else wrote it, or it is stale. Do not show either.
-    if (!rally || rally.visibility !== 'public_coarse' || TERMINAL.includes(rally.status) || rally.status === 'draft' || rally.expiresAt <= new Date()) return [];
+    if (!rally) return [];
     const status = toPublicStatus(rally.status, rally.openSeats);
     if (status === 'closed') return [];
     return [
       {
         opaqueId: listing.opaqueId,
-        dialogue: rallyDialogue(rally.goal, rally.category),
+        dialogue: dialogues.get(rally.id) ?? null,
         category: listing.category,
         zone: listing.zone,
         startBucket: listing.startBucket,

@@ -1,10 +1,16 @@
 import { z } from 'zod';
 import { preferenceSchema } from '../domain/questions.js';
+import { CATEGORIES } from '../domain/catalog.js';
+import { redactPii } from '../domain/intent-fallback.js';
 
 const id = z.string().regex(/^[a-zA-Z0-9_-]{1,64}$/);
 const ids = z.array(id).max(30).refine((v) => new Set(v).size === v.length);
 const time = z.iso.datetime();
 const base = { requestId: id };
+export const mapDialogueInput = z.strictObject({ ...base, title: z.string().min(1).max(160), category: z.enum(CATEGORIES) });
+export const mapDialogueText = z.string().trim().min(1).max(80).refine((text) =>
+  !/[\r\n<>@[\]]/.test(text) && redactPii(text) === text, 'dialogue must be a single public-safe line');
+export const mapDialogueResult = z.strictObject({ schemaVersion: z.literal(1), dialogue: mapDialogueText });
 const question = z.strictObject({ id, purpose: z.string().min(1).max(200), options: z.array(z.object({ value: z.string(), label: z.string() })).max(10).optional() });
 const questions = z.array(question).max(20).refine((v) => new Set(v.map((q) => q.id)).size === v.length);
 export const onboardingInput = z.strictObject({

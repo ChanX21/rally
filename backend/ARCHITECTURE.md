@@ -741,15 +741,27 @@ pending invitations, notifies those users and queues them to check other Rallies
 screen refreshes every ten seconds and clearly says that an invitation does not reserve a place.
 
 
-### Venue map dialogue
+### AI-generated venue map dialogue
 
-Public preview responses add a short `dialogue` generated from the current PostgreSQL Rally goal
-and category. Curated title cues (coffee, pitch, chess, debugging, pizza, jogging and stretching)
-produce conversational lines; other activities use a category-specific line. Raw goals, contact
-details and exact locations are never copied into the public response or added to Arkiv. Expired
-and draft Rallies are excluded even before background synchronization catches up.
+A `map.dialogue` background job calls the existing Formation Engine and 0G text model to write
+one original, playful line from the Rally goal/category, capped at 80 characters. Inputs are
+redacted and treated as untrusted data. Output must be one line without contacts, links, wallet
+addresses or redaction placeholders; the prompt also excludes personal names and location details.
+Raw titles remain absent from public preview and Arkiv. Each call is recorded as `map_dialogue`
+in `model_runs`, using the existing metadata-only trace.
 
-The discovery map receives open Rally records rather than a count. Every displayed dot carries
-its Rally's opaque ID, and a randomly selected dot shows that Rally's dialogue. Up to 26 loaded
-Rallies are displayed; coordinates remain illustrative. Bubbles wrap and stay inside the mobile
-map, and disappear when their Rally leaves the displayed data. No additional AI call is needed.
+Publication and published title edits enqueue a deduplicated job keyed by Rally ID and a hash of
+the current goal/category. Completed job payloads cache the validated generated line; replay skips
+inference when the result is already present. Normal seven-day completed-outbox retention expires
+this expendable cache, after which a visible Rally may generate a new line. Existing public Rallies
+are queued on preview cache misses. No schema migration or additional credentials are required.
+
+`GET /activities/preview` never waits for inference. It returns the current cached `dialogue`, or
+null while generation is pending or failed. Failures use existing outbox retries; core jobs take priority over cosmetic dialogue jobs. No curated joke
+is substituted. Old title results cannot appear under an edited title's cache key. Private,
+sensitive, draft, expired and closed Rallies are excluded from public generation/preview as relevant.
+
+Every displayed dot represents a real open Rally and uses that same Rally's generated dialogue.
+Dots awaiting generation remain visible without speaking. Discovery refreshes its loaded pages
+at 15-second intervals while visible, so completed lines appear without a reload. Up to 26 loaded
+Rallies are shown; positions remain illustrative. Bubbles wrap and stay within the mobile map.
