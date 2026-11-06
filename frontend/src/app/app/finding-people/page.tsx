@@ -114,7 +114,7 @@ export default function FindingPeopleScreen() {
   return (
     <div
       className={`${inter.variable} ${serif.variable} ${mono.variable}`}
-      style={{ background: "#FFF5EF", height: "100dvh", display: "flex", justifyContent: "center", padding: "24px 0" }}
+      style={{ background: "#FFF5EF", height: "100dvh", display: "flex", justifyContent: "center", padding: "0" }}
     >
       <style>{`
         a { color: #1C1917; }
@@ -147,8 +147,8 @@ export default function FindingPeopleScreen() {
 
       <div
         style={{
-          width: "390px",
-          height: "844px",
+          width: "100%", maxWidth: "430px",
+          height: "100%",
           boxSizing: "border-box",
           background: "#FFF5EF",
           color: "#1C1917",
