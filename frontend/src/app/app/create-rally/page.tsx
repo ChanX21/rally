@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Inter, Instrument_Serif } from "next/font/google";
-import { Dropdown } from "@/components/Dropdown";
+import RallyOrb from "@/components/RallyOrb";
 import { PreferenceEditor, PreferenceInput } from "@/components/PreferenceInput";
 import { errorMessage, type ParsedIntent } from "@/lib/api";
 import { CATEGORIES, SENSITIVE_CATEGORIES, VIBES, ZONES, categoryLabel, zoneLabel, preferenceText, fromLocalInput, rallyPath } from "@/lib/format";
@@ -14,6 +14,28 @@ import { useSession } from "@/lib/session";
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"] });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal" });
 
+const PLAN_SAMPLES = ["Coffee tomorrow at 5 PM", "Lunch with a few people"];
+
+// Free-text field the user types themselves, with suggestions. What they type resolves to a
+// known option id (case-insensitive) so publishing still validates; off-list text is kept as-is.
+function TypeField({ options, value, onChange, placeholder, disabled }: {
+  options: Array<{ value: string; label: string }>;
+  value: string; onChange: (value: string) => void; placeholder: string; disabled?: boolean;
+}) {
+  const listId = useId();
+  const current = options.find((option) => option.value === value);
+  const display = current ? current.label : value;
+  return <>
+    <input list={listId} disabled={disabled} value={display} placeholder={placeholder} autoComplete="off"
+      onChange={(event) => {
+        const text = event.target.value;
+        const match = options.find((option) => option.label.toLowerCase() === text.trim().toLowerCase());
+        onChange(match ? match.value : text);
+      }} />
+    <datalist id={listId}>{options.map((option) => <option key={option.value} value={option.label} />)}</datalist>
+  </>;
+}
+
 export default function CreateRallyScreen() {
   const { api } = useSession();
   const router = useRouter();
@@ -22,6 +44,7 @@ export default function CreateRallyScreen() {
   const [text, setText] = useState("");
   const [parsed, setParsed] = useState<ParsedIntent | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [questionIndex, setQuestionIndex] = useState(0);
   const [draft, setDraft] = useState<RallyDraft | null>(null);
   const [busy, setBusy] = useState<"parse" | "answers" | "publish" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +60,7 @@ export default function CreateRallyScreen() {
   const accept = (result: ParsedIntent, currentAnswers: Record<string, string> = {}) => {
     const next = draftFromIntent(result.intent, currentAnswers);
     setParsed(result);
+    setQuestionIndex(0);
     setDraft(next);
     if (result.status === "needs_answers") setStage("questions");
     else review(next);
@@ -79,6 +103,7 @@ export default function CreateRallyScreen() {
   const problem = draft ? rallyDraftProblem(draft) : null;
   const showField = (field: RallyDetail) => stage === "edit" || detailFields.includes(field);
   const start = draft ? fromLocalInput(draft.start) : null;
+  const questions = parsed?.intent.questions ?? [];
 
   return <main className={`${inter.className} create-rally`}>
     <style>{`
@@ -100,11 +125,36 @@ export default function CreateRallyScreen() {
       .create-rally dd { margin:0; }
       .create-rally .pair { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; }
       .create-rally .foot { display:grid; gap:10px; padding:16px 24px 28px; flex-shrink:0; }
-      .create-rally .primary { min-height:52px; padding:12px 20px; border:0; border-radius:999px; background:#315FE8; color:white; font:inherit; font-weight:600; cursor:pointer; }
+      .create-rally .primary { display:inline-flex; align-items:center; justify-content:center; gap:8px; min-height:52px; padding:12px 20px; border:0; border-radius:999px; background:#315FE8; color:white; font:inherit; font-weight:600; cursor:pointer; }
       .create-rally .primary:disabled { background:#E8DFDA; color:#766B65; cursor:not-allowed; }
       .create-rally .link { min-height:44px; padding:0; border:0; background:transparent; color:#315FE8; font:inherit; cursor:pointer; }
       .create-rally .link:disabled { color:#766B65; cursor:not-allowed; }
       .create-rally .error { color:#A33A1E; }
+      .create-rally .orb-stage { flex:1; min-height:200px; display:flex; align-items:center; justify-content:center; margin:4px 0; }
+      .create-rally .plan-field { gap:10px; }
+      .create-rally .cap { font-size:12px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:#766B65; }
+      .create-rally .plan-group { display:flex; flex-direction:column; gap:10px; }
+      .create-rally .samples { display:flex; flex-wrap:wrap; gap:8px; }
+      .create-rally .sample { padding:6px 12px; border:1px solid #315FE8; border-radius:999px; background:transparent; color:#315FE8; font:inherit; font-size:13px; font-weight:500; line-height:1; cursor:pointer; transition:background .15s, color .15s; }
+      .create-rally .sample:hover:not(:disabled) { background:#315FE8; color:#FFF5EF; }
+      .create-rally .sample:disabled { opacity:.6; cursor:not-allowed; }
+      .create-rally textarea.compact { min-height:auto; resize:none; padding:14px 16px; border:1px solid #E7D9CF; border-radius:14px; background:#FFFBF8; font-size:15px; line-height:1.5; box-shadow:0 1px 2px rgba(28,25,23,0.04); transition:border-color .15s, box-shadow .15s; }
+      .create-rally textarea.compact::placeholder { color:#A89C94; }
+      .create-rally textarea.compact:focus-visible { outline:none; border-color:#315FE8; box-shadow:0 0 0 3px rgba(49,95,232,0.14); }
+      .create-rally .hint { font-size:13px; color:#99897F; }
+      .create-rally .loading-row { display:flex; align-items:center; gap:10px; }
+      .create-rally .attrib { font-size:11px; color:#A89C94; letter-spacing:0.02em; word-break:break-all; }
+      .create-rally .step { font-size:12px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:#99897F; margin-bottom:12px; }
+      .create-rally .step-item { display:flex; flex-direction:column; gap:16px; animation:step-in .32s cubic-bezier(.22,.61,.36,1) both; }
+      .create-rally .step-item.in-left { animation-name:step-in-left; }
+      @keyframes step-in { from { opacity:0; transform:translateX(26px); } to { opacity:1; transform:none; } }
+      @keyframes step-in-left { from { opacity:0; transform:translateX(-26px); } to { opacity:1; transform:none; } }
+      @media (prefers-reduced-motion: reduce) { .create-rally .step-item { animation:none; } }
+      .create-rally .stepnav { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+      .create-rally .back { display:inline-flex; align-items:center; gap:4px; min-height:36px; padding:4px 10px 4px 4px; border:0; border-radius:999px; background:transparent; color:#315FE8; font:inherit; font-size:14px; font-weight:500; cursor:pointer; }
+      .create-rally .back.next { padding:4px 4px 4px 10px; }
+      .create-rally .back:hover:not(:disabled) { background:rgba(49,95,232,0.08); }
+      .create-rally .back:disabled { color:#766B65; cursor:not-allowed; }
     `}</style>
     <div className="frame">
       <nav className="bar" aria-label="Rally creation">
@@ -115,22 +165,24 @@ export default function CreateRallyScreen() {
         <h1 className={serif.className}>{stage === "plan" ? "What are we rallying for?" : stage === "questions" || stage === "details" ? "A few details" : stage === "edit" ? "Edit your Rally" : "Ready to Rally?"}</h1>
         {stage === "plan" && <>
           <p>Describe what you want to do. Rally will use your profile and ask only for the details we still need.</p>
-          <label>Your plan<textarea rows={5} maxLength={500} disabled={!!busy} value={text} onChange={(event) => setText(event.target.value)} placeholder="Coffee tomorrow at 5 PM for half an hour?" /></label>
-          <p>You will be the host. The default group is you and one guest.</p>
+          <div className="orb-stage" aria-hidden="true"><RallyOrb variant="active" size={220} /></div>
         </>}
         {stage === "questions" && parsed && <>
           <p>{text}</p>
-          {parsed.intent.questions.map((question) => <label key={question.id}>
+          {questions.filter((_, index) => index === questionIndex).map((question) => <div key={question.id} className="step-item">
+            <p className="step">Question {questionIndex + 1} of {questions.length}</p>
+            <label>
             <span>{question.text}</span>
             {question.id === "start_time" ? <input type="datetime-local" disabled={!!busy} value={answers[question.id] ?? ""} onChange={(event) => setAnswers((previous) => ({ ...previous, [question.id]: event.target.value }))} />
-              : question.id === "distance" ? <Dropdown ariaLabel={question.text} disabled={!!busy} value={answers[question.id] ?? ""} options={ZONES.map((zone) => ({ value: zone.id, label: zone.label }))} onChange={(value) => setAnswers((previous) => ({ ...previous, [question.id]: value }))} />
-              : question.id === "group_fit" ? <Dropdown ariaLabel={question.text} disabled={!!busy} value={answers[question.id] ?? ""} options={VIBES.map((vibe) => ({ value: vibe.id, label: vibe.label }))} onChange={(value) => setAnswers((previous) => ({ ...previous, [question.id]: value }))} />
+              : question.id === "distance" ? <TypeField placeholder="Choose or type a suggestion…" disabled={!!busy} value={answers[question.id] ?? ""} options={ZONES.map((zone) => ({ value: zone.id, label: zone.label }))} onChange={(value) => setAnswers((previous) => ({ ...previous, [question.id]: value }))} />
+              : question.id === "group_fit" ? <TypeField placeholder="Choose or type a suggestion…" disabled={!!busy} value={answers[question.id] ?? ""} options={VIBES.map((vibe) => ({ value: vibe.id, label: vibe.label }))} onChange={(value) => setAnswers((previous) => ({ ...previous, [question.id]: value }))} />
               : ["duration", "group_size"].includes(question.id) ? <input type="number" disabled={!!busy} min={question.id === "duration" ? 5 : 2} max={question.id === "duration" ? 480 : 12} value={answers[question.id] ?? ""} onChange={(event) => setAnswers((previous) => ({ ...previous, [question.id]: event.target.value }))} />
               : question.options ? <PreferenceInput disabled={!!busy} options={question.options} value={answers[question.id] ?? ""}
               onChange={(value) => setAnswers((previous) => ({ ...previous, [question.id]: value }))} />
               : <input disabled={!!busy} maxLength={120} value={answers[question.id] ?? ""} placeholder="Your answer"
                 onChange={(event) => setAnswers((previous) => ({ ...previous, [question.id]: event.target.value }))} />}
-          </label>)}
+            </label>
+          </div>)}
           <p>Only the details that help us form your Rally.</p>
         </>}
         {stage === "review" && draft && <>
@@ -155,7 +207,7 @@ export default function CreateRallyScreen() {
           {stage === "details" && <p>We just need {detailFields.length === 1 ? "one more detail" : "these details"} for your plan: {draft.goal}</p>}
           <div className="fields">
             {showField("goal") && <label>What would you like to call your Rally?<input value={draft.goal} maxLength={160} disabled={!!busy} onChange={(event) => set("goal", event.target.value)} /></label>}
-            {showField("category") && <label>What kind of activity is this?<Dropdown ariaLabel="Activity" value={draft.category} options={CATEGORIES.map((category) => ({ value:category.id, label:category.label }))} disabled={!!busy} onChange={(value) => set("category", value)} /></label>}
+            {showField("category") && <label>What kind of activity is this?<TypeField placeholder="Choose or type a suggestion…" value={draft.category} options={CATEGORIES.map((category) => ({ value:category.id, label:category.label }))} disabled={!!busy} onChange={(value) => set("category", value)} /></label>}
             {showField("start") && <label>{draft.category === "workshop" ? "What date and time does the workshop start?" : "When would you like to start?"}<input type="datetime-local" value={draft.start} disabled={!!busy} onChange={(event) => set("start", event.target.value)} /></label>}
             {showField("durationMin") && <label>About how many minutes?<input type="number" min={5} max={480} value={draft.durationMin} disabled={!!busy} onChange={(event) => set("durationMin", event.target.value)} /></label>}
             {(showField("groupMin") || showField("capacity")) && <div className="pair">
@@ -163,19 +215,40 @@ export default function CreateRallyScreen() {
               <label>Maximum people<input type="number" min={2} max={12} value={draft.capacity} disabled={!!busy} onChange={(event) => set("capacity", event.target.value)} /></label>
             </div>}
             {(showField("groupMin") || showField("capacity")) && <p>Group sizes include you.</p>}
-            {showField("zone") && <label>Where would you like to meet?<Dropdown ariaLabel="Meeting area" value={draft.zone} options={ZONES.map((zone) => ({ value:zone.id, label:zone.label }))} disabled={!!busy} onChange={(value) => set("zone", value)} /></label>}
-            {showField("vibe") && <label>Group atmosphere<Dropdown ariaLabel="Group atmosphere" value={draft.vibe} options={VIBES.map((vibe) => ({ value:vibe.id, label:vibe.label }))} disabled={!!busy} onChange={(value) => set("vibe", value)} /></label>}
+            {showField("zone") && <label>Where would you like to meet?<TypeField placeholder="Choose or type a suggestion…" value={draft.zone} options={ZONES.map((zone) => ({ value:zone.id, label:zone.label }))} disabled={!!busy} onChange={(value) => set("zone", value)} /></label>}
+            {showField("vibe") && <label>Group atmosphere<TypeField placeholder="Choose or type a suggestion…" value={draft.vibe} options={VIBES.map((vibe) => ({ value:vibe.id, label:vibe.label }))} disabled={!!busy} onChange={(value) => set("vibe", value)} /></label>}
             {stage === "edit" && <PreferenceEditor categories={[draft.category]} preferences={draft.preferences} disabled={!!busy}
               onChange={(preferences) => setDraft((previous) => previous ? { ...previous, preferences } : previous)} />}
           </div>
         </>}
-        {busy && <p role="status">{busy === "publish" ? "Publishing your Rally…" : "Rally intelligence is reading your plan…"}</p>}
+        {busy && <p role="status" className="loading-row"><RallyOrb variant="searching" size={22} /><span>{busy === "publish" ? "Publishing your Rally…" : "Rally intelligence is reading your plan…"}</span></p>}
         {error && <p className="error" role="alert">{error}</p>}
       </div>
       <div className="foot">
-        {stage === "plan" && <button className="primary" disabled={!!busy || !text.trim()} onClick={() => void parse()}>Continue</button>}
+        {stage === "plan" && <>
+          <div className="plan-group">
+            <span className="cap">What are you upto?</span>
+            <div className="samples">
+              {PLAN_SAMPLES.map((sample) => (
+                <button key={sample} type="button" className="sample" disabled={!!busy} onClick={() => setText(sample)}>{sample}</button>
+              ))}
+            </div>
+            <textarea className="compact" rows={2} maxLength={500} aria-label="What are you upto?" disabled={!!busy} value={text} onChange={(event) => setText(event.target.value)} placeholder="Coffee tomorrow at 5 PM for half an hour?" />
+          </div>
+          <p className="hint">You will be the host. The default group is you and one guest.</p>
+          <button className="primary" disabled={!!busy || !text.trim()} onClick={() => void parse()}>
+            Continue
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </button>
+        </>}
         {stage === "questions" && <>
-          <button className="primary" disabled={!!busy} onClick={() => void answer()}>Continue</button>
+          {questionIndex > 0 && <button className="link" disabled={!!busy} onClick={() => setQuestionIndex((index) => index - 1)}>Previous question</button>}
+          <button className="primary" disabled={!!busy} onClick={() => {
+            if (questionIndex < questions.length - 1) setQuestionIndex((index) => index + 1);
+            else void answer();
+          }}>Continue</button>
           <button className="link" disabled={!!busy} onClick={() => { setError(null); setStage("edit"); }}>Edit details myself</button>
         </>}
         {stage === "review" && <>

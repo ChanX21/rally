@@ -190,6 +190,7 @@ export default function AboutYouScreen() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [qStatus, setQStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [qSource, setQSource] = useState<"ai" | "fallback" | null>(null);
+  const [qRequestId, setQRequestId] = useState<string | null>(null);
   const [qError, setQError] = useState<string | null>(null);
 
   // Final submit (POST /onboarding/complete).
@@ -213,6 +214,7 @@ export default function AboutYouScreen() {
       setQStatus("idle");
       setQuestions([]);
       setQSource(null);
+      setQRequestId(null);
       setAnswers({});
     }
   };
@@ -229,6 +231,7 @@ export default function AboutYouScreen() {
       const res = await api.getOnboardingQuestions(interests);
       setQuestions(res.questions);
       setQSource(res.source);
+      setQRequestId(res.aiRequestId);
       setQStatus("ready");
     } catch (err) {
       setQError(errorMessage(err, "Could not load your questions."));
@@ -486,6 +489,12 @@ export default function AboutYouScreen() {
                   )}
                 </label>
               ))}
+
+            {qStatus === "ready" && qSource === "ai" && qRequestId && (
+              <p style={{ margin: 0, fontSize: "11px", lineHeight: 1.4, color: "#A89C94", wordBreak: "break-all" }}>
+                request id: {qRequestId} · by 0G
+              </p>
+            )}
 
             {qStatus === "ready" && optIn && (
               <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
