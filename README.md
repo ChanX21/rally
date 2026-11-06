@@ -136,20 +136,57 @@ See [`backend/AI.md`](backend/AI.md) and the [frontend handoff](backend/FRONTEND
 
 **Arkiv** indexes coarse activity details: category, zone, time bucket, group size, and approximate
 open seats. Personal preferences, identities, exact meeting points, and photos are excluded.
-PostgreSQL remains authoritative for visibility and seat allocation.
+PostgreSQL remains authoritative for visibility and seat allocation. See [Data on Arkiv](#data-on-arkiv).
 
 **Arc Testnet** is optional. `RallyLedger` records point changes and `RallyToken` represents
-non-transferable RALLY points. The recorded public deployment supports the older eight-action
-policy; group-completion rewards require a compatible nine-action deployment before chain writes
-are enabled. Completion points already work in the database. See the
+non-transferable RALLY points. The current nine-action deployment includes group-completion rewards,
+which mint once `ARC_LEDGER_ENABLED` and `ARC_COMPLETION_REWARDS_ENABLED` are both on. See the
 [contract addresses and deployment notes](contracts/README.md).
 
 RALLY points are not a cash payout. `RewardClaim` is not part of the active application flow.
+
+## Data on Arkiv
+
+Rally publishes one public, expiring listing for each Rally open to discovery. The
+[Discover screen](https://www.therally.xyz/app/discover) reads those listings on the Rabdi testnet.
+
+**Wallet that wrote the entities:**
+[`0x0881ABfDB5FAE83F6d35FFc0A0C862f1BAD873a1`](https://rabdi.explorer.arkiv.network/address/0x0881ABfDB5FAE83F6d35FFc0A0C862f1BAD873a1)
+
+**A query you can run** returns every live Rally listing:
+
+```bash
+curl "https://rpc.rabdi.db-chain.testnet.arkiv.network/$ARKIV_ACCESS_KEY" \
+  -H "content-type: application/json" \
+  --data @- <<'EOF'
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "arkiv_query",
+  "params": [
+    "arkiv.schema = str('rally-mumbai.activity.v1') AND app = str('rally-mumbai') AND event = str('ethglobal-mumbai-2026') AND $owner = addr(0x0881ABfDB5FAE83F6d35FFc0A0C862f1BAD873a1)",
+    { "select": { "key": true, "attributes": true, "owner": true, "expiresAt": true }, "limit": "0x64" }
+  ]
+}
+EOF
+```
+
+A key is optional, but the keyless endpoint has a small shared budget. If you get a `429`, create a
+free key at [hub.arkiv.network/access-keys](https://hub.arkiv.network/access-keys).
+
+| Document | Answers |
+| --- | --- |
+| [Schema](arkiv/schema.md) | Entities, queried fields, owners, expiry |
+| [How we use Arkiv](arkiv/how-you-use-arkiv.md) | Whether filters, ownership and expiry fit, and what users see from each feature |
+| [Why Arkiv](arkiv/why-arkiv.md) | What users would lose with Postgres alone, and what stays off Arkiv |
+| [Reach](arkiv/reach.md) | Who Rally is for, and how to try it today |
+| [Feedback](arkiv/friction.md) | What got in our way, with reproduction steps |
 
 ## Repository
 
 ```text
 .
+├── arkiv/             Arkiv schema, usage, reach and feedback documents
 ├── frontend/          Next.js PWA and API client
 ├── backend/           Fastify API, Formation Engine, integrations, and workers
 │   ├── drizzle/       Database migrations
@@ -330,7 +367,7 @@ separate real inference, synthetic users, local-chain tests, and public deployme
 | [Personalized preferences](backend/evidence/personalization-live-2026-11-06.json) | Recorded live 0G personalization checks |
 | [Map dialogue](backend/evidence/map-dialogue-live-2026-11-06.json) | A real 0G title-to-dialogue request |
 | [Group photo flow](backend/evidence/proof-full-flow-live-2026-11-06.json) | Real 0G vision, a public fixture, synthetic group, isolated database |
-| [Completion rewards contract](backend/evidence/arc-proof-local-2026-11-06.json) | Local Anvil check of the nine-action contract; no public deployment |
+| [Completion rewards contract](backend/evidence/arc-proof-local-2026-11-06.json) | Local Anvil check of the nine-action contract, made before its [Arc Testnet deployment](contracts/README.md#deployments) |
 
 ## Deployment
 
@@ -352,3 +389,20 @@ on **Supabase**. See the [backend deployment guide](backend/README.md#render-dep
 - [Frontend/backend integration](backend/FRONTEND_HANDOFF.md)
 - [Backend development](backend/README.md)
 - [Contract development and deployment](contracts/README.md)
+- [Arkiv schema and usage](arkiv/schema.md)
+
+## How We Used AI
+
+**In the product:** 0G Compute chooses onboarding questions, structures activity requests, composes
+groups from a shortlist the server provides, writes map dialogue, and assesses group photos. Rules
+decide seats and membership. Provider request IDs appear in the app.
+
+**In development:** Claude Code was used for implementation, debugging, contract deployment,
+and writing documentation, including the `arkiv/` documents. Its work was reviewed and directed by the
+team, and live numbers in those documents were read from the network rather than generated.
+
+<!-- TODO(team): each teammate should confirm or add the AI tools they used, and what for. -->
+
+## License
+
+[MIT](LICENSE)
