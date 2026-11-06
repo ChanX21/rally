@@ -1,6 +1,6 @@
 "use client";
 
-import { getAccessToken, PrivyProvider, usePrivy } from "@privy-io/react-auth";
+import { getAccessToken, PrivyProvider, useLoginWithOAuth, usePrivy, type WalletWithMetadata } from "@privy-io/react-auth";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createApiClient, errorCode, errorMessage, type ApiClient, type Me } from "@/lib/api";
 
@@ -19,13 +19,17 @@ export type Session = {
   me: Me | null;
   error: string | null;
   api: ApiClient;
-  login: () => void;
+  loginError: string | null;
+  connectWallet: () => void;
+  loginWithGoogle: () => void;
   logout: () => Promise<void>;
   retry: () => void;
   setMe: (me: Me) => void;
 };
 
 const noToken = async () => null;
+
+const GOOGLE_LOGIN_FAILED = "Google sign-in didn't finish. Please try again.";
 
 // Privy's standalone getter reads the live session, so one client serves the whole app.
 const privyApi = createApiClient(getAccessToken);
@@ -35,7 +39,9 @@ const UNCONFIGURED: Session = {
   me: null,
   error: "Login is not configured. Set NEXT_PUBLIC_PRIVY_APP_ID in frontend/.env.local.",
   api: createApiClient(noToken),
-  login: () => {},
+  loginError: null,
+  connectWallet: () => {},
+  loginWithGoogle: () => {},
   logout: async () => {},
   retry: () => {},
   setMe: () => {},
@@ -57,7 +63,21 @@ function PrivySession({ children }: { children: React.ReactNode }) {
 
   const [attempt, setAttempt] = useState(0);
   const [handshake, setHandshake] = useState<Handshake | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const userId = authenticated ? (user?.id ?? null) : null;
+  const { initOAuth } = useLoginWithOAuth({
+    onError: () => setLoginError(GOOGLE_LOGIN_FAILED),
+  });
+
+  const connectWallet = useCallback(() => {
+    setLoginError(null);
+    login({ loginMethods: ["wallet"] });
+  }, [login]);
+
+  const loginWithGoogle = useCallback(() => {
+    setLoginError(null);
+    initOAuth({ provider: "google" }).catch(() => setLoginError(GOOGLE_LOGIN_FAILED));
+  }, [initOAuth]);
 
   // POST /auth/session once per login, before anything else, then GET /me.
   useEffect(() => {
@@ -84,6 +104,28 @@ function PrivySession({ children }: { children: React.ReactNode }) {
     };
   }, [ready, userId, attempt]);
 
+  // A Google user's wallet is created just after login, so the first handshake can miss it.
+  const clientWallet =
+    user?.linkedAccounts.find(
+      (account): account is WalletWithMetadata => account.type === "wallet" && account.chainType === "ethereum"
+    )?.address ?? null;
+  const serverWallet = handshake?.me?.user.walletAddress;
+  useEffect(() => {
+    if (!userId || !clientWallet || serverWallet !== null) return;
+    let alive = true;
+    privyApi
+      .createSession()
+      .then(() => privyApi.getMe())
+      .then((me) => {
+        if (alive) setHandshake({ userId, attempt, me });
+      })
+      // The next login reads the wallet again, so this can fail quietly.
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [userId, attempt, clientWallet, serverWallet]);
+
   const setMe = useCallback(
     (me: Me) => {
       if (userId) setHandshake({ userId, attempt, me });
@@ -94,7 +136,7 @@ function PrivySession({ children }: { children: React.ReactNode }) {
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   const value = useMemo<Session>(() => {
-    const base = { api: privyApi, login, logout, retry, setMe };
+    const base = { api: privyApi, loginError, connectWallet, loginWithGoogle, logout, retry, setMe };
     if (!ready) return { ...base, status: "loading", me: null, error: null };
     if (!userId) return { ...base, status: "signed-out", me: null, error: null };
     // Ignore results from an earlier login or attempt.
@@ -108,7 +150,7 @@ function PrivySession({ children }: { children: React.ReactNode }) {
       me: null,
       error: handshake.error ?? null,
     };
-  }, [login, logout, retry, setMe, ready, userId, handshake, attempt]);
+  }, [loginError, connectWallet, loginWithGoogle, logout, retry, setMe, ready, userId, handshake, attempt]);
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
@@ -124,8 +166,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     <PrivyProvider
       appId={PRIVY_APP_ID}
       config={{
-        // Wallet-first login to match the connect-wallet screen.
-        loginMethods: ["wallet"],
+        // The connect screen has one button for each method.
+        loginMethods: ["wallet", "google"],
         appearance: {
           theme: "light",
           accentColor: "#315FE8",
