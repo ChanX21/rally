@@ -78,7 +78,7 @@ export default function ProfileScreen() {
         method: "wallet_watchAsset",
         params: { type: "ERC20", options: { address: chain.tokenAddress, symbol: "RALLY", decimals: 0 } },
       } as never);
-      setWalletNote("RALLY added to your wallet.");
+      setWalletNote("RALLY token added. Your balance grows as rewards go on Arc.");
     } catch {
       setWalletNote("Your wallet didn't add it. You can still see everything here.");
     }
@@ -266,7 +266,7 @@ export default function ProfileScreen() {
               <span className="mono">Top interests</span>
               {interestDraft ? (
                 <button type="button" disabled={saving || interestDraft.length !== 3} onClick={() => void saveInterests()}>
-                  {interestDraft.length === 3 ? "Save" : `Pick ${3 - interestDraft.length} more`}
+                  {saving ? "Saving…" : interestDraft.length === 3 ? "Save" : `Pick ${3 - interestDraft.length} more`}
                 </button>
               ) : (
                 <button type="button" onClick={() => setInterestDraft(profile?.interests ?? [])}>
@@ -304,7 +304,7 @@ export default function ProfileScreen() {
               <label htmlFor="matching-preferences" className="mono">About your preferences</label>
               <button type="button" disabled={saving || !preferenceDraft || notes.length > 4000} onClick={async () => {
                 if (preferenceDraft && await save({ preferences: preferencesFromNotes(notes, profile?.preferences ?? {}), expectedProfileVersion: preferenceDraft.version })) setPreferenceDraft(null);
-              }}>Save</button>
+              }}>{saving && preferenceDraft ? "Saving…" : "Save"}</button>
             </div>
             <p id="preference-help" style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: "#766B65" }}>Tell Rally what you enjoy and who you&apos;d like to meet. Write naturally, add a line, or change anything here.</p>
             <textarea id="matching-preferences" aria-describedby="preference-help preference-length" disabled={saving || !profile} rows={4} maxLength={4000}
@@ -417,7 +417,12 @@ export default function ProfileScreen() {
                     </span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "13px", color: "#766B65" }}>
-                    <span>{entry.state === "held" ? "Being reviewed" : new Date(entry.createdAt).toLocaleDateString()}{entry.action === "RallyCompleted" && !entry.chainTxHash ? " · saved in app" : ""}</span>
+                    <span>{entry.state === "held" ? "Being reviewed" : new Date(entry.createdAt).toLocaleDateString()}{entry.state === "applied" && !entry.chainTxHash && entry.action ? (entry.chainStatus === "failed" ? " · saved in app, not on Arc" : " · waiting to go on Arc") : ""}</span>
+                    {entry.chainTxHash && rewards.chain && (
+                      <a href={`${rewards.chain.explorerUrl}/tx/${entry.chainTxHash}`} target="_blank" rel="noreferrer" style={{ color: "#315FE8", fontWeight: 600 }}>
+                        On Arc
+                      </a>
+                    )}
                     {entry.state === "pending" && entry.action === "NoShow" && entry.rallyId && (
                       <button
                         type="button"
@@ -433,7 +438,7 @@ export default function ProfileScreen() {
               {rewards.chain?.address && (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "12px", paddingTop: "8px", borderTop: "1px solid #D9C8BE", fontSize: "14px", fontWeight: 600 }}>
                   <a href={`${rewards.chain.explorerUrl}/address/${rewards.chain.address}`} target="_blank" rel="noreferrer" style={{ color: "#315FE8" }}>
-                    Verified on Arc
+                    View wallet on Arc
                   </a>
                   {externalWallet && (
                     <button

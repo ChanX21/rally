@@ -666,11 +666,10 @@ completion alone. Vouches add profile evidence but not points in this flow. New-
 complaint paths are disabled, and silence cannot create an absence penalty. The penalty scheduler
 applies only negative pending entries. Existing history and previously earned points are preserved.
 
-The source contract appends action 8 to its old eight actions. It is **not deployed** by this change.
-`ARC_COMPLETION_REWARDS_ENABLED=false` keeps new completion entries safely pending on-chain while
-points work in the app. Legacy chain entries continue syncing. After an authorized new deployment,
-configure its ledger/token addresses and corresponding policies before enabling the flag. The
-worker rechecks applied state and accepted proof; evidence commitments are salted per recipient.
+The contract appends action 8 to its old eight actions, and the nine-action deployment is recorded in
+contracts/README.md. `ARC_COMPLETION_REWARDS_ENABLED=false` keeps new completion entries pending
+on-chain while points work in the app; setting it to `true` mints them. Publish any policy version
+above 1 to the ledger before entries reference it. The worker rechecks applied state and accepted proof; evidence commitments are salted per recipient.
 Contract history is immutable; no cash payout or generic reversal is introduced. See contracts/README.md.
 
 `test/proof-live.test.ts` is skipped by default. `RUN_LIVE_PROOF=true npm test -- --run

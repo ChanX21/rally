@@ -140,10 +140,10 @@ Use `PROOFS_ENABLED=false` to create Rallies with the legacy flow; existing Rall
 Configure `ZERO_G_VISION_MODEL=gemini-2.5-flash-lite` alongside the existing 0G API key. The outbox and
 scheduler (`WORKERS_ENABLED=true`) must run. Migration 0007 creates private evidence storage.
 
-Completion points work off-chain immediately. Keep `ARC_COMPLETION_REWARDS_ENABLED=false` until
-the updated nine-action contract is explicitly deployed and configured; the addresses recorded in
-the contracts README are the old eight-action deployment. No production migration or contract
-deployment is implied by running tests. See `ARCHITECTURE.md` for limits and retention.
+Completion points work in the app immediately. With `ARC_COMPLETION_REWARDS_ENABLED=true` and the
+nine-action addresses in the contracts README, the worker also mints them on Arc. Pending entries are
+picked up automatically. No production migration or contract deployment is implied by running tests.
+See `ARCHITECTURE.md` for limits and retention.
 
 Opt-in real AI proof test (public fixture, synthetic group, isolated test database; spends credits):
 

@@ -392,6 +392,7 @@ export const rewardsSchema = z.object({
       state: z.enum(['pending', 'held', 'applied', 'cancelled']),
       appliesAt: z.string().nullable(),
       chainTxHash: z.string().nullable(),
+      chainStatus: z.enum(['pending', 'queued', 'synced', 'failed']),
       createdAt: z.string(),
     }),
   ),

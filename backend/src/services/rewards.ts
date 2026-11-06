@@ -354,6 +354,7 @@ export async function getRewards(deps: Deps, userId: string) {
         state: row.state,
         appliesAt: row.appliesAt?.toISOString() ?? null,
         chainTxHash: row.chainTxHash,
+        chainStatus: row.chainStatus,
         createdAt: row.createdAt.toISOString(),
       })),
   };

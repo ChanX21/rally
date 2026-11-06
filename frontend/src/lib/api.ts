@@ -395,6 +395,7 @@ export type RewardEntry = {
   state: "pending" | "held" | "applied" | "cancelled";
   appliesAt: string | null;
   chainTxHash: string | null;
+  chainStatus: "pending" | "queued" | "synced" | "failed";
   createdAt: string;
 };
 

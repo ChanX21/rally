@@ -4,27 +4,20 @@ Core Rally needs no smart contract. Everything here is optional, and the backend
 
 | Contract | Purpose | Status |
 | --- | --- | --- |
-| `RallyToken` | Non-transferable RALLY points token | Arc Testnet: `0xb34c92f18E76EAb1a93a9ACDf4e677685498826B` |
-| `RallyLedger` | Public history of point changes and dispute rulings | Arc Testnet: `0xf36Fab5B39f0741Ee549B83Aefa64af7BbE9F642` |
+| `RallyToken` | Non-transferable RALLY points token | Arc Testnet: `0x02D409571031D4010CaFE68a3384b560EF246980` |
+| `RallyLedger` | Public history of point changes and dispute rulings | Arc Testnet: `0x95212810D9477C11EebA1892900d00e7709A0f3a` |
 | `RewardClaim` | Stablecoin payouts for earned points | Not deployed, not planned |
 
-## Completion reward contract revision
+## Deployments
 
-The source now appends `RallyCompleted` at action index 8 and uses nine policy amounts. The Arc
-addresses above refer to the older **eight-action deployment**, not this revised source. Do not
-send completion records there. Existing action indexes 0–7 are unchanged.
+The current nine-action contracts were deployed on 2026-11-06 and include `RallyCompleted` (action
+index 8). Policy version 1 pays 10 RALLY for it. Enable it with `ARC_COMPLETION_REWARDS_ENABLED=true`.
 
-The backend awards approved group completion points in Postgres and leaves their chain status
-pending by default (`ARC_COMPLETION_REWARDS_ENABLED=false`). Its gateway supports legacy eight-action
-policies and new nine-action policies; it checks the contract action count before sending a record.
-
-A new public deployment needs explicit authorization. Before switching the backend to it, drain the
-old ledger queue, preserve old token/ledger addresses and transaction history, and publish every
-policy version referenced by future entries to the new contract. Existing database balances and
-old on-chain records remain intact. Old points are not automatically re-minted to the new token;
-new-token balances and the app's historical total therefore differ unless a separately agreed
-migration is performed. Never reset old `chainStatus` fields to backfill silently. Only after
-validating the new addresses, roles and policies should completion-chain writes be enabled.
+The earlier eight-action deployment stays on-chain as history and no longer receives writes:
+`RallyToken` `0xb34c92f18E76EAb1a93a9ACDf4e677685498826B`, `RallyLedger`
+`0xf36Fab5B39f0741Ee549B83Aefa64af7BbE9F642`. Its points were not re-minted to the new token, so
+new-token balances can be lower than the app's totals unless a separately agreed migration is
+performed. Never reset old `chainStatus` fields to backfill silently.
 
 ## RallyLedger and RallyToken
 
