@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 
+import { relevantPreferences } from '../domain/questions.js';
 import type { Db } from '../lib/db-types.js';
 import type { Rally } from './rallies.js';
 
@@ -14,6 +15,7 @@ const candidateRow = z.object({
   available_from: timestamp.nullable(),
   available_to: timestamp.nullable(),
   intent_id: z.uuid().nullable(),
+  intent_preferences: z.record(z.string(), z.string()).nullable(),
   intent_start: timestamp.nullable(),
   intent_end: timestamp.nullable(),
   intent_vibe: z.string().nullable(),
@@ -26,12 +28,15 @@ export type CandidateRow = z.infer<typeof candidateRow>;
  * Hard filters, run in SQL first. A person qualifies through an active waiting intent, or through
  * a listed interest plus declared availability. Nothing below uses AI or any public Arkiv data.
  */
-export async function findCandidates(db: Db, rally: Rally, limit: number): Promise<CandidateRow[]> {
+export async function findCandidates(db: Db, rally: Rally, limit: number, offeredUserId?: string): Promise<CandidateRow[]> {
   // A rally starts at windowStart and runs durationMin, so people must be free for all of that.
   // The Formation Engine validates the same rule against the same fixed time.
   const start = rally.windowStart.toISOString();
   const end = new Date(rally.windowStart.getTime() + rally.durationMin * 60_000).toISOString();
 
+  const preferenceChecks = Object.entries(relevantPreferences(rally.category, rally.preferences)).map(([key, value]) =>
+    sql`(${value} = 'any' or coalesce(i.preferences->>${key}, p.preferences->>${key}) is null
+      or coalesce(i.preferences->>${key}, p.preferences->>${key}) in ('any', ${value}))`);
   const rows = await db.execute(sql`
     select
       u.id as user_id,
@@ -41,6 +46,7 @@ export async function findCandidates(db: Db, rally: Rally, limit: number): Promi
       p.available_from,
       p.available_to,
       i.id as intent_id,
+      i.preferences as intent_preferences,
       i.window_start as intent_start,
       i.window_end as intent_end,
       i.vibe as intent_vibe,
@@ -77,7 +83,9 @@ export async function findCandidates(db: Db, rally: Rally, limit: number): Promi
       order by w.created_at
       limit 1
     ) i on true
-    where u.status = 'active'
+    where ${preferenceChecks.length ? sql.join(preferenceChecks, sql` and `) : sql`true`}
+      and u.status = 'active'
+      and ${offeredUserId ? sql`u.id = ${offeredUserId}` : sql`true`}
       and u.opt_in_matching
       and u.id <> ${rally.creatorId}
       and (
@@ -90,9 +98,9 @@ export async function findCandidates(db: Db, rally: Rally, limit: number): Promi
           and p.available_to >= ${end}::timestamptz
         )
       )
-      and not exists (
+      and (${offeredUserId ? sql`true` : sql`not exists (
         select 1 from offers o where o.rally_id = ${rally.id} and o.candidate_id = u.id
-      )
+      )`})
       and not exists (
         select 1 from claims c
         where c.rally_id = ${rally.id} and c.user_id = u.id

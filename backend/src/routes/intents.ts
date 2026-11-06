@@ -27,6 +27,7 @@ const secured = { security: [{ bearer: [] }] };
 function intentView(intent: typeof intents.$inferSelect) {
   return {
     id: intent.id,
+    preferences: intent.preferences,
     status: intent.status,
     source: intent.source,
     category: intent.category,

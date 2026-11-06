@@ -1,0 +1,12 @@
+{
+  "model": "qwen3.7-flash",
+  "promptVersion": "formation-v3",
+  "status": "passed",
+  "scope": "Real 0G, synthetic inputs; no deployed database or real users",
+  "calls": [
+    {"step":"onboarding_gaming_build_workshop","providerRequestId":"f1dff481-4aa8-4302-a01c-1c34d8c5bb99","tokens":1513,"reportedCost":"146 usd_micro","questionIds":["gaming_game","build_role","workshop_topic"]},
+    {"step":"onboarding_food_coffee_explore","providerRequestId":"fe55e535-784e-4408-819e-bbd34da66827","tokens":641,"reportedCost":"47 usd_micro","questionIds":["food_style","coffee_energy","explore_range"]},
+    {"step":"activity_questions","providerRequestId":"e2976f65-6cb4-4f05-8899-e73e8f7c2ec2","tokens":1600,"reportedCost":"106 usd_micro","questionIds":["gaming_game"]},
+    {"step":"activity_answers","providerRequestId":"17f395c5-2f6d-43c7-abf6-c4ab0bcbd809","tokens":4268,"reportedCost":"416 usd_micro","preferences":{"gaming_game":"chess"}}
+  ]
+}

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { preferenceSchema, PREFERENCE_CHOICES } from '../domain/questions.js';
 
 import {
   CATEGORIES,
@@ -21,7 +22,8 @@ const skills = z.array(shortText(30)).max(10);
 const preferences = z.record(shortText(40), shortText(120)).refine(
   (value) => Object.keys(value).length <= 10,
   'at most 10 preferences',
-);
+).refine((values) => Object.entries(values).every(([key, value]) => !Object.hasOwn(PREFERENCE_CHOICES, key)
+  || preferenceSchema.safeParse({ [key]: value }).success), 'choose a valid structured preference');
 
 export const idParams = z.object({ id: z.uuid() });
 export const userIdParams = z.object({ userId: z.uuid() });
@@ -66,7 +68,7 @@ export const onboardingQuestionsBody = z.object({
 });
 
 export const questionsSchema = z.object({
-  questions: z.array(z.object({ id: z.string(), text: z.string() })),
+  questions: z.array(z.object({ id: z.string(), text: z.string(), options: z.array(z.object({ value: z.string(), label: z.string() })).optional() })),
   source: z.enum(['ai', 'fallback']),
   aiRequestId: z.string().nullable(),
 });
@@ -122,6 +124,7 @@ export const answerIntentBody = z.object({
 });
 
 export const intentSchema = z.object({
+  preferences: preferenceSchema,
   id: z.uuid(),
   status: z.string(),
   source: z.enum(['ai', 'fallback']),
@@ -134,7 +137,7 @@ export const intentSchema = z.object({
   groupMax: z.number().nullable(),
   zone: z.string().nullable(),
   vibe: z.string().nullable(),
-  questions: z.array(z.object({ id: z.string(), text: z.string() })),
+  questions: z.array(z.object({ id: z.string(), text: z.string(), options: z.array(z.object({ value: z.string(), label: z.string() })).optional() })),
   expiresAt: z.string().nullable(),
   createdAt: z.string(),
 });
@@ -147,6 +150,7 @@ export const parsedIntentSchema = z.object({
 });
 
 export const activateIntentBody = z.object({
+  preferences: preferenceSchema.optional(),
   category: category.optional(),
   windowStart: dateTime.optional(),
   windowEnd: dateTime.optional(),
@@ -157,6 +161,7 @@ export const activateIntentBody = z.object({
 });
 
 export const createRallyBody = z.object({
+  preferences: preferenceSchema.optional(),
   intentId: z.uuid().optional(),
   category,
   goal: shortText(160),
@@ -202,6 +207,7 @@ export const rallyStatusSchema = z.enum([
 ]);
 
 export const rallySchema = z.object({
+  preferences: preferenceSchema,
   id: z.uuid(),
   opaqueId: z.string(),
   creatorId: z.uuid(),

@@ -103,10 +103,10 @@ describe('onboarding', () => {
     h.ai.respond = () => ({ schemaVersion: 1, questionIds: ['made_up'] });
     expect((await user.post('/onboarding/questions', body)).source).toBe('fallback');
 
-    h.ai.respond = () => ({ schemaVersion: 1, questionIds: ['group_size', 'skill_offer'] });
+    h.ai.respond = () => ({ schemaVersion: 1, questionIds: ['food_style', 'gaming_game'] });
     const chosen = await user.post('/onboarding/questions', body);
     expect(chosen.source).toBe('ai');
-    expect(chosen.questions.map((q: { id: string }) => q.id)).toEqual(['group_size', 'skill_offer']);
+    expect(chosen.questions.map((q: { id: string }) => q.id)).toEqual(['food_style', 'gaming_game']);
     expect(chosen.aiRequestId).toMatch(/^req_/);
   });
 });

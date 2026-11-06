@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 
 import { matchProposals, offers, rallies } from '../db/schema/index.js';
+import { relevantPreferences, safePreferences } from '../domain/questions.js';
 import { SHORTLIST_SIZE } from '../domain/catalog.js';
 import { MATCHABLE } from '../domain/rally-state.js';
 import { rankCandidates, scoreCandidate } from '../domain/scoring.js';
@@ -73,7 +74,7 @@ function scoreAll(rally: Rally, rows: readonly CandidateRow[]): ScoredCandidate[
       neededRole: rally.neededRole,
       vibeMatch:
         rally.vibe !== null &&
-        (row.intent_vibe === rally.vibe || row.preferences?.group_energy === rally.vibe),
+        (row.intent_vibe === rally.vibe || (row.preferences?.coffee_energy ?? row.preferences?.group_energy) === rally.vibe),
       mutualEncore: row.mutual_encore,
     });
     return { ...row, score, overlapMin, userId: row.user_id };
@@ -174,6 +175,7 @@ async function composeWithEngine(
         id: rally.opaqueId,
         intent: {
           categoryId: rally.category,
+          preferences: relevantPreferences(rally.category, rally.preferences),
           goal: redactPii(rally.goal),
           startAt: start,
           durationMin: rally.durationMin,
@@ -188,6 +190,7 @@ async function composeWithEngine(
       },
       candidates: candidates.map((candidate) => ({
         id: candidate.alias,
+        preferences: safePreferences({ ...candidate.preferences, ...candidate.intent_preferences }),
         optedIn: true as const,
         interests: candidate.interests,
         roleIds: openRoleIds,
@@ -311,6 +314,7 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
       members: members.map(({ userId, role }) => ({ userId, role })),
       roles,
       category: rally.category,
+      preferences: rally.preferences,
       goal: redactPii(rally.goal),
       windowStart: rally.windowStart,
       windowEnd: rally.windowEnd,

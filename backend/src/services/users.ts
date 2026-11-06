@@ -7,6 +7,7 @@ import {
   ONBOARDING_QUESTIONS,
   REQUIRED_INTERESTS,
 } from '../domain/catalog.js';
+import { onboardingCatalog, PERSONAL_QUESTIONS, preferencesFromAnswers } from '../domain/questions.js';
 import type { Deps } from '../lib/deps.js';
 import { AppError, notFound } from '../lib/errors.js';
 import { enqueue } from '../lib/outbox.js';
@@ -54,6 +55,7 @@ export async function chooseOnboardingQuestions(
   userId: string,
   interests: readonly Category[],
 ) {
+  const catalog = onboardingCatalog(interests);
   const answered = await deps.db
     .select({ id: onboardingAnswers.questionId })
     .from(onboardingAnswers)
@@ -64,7 +66,7 @@ export async function chooseOnboardingQuestions(
     engine.chooseOnboardingQuestions({
       requestId: runId,
       interests: [...interests],
-      questions: ONBOARDING_QUESTIONS.map(({ id, purpose }) => ({ id, purpose })),
+      questions: catalog.map(({ id, purpose, options }) => ({ id, purpose, options })),
       alreadyAnsweredIds,
       remainingQuestions: Math.max(0, MAX_QUESTIONS - alreadyAnsweredIds.length),
     }),
@@ -72,9 +74,9 @@ export async function chooseOnboardingQuestions(
 
   return {
     questions: result.questionIds.flatMap((id) =>
-      ONBOARDING_QUESTIONS.filter((question) => question.id === id).map(({ id: qid, text }) => ({
+      catalog.filter((question) => question.id === id).map(({ id: qid, text, options }) => ({
         id: qid,
-        text,
+        text, options,
       })),
     ),
     source: result.source,
@@ -109,10 +111,20 @@ export async function completeOnboarding(deps: Deps, userId: string, input: Onbo
   if (new Set(input.answers.map((answer) => answer.questionId)).size !== input.answers.length) {
     throw new AppError(422, 'DUPLICATE_ANSWER', 'Each question may be answered once');
   }
-  const knownQuestions = new Set(ONBOARDING_QUESTIONS.map((question) => question.id));
+  const knownQuestions = new Set([...ONBOARDING_QUESTIONS, ...PERSONAL_QUESTIONS].map((question) => question.id));
   if (input.answers.some((answer) => !knownQuestions.has(answer.questionId))) {
     throw new AppError(422, 'UNKNOWN_QUESTION', 'That question is not in the catalog');
   }
+  for (const answer of input.answers) {
+    const question = PERSONAL_QUESTIONS.find((q) => q.id === answer.questionId);
+    if (question && (!onboardingCatalog(input.interests).some((q) => q.id === question.id)
+      || !question.options?.some((o) => o.value === answer.answer))) {
+      throw new AppError(422, 'INVALID_ANSWER', 'Choose an offered option for your selected interest');
+    }
+  }
+  const derived = preferencesFromAnswers(input.answers);
+  const declaredSkills = [...new Set([...input.declaredSkills,
+    ...(derived.build_role && derived.build_role !== 'any' ? [derived.build_role] : [])])];
   if (input.optInMatching) assertAvailability(input.availableFrom, input.availableTo);
 
   return deps.db.transaction(async (tx) => {
@@ -124,8 +136,8 @@ export async function completeOnboarding(deps: Deps, userId: string, input: Onbo
 
     const profile = await appendProfile(tx, userId, {
       interests: input.interests,
-      declaredSkills: input.declaredSkills,
-      preferences: input.preferences,
+      declaredSkills,
+      preferences: { ...input.preferences, ...derived },
       availableFrom: input.availableFrom ?? null,
       availableTo: input.availableTo ?? null,
     });

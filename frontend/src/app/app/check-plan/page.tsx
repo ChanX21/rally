@@ -16,7 +16,14 @@ const SANS = "var(--font-inter), system-ui, sans-serif";
 const SERIF = "var(--font-serif), Georgia, serif";
 const MONO = "var(--font-mono), monospace";
 
+const PREFERENCE_OPTIONS: Record<string, string[]> = {
+  gaming_game: ['chess', 'valorant', 'minecraft', 'wow', 'any'],
+  build_role: ['builder', 'reviewer', 'mentor', 'any'], workshop_topic: ['ai', 'web3', 'frontend', 'any'],
+  food_style: ['sit_down', 'takeaway', 'any'], coffee_energy: ['quiet', 'chatty', 'any'],
+  explore_range: ['venue', 'nearby', 'any'], group_energy: ['quiet', 'chatty', 'any'],
+};
 type Form = {
+  preferences: Record<string, string>;
   category: string;
   goal: string;
   start: string;
@@ -31,6 +38,7 @@ type Form = {
 // Any field can be null, and the form must let the user fill it.
 function formFrom(intent: Intent): Form {
   return {
+    preferences: intent.preferences ?? {},
     category: intent.category ?? "",
     goal: intent.goal ?? "",
     start: toLocalInput(intent.windowStart),
@@ -166,6 +174,7 @@ export default function CheckPlanScreen() {
       const rally = await api.createRally(
         {
           intentId: parsed.intent.id,
+          preferences: form.preferences,
           category: form.category,
           goal: form.goal.trim(),
           vibe: form.vibe || undefined,
@@ -196,6 +205,7 @@ export default function CheckPlanScreen() {
     try {
       const windowEnd = fromLocalInput(form.end)!;
       await api.activateIntent(parsed.intent.id, {
+        preferences: form.preferences,
         category: form.category,
         windowStart: fromLocalInput(form.start)!,
         windowEnd,
@@ -219,7 +229,7 @@ export default function CheckPlanScreen() {
     router.replace("/app/home");
   };
 
-  const set = (key: keyof Form, value: string) => setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+  const set = (key: Exclude<keyof Form, "preferences">, value: string) => setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
 
   const parsing = busy === "parse";
   const asking = !parsing && parsed !== null && !showForm;
@@ -334,6 +344,12 @@ export default function CheckPlanScreen() {
               {parsed.intent.questions.map((q) => (
                 <label key={q.id} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   <span style={{ fontSize: "16px", fontWeight: 600 }}>{q.text}</span>
+                  {q.options ? (
+                    <select className="qfield" value={answers[q.id] ?? ""} onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}>
+                      <option value="">Choose an option · optional</option>
+                      {q.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  ) : (
                   <input
                     className="qfield"
                     type="text"
@@ -342,6 +358,7 @@ export default function CheckPlanScreen() {
                     onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
                     placeholder="Your answer"
                   />
+                  )}
                 </label>
               ))}
               <p style={{ margin: 0, fontSize: "13px", lineHeight: 1.45, color: "#766B65" }}>
@@ -393,6 +410,13 @@ export default function CheckPlanScreen() {
                     ))}
                   </select>
                 </Field>
+                {Object.entries(form.preferences).map(([key, value]) => (
+                  <Field key={key} label={key.replaceAll('_', ' ')}>
+                    <select value={value} onChange={(e) => setForm((previous) => previous ? { ...previous, preferences: { ...previous.preferences, [key]: e.target.value } } : previous)}>
+                      {(PREFERENCE_OPTIONS[key] ?? [value]).map((option) => <option key={option} value={option}>{option === 'any' ? 'No preference' : option.replaceAll('_', ' ')}</option>)}
+                    </select>
+                  </Field>
+                ))}
                 <Field label="Vibe">
                   <select value={form.vibe} onChange={(e) => set("vibe", e.target.value)}>
                     {VIBES.map((v) => (

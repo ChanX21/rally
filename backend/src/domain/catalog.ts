@@ -42,6 +42,7 @@ export interface QuestionTemplate {
   text: string;
   /** Sent to the model so it can choose relevant questions. */
   purpose: string;
+  options?: { value: string; label: string }[];
 }
 
 /** Constrained templates. The Formation Engine may only choose among these IDs. */

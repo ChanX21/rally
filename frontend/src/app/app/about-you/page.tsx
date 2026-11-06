@@ -398,6 +398,12 @@ export default function AboutYouScreen() {
               questions.map((q) => (
                 <label key={q.id} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                   <span style={{ fontSize: "16px", fontWeight: 600 }}>{q.text}</span>
+                  {q.options ? (
+                    <select className="qfield" value={answers[q.id] ?? ""} onChange={(e) => setAnswer(q.id, e.target.value)}>
+                      <option value="">Choose an option · optional</option>
+                      {q.options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                    </select>
+                  ) : (
                   <input
                     className="qfield"
                     type="text"
@@ -406,6 +412,7 @@ export default function AboutYouScreen() {
                     onChange={(e) => setAnswer(q.id, e.target.value)}
                     placeholder="Your answer · optional"
                   />
+                  )}
                 </label>
               ))}
 

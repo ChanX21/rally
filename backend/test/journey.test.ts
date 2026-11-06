@@ -15,7 +15,7 @@ describe('end-to-end journey', () => {
     // AI handles every step, in the order the flow reaches it.
     h.ai.respond = ({ system }) => {
       if (system.includes('relevant question')) {
-        return { schemaVersion: 1, questionIds: ['group_energy', 'skill_offer'] };
+        return { schemaVersion: 1, questionIds: ['food_style', 'gaming_game'] };
       }
       if (system.includes('Extract activity intent')) {
         return h.ai.callsFor('intent').length === 1
@@ -56,7 +56,7 @@ describe('end-to-end journey', () => {
     await ben.post('/onboarding/complete', {
       displayName: 'Ben',
       interests: ['food', 'coffee', 'gaming'],
-      answers: questions.map((q: Json) => ({ questionId: q.id, answer: 'chatty' })),
+      answers: questions.map((q: Json) => ({ questionId: q.id, answer: 'any' })),
       declaredSkills: ['participant'],
       preferences: { group_energy: 'chatty' },
       availableFrom: hoursFromNow(0),

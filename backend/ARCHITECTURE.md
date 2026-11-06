@@ -593,3 +593,16 @@ A cached no-fit is keyed by candidate matching data, current member IDs/roles, a
 Host publication checks the same schedule-conflict rule as accepting an invitation. Creation with immediate publication, later draft publication and published schedule edits take the user's lock before the Rally lock, so concurrent host actions and acceptance cannot double-book that person. Overlapping drafts remain editable; publication returns `409 SCHEDULE_CONFLICT` until the conflict is resolved. Adjacent non-overlapping windows are allowed.
 
 The optional `PRIVY_VERIFICATION_KEY` override is validated at startup as an ES256 SPKI PEM public key. Leave it blank to use Privy's app JWKS endpoint. An invalid override otherwise appears as a generic invalid-token error from the SDK, even for valid frontend tokens. The frontend Privy app ID must match `PRIVY_APP_ID`; a valid-format key from another app will still fail signature verification.
+
+
+## Personalized questionnaires (formation-v3)
+
+Onboarding catalogs depend on the three selected interests. Gaming asks which game, building asks a declared role, workshops ask a topic, food asks sit-down/takeaway, coffee asks social energy, and exploring asks venue/nearby. Responses are constrained option values, stored in profile preferences; a selected build role is also saved as a declared skill. Legacy generic questions and answers remain accepted. The three-question maximum still applies. Fallback question selection uses the same interest-specific catalog, explicitly marked fallback.
+
+Activity parsing receives declared interests, allowlisted roles and allowlisted categorical preferences, never the full profile or free-form notes. Current answers override model/default preferences. The model selects relevant activity questions and can return structured preferences on the draft. These preferences are shown as editable controls before publication and are persisted on intents and rallies. A supplied category change discards unrelated preferences.
+
+Candidate retrieval filters explicitly conflicting activity/profile preferences before the shortlist limit, using waiting-intent preferences in preference to profile defaults. Unknown or `any` values remain eligible; this does not establish skills or guarantee a fit. The engine checks compatibility again, and acceptance reuses current eligibility rules under the user/Rally locks. Preferences never enter public Arkiv records.
+
+Deployment requires `npm run db:migrate` before the new backend serves requests: migration `0005_lyrical_moira_mactaggert.sql` adds non-null JSON preference columns to intents/rallies with empty-object defaults. It preserves existing rows. Run `npm run ai:personalization` for four live, synthetic 0G checks. Frontend questionnaires render backend option lists; the plan-review screen allows preference edits. Future preference keys/options must be kept in step with its review option list.
+
+This is bounded template personalization, not arbitrary AI-written interviews. The initial game/topic catalog is small; unsupported preferences should use No preference. No claim is made of calibrated matching quality or dietary/medical safety. Existing profiles are not retroactively interpreted from historical free-text answers.

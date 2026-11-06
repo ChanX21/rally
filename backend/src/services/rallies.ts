@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 
 import { and, desc, eq, exists, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
+import { relevantPreferences } from '../domain/questions.js';
 import { claims, intents, offers, rallies, rallySlots } from '../db/schema/index.js';
 import {
   type Category,
@@ -47,6 +48,7 @@ import {
 export function rallyView(rally: Rally) {
   return {
     id: rally.id,
+    preferences: rally.preferences,
     opaqueId: rally.opaqueId,
     creatorId: rally.creatorId,
     status: rally.status,
@@ -96,6 +98,7 @@ function assertZone(deps: Deps, zone: string) {
 }
 
 export interface CreateRallyInput {
+  preferences?: Record<string, string>;
   intentId?: string | undefined;
   category: Category;
   goal: string;
@@ -157,6 +160,7 @@ export async function createRally(
         throw new AppError(409, 'NOT_ONBOARDED', 'Complete onboarding first');
       }
 
+      let confirmedPreferences = input.preferences;
       if (input.intentId) {
         const [intent] = await tx
           .update(intents)
@@ -168,8 +172,9 @@ export async function createRally(
               inArray(intents.status, ['draft', 'waiting']),
             ),
           )
-          .returning({ id: intents.id });
+          .returning({ id: intents.id, preferences: intents.preferences });
         if (!intent) throw notFound('Intent');
+        confirmedPreferences ??= intent.preferences;
       }
 
       // Sensitive categories stay private, whatever the request says.
@@ -181,6 +186,7 @@ export async function createRally(
           opaqueId: `rly_${randomBytes(12).toString('base64url')}`,
           creatorId: userId,
           intentId: input.intentId,
+          preferences: relevantPreferences(input.category, confirmedPreferences ?? {}),
           visibility,
           category: input.category,
           goal: input.goal,

@@ -492,3 +492,11 @@ preview cards, and a catalog endpoint. The playbook's vague cards can use `categ
 `startBucket` and `openSeats`. If the demo needs any of these, ask Harshed.
 
 **Questions:** Harshed for the API, Chanchal for AI behaviour and question wording.
+
+## Personalized questions and preferences
+
+Onboarding now returns interest-specific questions. A question can include `options: [{ value, label }]`: render a select, submit the option value, and keep the existing text field for questions without options. Do not send the label as the answer. Supported option answers become structured profile preferences server-side; the frontend does not need to duplicate that mapping.
+
+Intent responses include `preferences`. Keep these in the editable plan, show controls for their known values, and send them when creating a Rally or activating a waiting intent. An explicit user answer overrides model/profile defaults. Changing category should clear unrelated preferences. Unknown or `any` preferences remain eligible, but known conflicting choices are excluded. Acceptance may return `409 MATCH_NO_LONGER_ELIGIBLE` if availability/preferences changed after the invitation.
+
+Backend migration 0005 must run before deployment. See `ARCHITECTURE.md`. The local preview uses frontend `http://localhost:3000` and backend `http://localhost:3123`; production data was not migrated by starting this preview.

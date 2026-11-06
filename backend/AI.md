@@ -93,3 +93,9 @@ Run `npm run ai:demo` locally. If it fails, share the failing step's `demo_model
 Prompt version `formation-v2` explicitly lists allowed question, category, zone and member IDs. The adapter also unwraps a complete JSON Markdown fence, while still rejecting surrounding prose and enforcing all strict schemas. These changes resolved observed live failures; see `AI_PROOF.md`.
 
 `npm run ai:demo` now narrates each fictional user input, translates the validated response into plain English, and explains what passed. Original JSON responses and traces remain alongside the narration for technical evidence. A final success message requires all four assertions to pass.
+
+## Personalization
+
+Prompt `formation-v3` uses interest-specific catalogs and minimized structured profile context. Onboarding option answers are saved as matching preferences; the declared build role also becomes a declared skill. Activity questions vary with the request and known context; explicit current answers override defaults. Draft preferences are editable and carried into published/waiting activities. Known preference conflicts are filtered in SQL, validated in composition and rechecked at acceptance. Unknown preferences remain eligible.
+
+Apply backend migrations before deployment. `npm run ai:personalization` compares gaming/build/workshop with food/coffee/explore and asserts a gaming-specific question/answer round trip against real 0G. It uses four paid calls with synthetic input and no database writes. See `evidence/personalization-live-2026-11-06.json`.

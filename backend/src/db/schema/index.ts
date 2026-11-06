@@ -172,6 +172,7 @@ export const intents = pgTable(
     rawText: text('raw_text').notNull(),
     source: text('source').$type<'ai' | 'fallback'>().notNull(),
     modelRunId: uuid('model_run_id').references(() => modelRuns.id),
+    preferences: jsonb('preferences').$type<Record<string, string>>().notNull().default({}),
     category: text('category'),
     goal: text('goal'),
     windowStart: timestamptz('window_start'),
@@ -209,6 +210,7 @@ export const rallies = pgTable(
     intentId: uuid('intent_id').references(() => intents.id),
     status: rallyStatus('status').notNull().default('draft'),
     visibility: rallyVisibility('visibility').notNull().default('public_coarse'),
+    preferences: jsonb('preferences').$type<Record<string, string>>().notNull().default({}),
     category: text('category').notNull(),
     goal: text('goal').notNull(),
     vibe: text('vibe'),
@@ -518,6 +520,7 @@ export interface ProfileEvidence {
 }
 
 export interface ClarifyingQuestion {
+  options?: { value: string; label: string }[];
   id: string;
   text: string;
 }

@@ -15,6 +15,7 @@ import {
   openSlots,
   type Rally,
 } from '../repositories/rallies.js';
+import { findCandidates } from '../repositories/matching.js';
 import { lockUser } from '../repositories/users.js';
 import { refreshProposal, scheduleArkivSync, settleRally } from './rally-lifecycle.js';
 
@@ -122,6 +123,9 @@ async function accept(tx: Tx, userId: string, offer: Offer, rally: Rally) {
     throw new AppError(409, 'SCHEDULE_CONFLICT', 'You already have a rally at this time');
   }
   await assertNoBlockWithMembers(tx, userId, rally.id);
+  if ((await findCandidates(tx, rally, 1, userId)).length === 0) {
+    throw new AppError(409, 'MATCH_NO_LONGER_ELIGIBLE', 'Your availability or matching preferences changed. Please find a new match.');
+  }
 
   const slot = (await openSlots(tx, rally.id)).find((open) => open.role === offer.role);
   if (!slot) {

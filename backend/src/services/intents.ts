@@ -4,13 +4,14 @@ import { intents } from '../db/schema/index.js';
 import type {
   VIBES} from '../domain/catalog.js';
 import {
-  ACTIVITY_QUESTIONS,
   CATEGORIES,
   MAX_DAYS_AHEAD,
   MAX_GROUP,
-  MAX_QUESTIONS
+  MAX_QUESTIONS, ROLES
 } from '../domain/catalog.js';
 import { parseIntentFallback, redactPii } from '../domain/intent-fallback.js';
+import { activityCatalog, preferencesFromAnswers, relevantPreferences, safePreferences, PERSONAL_QUESTIONS } from '../domain/questions.js';
+import { latestProfile } from '../repositories/users.js';
 import type { Deps } from '../lib/deps.js';
 import { AppError, notFound } from '../lib/errors.js';
 import { enqueue } from '../lib/outbox.js';
@@ -27,6 +28,7 @@ export interface ParsedIntent {
 }
 
 interface ParseCall {
+  userId: string;
   text: string;
   timeZone: string;
   answers: { questionId: string; answer: string }[];
@@ -46,13 +48,17 @@ function eventEnd(deps: Deps, now: Date): string {
  */
 async function runParse(deps: Deps, call: ParseCall) {
   const now = new Date();
+  const profile = await latestProfile(deps.db, call.userId);
   const answered = new Set(call.answers.map((answer) => answer.questionId));
   const { result, modelRunId, requestId } = await deps.formation((engine, runId) =>
     engine.parseActivity({
       requestId: runId,
       text: redactPii(call.text),
       answers: call.answers.map((answer) => ({ ...answer, answer: redactPii(answer.answer) })),
-      questions: ACTIVITY_QUESTIONS.map(({ id, purpose }) => ({ id, purpose })),
+      questions: activityCatalog.map(({ id, purpose, options }) => ({ id, purpose, options })),
+      profile: profile ? { interests: profile.interests,
+        declaredSkills: [...new Set(profile.declaredSkills.filter((s) => ROLES.some((role) => role === s)))],
+        preferences: safePreferences(profile.preferences) } : undefined,
       remainingQuestions: Math.max(0, MAX_QUESTIONS - answered.size),
       attempt: call.attempt,
       now: now.toISOString(),
@@ -74,6 +80,7 @@ async function runParse(deps: Deps, call: ParseCall) {
       source: 'ai' as const,
       questions: [],
       fields: {
+        preferences: relevantPreferences(intent.categoryId, { ...safePreferences(profile?.preferences ?? {}), ...intent.preferences, ...preferencesFromAnswers(call.answers) }),
         category: intent.categoryId,
         goal: intent.goal,
         windowStart: start,
@@ -87,14 +94,16 @@ async function runParse(deps: Deps, call: ParseCall) {
     };
   }
 
-  const fallback = parseIntentFallback(call.text, now);
+  const fallbackFields = parseIntentFallback(call.text, now);
+  const fallback = { ...fallbackFields,
+    preferences: relevantPreferences(fallbackFields.category ?? '', safePreferences(profile?.preferences ?? {})) };
   if (result.status === 'needs_answers') {
     return {
       ...meta,
       status: 'needs_answers' as const,
       source: 'ai' as const,
-      questions: ACTIVITY_QUESTIONS.filter((q) => result.questionIds.includes(q.id)).map(
-        ({ id, text }) => ({ id, text }),
+      questions: activityCatalog.filter((q) => result.questionIds.includes(q.id)).map(
+        ({ id, text, options }) => ({ id, text, options }),
       ),
       // Nothing is confirmed yet, so the model's silence is not filled in with a guess.
       fields: { goal: fallback.goal },
@@ -124,7 +133,7 @@ export async function parseIntent(
   input: { text: string; timeZone?: string | undefined },
 ): Promise<ParsedIntent> {
   const timeZone = input.timeZone ?? deps.env.EVENT_TIME_ZONE;
-  const parse = await runParse(deps, { text: input.text, timeZone, answers: [], attempt: 0 });
+  const parse = await runParse(deps, { userId, text: input.text, timeZone, answers: [], attempt: 0 });
   const [intent] = await deps.db
     .insert(intents)
     .values({
@@ -168,6 +177,12 @@ export async function answerIntent(
     throw new AppError(422, 'DUPLICATE_ANSWER', 'Each question may be answered once');
   }
 
+  for (const answer of answers) {
+    const question = PERSONAL_QUESTIONS.find((q) => q.id === answer.questionId);
+    if (question && !question.options?.some((o) => o.value === answer.answer)) {
+      throw new AppError(422, 'INVALID_ANSWER', 'Choose an offered option');
+    }
+  }
   const [claimed] = await deps.db
     .update(intents)
     .set({ parseAttempts: 2, answers })
@@ -178,6 +193,7 @@ export async function answerIntent(
   }
 
   const parse = await runParse(deps, {
+    userId,
     text: existing.rawText,
     timeZone: existing.timeZone ?? deps.env.EVENT_TIME_ZONE,
     answers,
@@ -222,6 +238,7 @@ export async function listIntents(
 }
 
 export interface ActivateIntentInput {
+  preferences?: Record<string, string>;
   category?: (typeof CATEGORIES)[number] | undefined;
   windowStart?: Date | undefined;
   windowEnd?: Date | undefined;
@@ -251,6 +268,7 @@ export async function activateIntent(
     }
 
     const merged = {
+      preferences: relevantPreferences(input.category ?? intent.category ?? '', input.preferences ?? intent.preferences),
       category: input.category ?? intent.category,
       windowStart: input.windowStart ?? intent.windowStart,
       windowEnd: input.windowEnd ?? intent.windowEnd,

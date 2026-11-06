@@ -125,7 +125,7 @@ export type Profile = {
 
 export type Me = { user: User; profile: Profile | null };
 
-export type Question = { id: string; text: string };
+export type Question = { id: string; text: string; options?: { value: string; label: string }[] };
 export type OnboardingQuestion = Question;
 export type Answer = { questionId: string; answer: string };
 
@@ -159,6 +159,7 @@ export type ProfileUpdate = {
 };
 
 export type Intent = {
+  preferences: Record<string, string>;
   id: string;
   status: string;
   source: "ai" | "fallback";
@@ -184,6 +185,7 @@ export type ParsedIntent = {
 };
 
 export type ActivateIntentInput = {
+  preferences?: Record<string, string>;
   category?: string;
   windowStart?: string;
   windowEnd?: string;
@@ -228,6 +230,7 @@ export type Rally = {
 };
 
 export type CreateRallyInput = {
+  preferences?: Record<string, string>;
   intentId?: string;
   category: string;
   goal: string;
