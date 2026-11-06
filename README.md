@@ -15,6 +15,7 @@
 
 <p align="center">
   <a href="https://www.therally.xyz">Live application</a> ·
+  <a href="https://youtu.be/NZan1O1gnhM">Demo video</a> ·
   <a href="https://www.therally.xyz/app/discover">Browse live rallies</a> ·
   <a href="https://rally-6ncc.onrender.com/health/ready">API readiness</a> ·
   <a href="#quick-start">Run locally</a> ·
@@ -380,6 +381,12 @@ on **Supabase**. See the [backend deployment guide](backend/README.md#render-dep
 - **Workers:** keep `WORKERS_ENABLED=true` for matching sweeps, completion, and async integration writes.
 - **Origins:** align `CORS_ORIGINS` and Privy's allowed origins with the deployed frontend.
 - **Contracts:** optional and separately deployed; follow the [contract guide](contracts/README.md).
+
+## Team and Contact
+
+| Member | Telegram | X |
+| --- | --- | --- |
+| @chanchaldelson | [@chanchaldelson](https://t.me/chanchaldelson) | [@chanchaldelson](https://x.com/chanchaldelson) |
 
 ## Further Reading
 
