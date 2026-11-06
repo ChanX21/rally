@@ -46,6 +46,7 @@ export default function FeedbackScreen() {
   const [rallyAgain, setRallyAgain] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [unsentPhotos, setUnsentPhotos] = useState(false);
 
   // Vouches and encores can only name people the host marked present.
   const load = useCallback(() => api.getRoom(rallyId ?? ""), [api, rallyId]);
@@ -232,10 +233,10 @@ export default function FeedbackScreen() {
                 <p style={{ margin: 0, fontSize: "12px", color: "#766B65" }}>They only find out if they pick you too.</p>
               </div>
 
-              {room.proofFlow && rallyId && (
+              {room.proofFlow && room.status === "completed" && rallyId && (
                 <div className="sec">
                   <div className="mono" style={{ marginBottom: "8px" }}>Add rally photos · optional</div>
-                  <RallyProof key={rallyId} rallyId={rallyId} />
+                  <RallyProof key={rallyId} rallyId={rallyId} onUnsentChange={setUnsentPhotos} />
                 </div>
               )}
             </div>
@@ -248,8 +249,13 @@ export default function FeedbackScreen() {
               {actionError}
             </p>
           )}
+          {unsentPhotos && (
+            <p style={{ margin: "0 0 8px", fontSize: "13px", lineHeight: 1.4, color: "#766B65", textAlign: "center" }}>
+              Submit or remove your photos before sending feedback.
+            </p>
+          )}
           {room && (
-            <button className="btn btn-p" type="button" disabled={busy || !happened} onClick={() => void send()}>
+            <button className="btn btn-p" type="button" disabled={busy || !happened || unsentPhotos} onClick={() => void send()}>
               {busy ? "Sending…" : "Send feedback"}
             </button>
           )}

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CATEGORIES, preferenceText, preferenceNotes, preferencesFromNotes, matchingProgressLabels } from "./format.ts";
+import { CATEGORIES, preferenceText, preferenceNotes, preferencesFromNotes, matchingProgressLabels, clockCountdown, durationLabel, scheduleTime } from "./format.ts";
 import { CATEGORIES as BACKEND_CATEGORIES } from "../../../backend/src/domain/catalog.ts";
 
 test("frontend activity choices stay in sync with the backend and display new preferences", () => {
@@ -32,4 +32,23 @@ test("one notes field includes saved and appended preferences without exposing p
   assert.equal(preferenceNotes(saved), text);
   assert.equal(preferenceNotes({ ...saved, custom_networking: "Meet founders" }), `${text}\nNetworking: Meet founders`);
   assert.deepEqual(preferencesFromNotes("  ", saved), { private_note: "not matching context" });
+});
+
+test("clock countdown shows hours, then days, and stops at zero", () => {
+  assert.equal(clockCountdown(4_325_000), "01:12:05");
+  assert.equal(clockCountdown(999), "00:00:01");
+  assert.equal(clockCountdown(-5_000), "00:00:00");
+  assert.equal(clockCountdown(187_200_000), "2d 4h");
+});
+
+test("duration label reads in minutes and hours", () => {
+  assert.equal(durationLabel(45), "45 min");
+  assert.equal(durationLabel(60), "1 h");
+  assert.equal(durationLabel(90), "1 h 30 min");
+});
+
+test("schedule time adds the date only for other days", () => {
+  const now = new Date(2026, 10, 6, 12, 0).getTime();
+  assert.doesNotMatch(scheduleTime(new Date(2026, 10, 6, 20, 0).getTime(), now), /Nov/);
+  assert.match(scheduleTime(new Date(2026, 10, 8, 20, 0).getTime(), now), /Nov.*20:00/);
 });

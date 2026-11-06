@@ -58,10 +58,6 @@ body {
   align-items: center;
   gap: 8px;
   max-width: 100%;
-  padding: 8px 16px 8px 10px;
-  border: 1px solid #e8dfda;
-  border-radius: 999px;
-  background: #fffaf7;
   font-family: var(--font-inter, var(--font-geist-sans)), system-ui, sans-serif;
   font-size: 14px;
   font-weight: 500;
@@ -109,4 +105,87 @@ body {
     color: #766b65;
     animation: none;
   }
+}
+
+.proof-picks {
+  display: flex;
+  gap: 8px;
+}
+
+.proof-pick {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid #1c1917;
+  border-radius: 999px;
+  background: transparent;
+  color: #1c1917;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.proof-pick:focus-visible,
+.proof-thumb button:focus-visible {
+  outline: 2px solid #315fe8;
+  outline-offset: 2px;
+}
+
+.proof-pick:disabled {
+  border-color: #d9c8be;
+  color: #766b65;
+  cursor: not-allowed;
+}
+
+.proof-thumbs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.proof-thumb {
+  position: relative;
+  aspect-ratio: 1;
+}
+
+.proof-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+.proof-thumb button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.proof-thumb button span {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #1c1917;
+  color: #fff5ef;
+  font-size: 16px;
+  line-height: 24px;
+  text-align: center;
 }
