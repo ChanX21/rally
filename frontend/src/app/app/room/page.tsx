@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { RallyProof } from "@/components/RallyProof";
+import { RallyTimer } from "@/components/RallyTimer";
 import { Dropdown } from "@/components/Dropdown";
 import { type DisputeCategory, errorCode, errorMessage } from "@/lib/api";
 import { capitalize, displayTime, initials, zoneLabel } from "@/lib/format";
@@ -182,7 +183,7 @@ export default function RoomScreen() {
             </svg>
           </a>
           <span className="mono" style={{ color: "#1C1917", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "240px" }}>
-            {room ? `${room.goal} · ${displayTime(room.windowStart)}` : "Your room"}
+            {room ? `${room.goal} · ${displayTime(room.meetAt)}` : "Your room"}
           </span>
           <span style={{ width: "44px" }} />
         </div>
@@ -222,11 +223,10 @@ export default function RoomScreen() {
                 </h1>
               </div>
 
+              <RallyTimer room={room} />
+
               <div className="card" style={{ padding: "16px", display: "flex", flexDirection: "column", gap: "12px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "12px" }}>
-                  <span style={{ fontFamily: MONO, fontSize: "15px", fontWeight: 500 }}>{displayTime(room.meetAt)}</span>
-                  {host && <span style={{ fontSize: "13px", color: "#766B65" }}>Host: {host.userId === myId ? "You" : host.displayName ?? "Rally member"}</span>}
-                </div>
+                {host && <span style={{ fontSize: "13px", color: "#766B65" }}>Host: {host.userId === myId ? "You" : host.displayName ?? "Rally member"}</span>}
                 <div style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#315FE8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0, marginTop: "2px" }}>
                     <path d="M12 21s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z" />

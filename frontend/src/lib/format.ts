@@ -110,6 +110,32 @@ export function countdown(msLeft: number): string {
   return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+// For waits that can run for hours or days. Rounds up so it reaches 00:00:00 as the moment arrives.
+export function clockCountdown(msLeft: number): string {
+  const total = Math.max(0, Math.ceil(msLeft / 1000));
+  const days = Math.floor(total / 86_400);
+  const hours = Math.floor(total / 3600) % 24;
+  if (days > 0) return `${days}d ${hours}h`;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${pad(hours)}:${pad(Math.floor(total / 60) % 60)}:${pad(total % 60)}`;
+}
+
+export function durationLabel(minutes: number): string {
+  const total = Math.round(minutes);
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  if (hours === 0) return `${rest} min`;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+}
+
+// Just the time for today; other days also need the date to be unambiguous.
+export function scheduleTime(at: number, now: number): string {
+  const date = new Date(at);
+  const time = displayTime(date.toISOString());
+  if (date.toDateString() === new Date(now).toDateString()) return time;
+  return `${date.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}, ${time}`;
+}
+
 export function timeAgo(iso: string, now: number): string {
   const minutes = Math.floor((now - new Date(iso).getTime()) / 60_000);
   if (minutes < 1) return "Now";
