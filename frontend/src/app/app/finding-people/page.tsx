@@ -296,7 +296,7 @@ export default function FindingPeopleScreen() {
           )}
           {rally?.status === "formed" && (
             <a className="btn btn-p" href={`/app/room?id=${rally.id}`}>
-              Go to your room
+              Go to your rally point
             </a>
           )}
           {(rally?.status === "met" || rally?.status === "completed") && (

@@ -167,7 +167,7 @@ export default function NoFitScreen() {
 
         <div className="foot">
           <a className="btn btn-p" href="/app/discover">
-            Browse live plans
+            Browse live rallies
           </a>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
             <button
