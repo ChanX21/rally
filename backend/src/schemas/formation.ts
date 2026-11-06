@@ -25,7 +25,7 @@ export const activityInput = z.strictObject({
 export const intentSchema = z.strictObject({
   categoryId: id, goal: z.string().min(1).max(160), startAt: time,
   durationMin: z.number().int().min(5).max(480),
-  groupMin: z.number().int().min(2).max(20), groupMax: z.number().int().min(2).max(20),
+  groupMin: z.number().int().min(2).max(20).default(2), groupMax: z.number().int().min(2).max(20).default(2),
   preferences: preferenceSchema.optional(),
   zoneId: id, vibe: z.enum(['quiet', 'chatty', 'any']),
 }).refine((v) => v.groupMin <= v.groupMax);

@@ -49,7 +49,7 @@ export function parseIntentFallback(text: string, now: Date): FallbackIntent {
     windowEnd: new Date(windowStart.getTime() + 2 * 60 * 60_000),
     durationMin: 45,
     groupMin: 2,
-    groupMax: 4,
+    groupMax: 2,
     zone: null,
     vibe: 'any',
   };

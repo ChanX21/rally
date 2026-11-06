@@ -609,7 +609,7 @@ Host publication checks the same schedule-conflict rule as accepting an invitati
 The optional `PRIVY_VERIFICATION_KEY` override is validated at startup as an ES256 SPKI PEM public key. Leave it blank to use Privy's app JWKS endpoint. An invalid override otherwise appears as a generic invalid-token error from the SDK, even for valid frontend tokens. The frontend Privy app ID must match `PRIVY_APP_ID`; a valid-format key from another app will still fail signature verification.
 
 
-## Personalized questionnaires (formation-v5)
+## Personalized questionnaires (formation-v6)
 
 Onboarding catalogs depend on the three selected interests. Gaming asks which game, building asks a declared role, workshops ask a topic, food asks sit-down/takeaway, coffee asks social energy, and exploring asks venue/nearby. Responses may use offered values or custom text of up to 120 characters. Offered values use the existing structured keys; custom answers use `custom_<category>` in the existing JSON preferences. Only an offered build role becomes a declared skill. Legacy generic questions and answers remain accepted. The three-question maximum still applies. Fallback question selection uses the same interest-specific catalog, explicitly marked fallback.
 
@@ -679,6 +679,11 @@ identities or fraud resistance; downloaded/staged/modified photos remain a known
 
 
 ### Matching triggers and custom preferences
+
+New plans default to two people total (host plus one guest). The intent schema and fallback use
+`groupMin = groupMax = 2`; explicit user sizes/ranges are retained. The intent prompt omits unspecified
+group bounds and does not spend a clarification question on the default size. Existing drafts and
+published Rallies keep their saved sizes.
 
 New onboarding visibly defaults Receive Rally invites to on; users can disable it before submitting.
 The client initially offers 12 hours and lets the user choose another window; Profile can change or

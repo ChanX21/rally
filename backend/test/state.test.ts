@@ -132,7 +132,7 @@ describe('deterministic intent fallback', () => {
 
   it('classifies with rules and fills conservative defaults', () => {
     const intent = parseIntentFallback('Anyone up for a late snack run?', now);
-    expect(intent).toMatchObject({ category: 'food', groupMin: 2, groupMax: 4, zone: null });
+    expect(intent).toMatchObject({ category: 'food', groupMin: 2, groupMax: 2, zone: null });
     expect(intent.windowStart.getTime()).toBe(now.getTime() + 3_600_000);
   });
 

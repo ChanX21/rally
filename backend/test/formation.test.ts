@@ -61,6 +61,16 @@ describe('Formation Engine trust boundaries', () => {
   it('accepts an unconfirmed valid draft', async () => {
     expect(await engine({ schemaVersion: 1, status: 'ready', intent }).parseActivity(activity)).toHaveProperty('status', 'ready');
   });
+  it('defaults unspecified group bounds to host plus one guest', async () => {
+    const { groupMin: _min, groupMax: _max, ...unspecified } = intent;
+    expect(await engine({ schemaVersion: 1, status: 'ready', intent: unspecified }).parseActivity(activity))
+      .toMatchObject({ status: 'ready', intent: { groupMin: 2, groupMax: 2 } });
+  });
+  it('preserves a group size explicitly requested by the user', async () => {
+    expect(await engine({ schemaVersion: 1, status: 'ready', intent: { ...intent, groupMin: 4, groupMax: 4 } })
+      .parseActivity({ ...activity, text: 'Snack with four people including me' }))
+      .toMatchObject({ status: 'ready', intent: { groupMin: 4, groupMax: 4 } });
+  });
   it.each([
     { categoryId: 'fake' }, { zoneId: 'fake' }, { startAt: '2026-11-05T09:00:00Z' },
     { startAt: '2026-11-05T12:50:00Z' }, { groupMin: 5 }, { durationMin: -1 },

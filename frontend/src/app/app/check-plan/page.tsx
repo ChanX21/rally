@@ -40,8 +40,8 @@ function formFrom(intent: Intent): Form {
     end: toLocalInput(intent.windowEnd),
     durationMin: intent.durationMin?.toString() ?? "",
     zone: intent.zone ?? "",
-    groupMin: intent.groupMin?.toString() ?? "",
-    capacity: intent.groupMax?.toString() ?? "",
+    groupMin: intent.groupMin?.toString() ?? "2",
+    capacity: intent.groupMax?.toString() ?? "2",
     vibe: intent.vibe ?? "any",
   };
 }
