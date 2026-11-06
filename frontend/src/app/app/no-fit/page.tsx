@@ -164,7 +164,6 @@ export default function NoFitScreen() {
               {actionError}
             </p>
           )}
-          <RallyAiRequests rallyId={rallyId} />
         </div>
 
         <div className="foot">
@@ -188,6 +187,7 @@ export default function NoFitScreen() {
               {busy ? "Stopping…" : "Stop looking"}
             </button>
           </div>
+          <RallyAiRequests rallyId={rallyId} />
         </div>
       </div>
     </div>

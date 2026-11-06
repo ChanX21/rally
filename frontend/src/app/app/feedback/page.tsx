@@ -242,7 +242,6 @@ export default function FeedbackScreen() {
               )}
             </div>
           )}
-          <RallyAiRequests rallyId={room?.rallyId} />
         </div>
 
         <div className="foot">
@@ -261,6 +260,7 @@ export default function FeedbackScreen() {
               {busy ? "Sending…" : "Send feedback"}
             </button>
           )}
+          <RallyAiRequests rallyId={room?.rallyId} />
           <a href="/app/home" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "44px", fontSize: "15px", fontWeight: 500 }}>
             Skip for now
           </a>

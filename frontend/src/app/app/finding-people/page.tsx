@@ -244,7 +244,6 @@ export default function FindingPeopleScreen() {
               })}
             </ol>
           )}
-          <RallyAiRequests rallyId={rally?.id} />
         </div>
 
         <div className="foot">
@@ -306,6 +305,7 @@ export default function FindingPeopleScreen() {
               How did it go?
             </a>
           )}
+          <RallyAiRequests rallyId={rally?.id} />
           {canLeave && rally && (
             <button
               className="lnk"

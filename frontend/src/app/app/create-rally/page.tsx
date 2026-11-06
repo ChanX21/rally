@@ -227,7 +227,6 @@ export default function CreateRallyScreen() {
         </>}
         {busy && <p role="status" className="loading-row"><RallyOrb variant="searching" size={22} /><span>{busy === "publish" ? "Publishing your Rally…" : "Rally intelligence is reading your plan…"}</span></p>}
         {error && <p className="error" role="alert">{error}</p>}
-        <AiRequests requests={receipts} />
       </div>
       <div className="foot">
         {stage === "plan" && <>
@@ -247,6 +246,7 @@ export default function CreateRallyScreen() {
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </button>
+          <AiRequests requests={receipts.slice(-1)} />
         </>}
         {stage === "questions" && <>
           {questionIndex > 0 && <button className="link" disabled={!!busy} onClick={() => setQuestionIndex((index) => index - 1)}>Previous question</button>}
@@ -254,16 +254,19 @@ export default function CreateRallyScreen() {
             if (questionIndex < questions.length - 1) setQuestionIndex((index) => index + 1);
             else void answer();
           }}>Continue</button>
+          <AiRequests requests={receipts.slice(-1)} />
           <button className="link" disabled={!!busy} onClick={() => { setError(null); setStage("edit"); }}>Edit details myself</button>
         </>}
         {stage === "review" && <>
           {problem && <p role="status">{problem}</p>}
           <button className="primary" disabled={!!busy || !!problem} onClick={() => void publish()}>Create Rally</button>
+          <AiRequests requests={receipts.slice(-1)} />
           <button className="link" disabled={!!busy} onClick={() => { setError(null); setStage("edit"); }}>Edit details</button>
           <button className="link" disabled={!!busy} onClick={() => { setError(null); setStage("plan"); }}>Change activity</button>
         </>}
         {(stage === "details" || stage === "edit") && draft && <>
           <button className="primary" disabled={!!busy} onClick={() => review(draft)}>Continue</button>
+          <AiRequests requests={receipts.slice(-1)} />
           {stage === "details" && <button className="link" disabled={!!busy} onClick={() => { setError(null); setStage("edit"); }}>Edit all details</button>}
         </>}
       </div>

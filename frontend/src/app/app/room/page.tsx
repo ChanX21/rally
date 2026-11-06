@@ -292,7 +292,6 @@ export default function RoomScreen() {
               )}
             </>
           )}
-          <RallyAiRequests rallyId={room?.rallyId} />
         </div>
 
         <div className="foot">
@@ -316,6 +315,7 @@ export default function RoomScreen() {
               {room.proofFlow ? "Leave an optional vouch" : "We’re done · how did it go?"}
             </a>
           )}
+          <RallyAiRequests rallyId={room?.rallyId} />
           {room && (
             <p style={{ margin: "4px 0 0", fontSize: "13px", lineHeight: 1.4, color: "#766B65", textAlign: "center" }}>
               {room.proofFlow

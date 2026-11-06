@@ -491,8 +491,6 @@ export default function AboutYouScreen() {
                 </label>
               ))}
 
-            {qStatus === "ready" && qRequestId && <AiRequests requests={[{ task: "onboarding", requestId: qRequestId, outcome: qSource === "ai" ? "ok" : "fallback" }]} />}
-
             {qStatus === "ready" && optIn && (
               <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <span>Available for the next</span>
@@ -564,6 +562,7 @@ export default function AboutYouScreen() {
                 {qStatus === "loading" ? "Getting your questions…" : "Continue"}
               </button>
             ))}
+          {onQuestions && qStatus === "ready" && qRequestId && <AiRequests requests={[{ task: "onboarding", requestId: qRequestId, outcome: qSource === "ai" ? "ok" : "fallback" }]} />}
           <div className="mono" style={{ textAlign: "center", color: submitError ? "#EC562E" : undefined }}>
             {submitError ?? footNote}
           </div>

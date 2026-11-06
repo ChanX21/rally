@@ -236,10 +236,6 @@ export default function DiscoverScreen() {
           <VenueMap rallies={openRallies} />
         </div>
 
-        <div style={{ padding: "0 24px", flexShrink: 0 }}>
-          <AiRequests requests={openRallies.flatMap((rally) => rally.dialogue && rally.aiRequestId ? [{ task: "map_dialogue", requestId: rally.aiRequestId }] : [])} />
-        </div>
-
         {/* CTA */}
         <div style={{ padding: "16px 24px 28px", display: "flex", flexDirection: "column", gap: "8px", flexShrink: 0 }}>
           <a className="btn btn-p" href="/app/home">
@@ -248,6 +244,7 @@ export default function DiscoverScreen() {
               <path d="M5 12h14M13 6l6 6-6 6" />
             </svg>
           </a>
+          <AiRequests requests={openRallies.flatMap((rally) => rally.dialogue && rally.aiRequestId ? [{ task: "map_dialogue", requestId: rally.aiRequestId }] : [])} />
           <p style={{ margin: 0, fontSize: "12px", color: "#766B65", textAlign: "center" }}>
             Preview only. No seat is held until you&apos;re matched.
           </p>

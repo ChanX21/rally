@@ -817,3 +817,8 @@ no-fit, room and feedback screens poll the private receipt list. Public discover
 exposes private matchmaking or photo receipts. Missing IDs render no fabricated receipt; failed
 requests with real IDs retain an explicit failure outcome. Migration `0009_ai_receipts` regenerates
 old unlinked dialogue caches once so their next generated line has its actual request ID.
+
+
+The receipt UI shows only the newest relevant request as a compact `0G request: <id>` line under
+the screen's action buttons. Matching screens show composition IDs, and photo controls show proof
+IDs separately. The full authorized history remains available through the receipt API.

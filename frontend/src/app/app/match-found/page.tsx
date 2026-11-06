@@ -256,7 +256,6 @@ export default function MatchFoundScreen() {
               {actionError}
             </p>
           )}
-          <RallyAiRequests rallyId={match?.rally.id} />
         </div>
 
         <div className="foot">
@@ -283,6 +282,7 @@ export default function MatchFoundScreen() {
               {match?.status === "accepted" ? "See your Rally" : "Back to home"}
             </a>
           )}
+          <RallyAiRequests rallyId={match?.rally.id} />
         </div>
       </div>
     </div>

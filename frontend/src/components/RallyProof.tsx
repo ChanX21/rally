@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage } from "@/lib/api";
+import { RallyAiRequests } from "@/components/AiRequests";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
 import RallyLoader from "@/components/RallyLoader";
@@ -174,6 +175,7 @@ export function RallyProof({ rallyId, onUnsentChange }: { rallyId: string; onUns
       </>}
       {!proof.canSubmit && !["processing", "accepted"].includes(proof.state) && <p style={{ margin: 0, fontSize: 13 }}>No further photo submissions are available for this Rally right now. Your Rally remains completed.</p>}
     </>}
+    <RallyAiRequests rallyId={rallyId} task="proof" />
     {problem && <p role="alert" style={{ margin: 0, color: "#A33A1E", fontSize: 14 }}>{problem}</p>}
   </section>;
 }
