@@ -150,6 +150,7 @@ export type CompleteOnboardingInput = {
 };
 
 export type ProfileUpdate = {
+  expectedProfileVersion?: number;
   displayName?: string;
   interests?: string[];
   declaredSkills?: string[];

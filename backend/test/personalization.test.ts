@@ -1,11 +1,59 @@
 import { afterAll, beforeEach, expect, it } from 'vitest';
 import { createHarness, type Harness, hoursFromNow } from './helpers/harness.js';
-import { compositionInput } from '../src/schemas/formation.js';
+import { activityInput, compositionInput } from '../src/schemas/formation.js';
 import { relevantPreferences, mergePreferences } from '../src/domain/questions.js';
 
 let h: Harness;
 beforeEach(async () => { await h?.close(); h = await createHarness(); });
 afterAll(() => h.close());
+
+it('uses edited free-text notes to retry existing rallies, redacts them, and keeps them private', async () => {
+  const host = await h.onboarded('did:notes:host', { optInMatching: false });
+  const guest = await h.onboarded('did:notes:guest', { preferences: { matching_notes: 'I prefer Minecraft' } });
+  h.ai.respond = ({ input }) => {
+    const parsed = compositionInput.parse({ ...(input as object), requestId: 'test' });
+    const candidate = parsed.candidates.find((person) => person.preferences?.matching_notes?.includes('Valorant'));
+    return candidate ? { schemaVersion: 1, status: 'proposed', memberIds: [...parsed.rally.requiredMembers.map((person) => person.id), candidate.id],
+      roles: [{ memberId: candidate.id, roleId: candidate.roleIds[0] }], reason: 'Shared game interest' } : { schemaVersion: 1, status: 'no_fit' };
+  };
+  const rally = await h.rally(host, { category: 'gaming', capacity: 2, preferences: { gaming_game: 'valorant' } });
+  await h.drainOutbox();
+  expect((await guest.get('/matches')).matches).toEqual([]);
+  await guest.patch('/me/profile', { preferences: { matching_notes: 'I play Valorant. Contact player@example.com' } });
+  await h.drainOutbox();
+  expect((await guest.get('/matches')).matches[0]).toMatchObject({ status: 'pending', rally: { id: rally.id } });
+  const calls = h.ai.callsFor('composition');
+  const sent = compositionInput.parse({ ...(calls.at(-1)!.input as object), requestId: 'test' });
+  expect(sent.candidates[0]?.preferences?.matching_notes).toBe('I play Valorant. Contact [email]');
+  expect(JSON.stringify([...h.arkiv.entities.values()])).not.toMatch(/matching_notes|player@example.com|Minecraft/);
+});
+
+it('uses notes as private parsing context without copying them into the activity', async () => {
+  const notes = 'I like chess and quiet coffee. Email player@example.com';
+  const user = await h.onboarded('did:notes:parse', { preferences: { matching_notes: notes } });
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'ready', intent: { categoryId: 'gaming', goal: 'Play chess', startAt: hoursFromNow(1), durationMin: 30, zoneId: 'venue-nearby', vibe: 'quiet', preferences: { matching_notes: notes, gaming_game: 'chess' } } });
+  const result = await user.post('/intents/parse', { text: 'Play chess' });
+  const sent = activityInput.parse({ ...(h.ai.callsFor('intent')[0]!.input as object), requestId: 'test' });
+  expect(sent.profile?.preferences.matching_notes).toBe('I like chess and quiet coffee. Email [email]');
+  expect(result.intent.preferences).toEqual({ gaming_game: 'chess' });
+});
+
+it('bounds notes and protects preferences appended while the user was editing', async () => {
+  const user = await h.onboarded('did:notes:validation');
+  const before = await user.get('/me');
+  const notes = 'I like building together. '.repeat(100);
+  const saved = await user.patch('/me/profile', { preferences: { matching_notes: notes }, expectedProfileVersion: before.profile.version });
+  expect(saved.profile.preferences.matching_notes).toBe(notes.trim());
+  const stale = await user.request('PATCH', '/me/profile', { preferences: { matching_notes: 'Old draft' }, expectedProfileVersion: before.profile.version });
+  expect(stale.statusCode).toBe(409);
+  expect(stale.json().error.code).toBe('PROFILE_CHANGED');
+  expect((await user.get('/me')).profile.preferences).toEqual(saved.profile.preferences);
+  for (const preferences of [{ matching_notes: 'x'.repeat(4001) }, { matching_notes: '   ' }, { custom_gaming: 'x'.repeat(121) }, { private_note: 'x'.repeat(121) }]) {
+    expect((await user.request('PATCH', '/me/profile', { preferences })).statusCode).toBe(400);
+  }
+  const cleared = await user.patch('/me/profile', { preferences: {} });
+  expect(cleared.profile.preferences).toEqual({});
+});
 
 it('offers different interest-specific questionnaires, including when AI is unavailable', async () => {
   const user = await h.user('did:personal:questions');

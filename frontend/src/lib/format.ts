@@ -46,6 +46,7 @@ export function capitalize(text: string): string {
 }
 
 export function preferenceText(key: string, value: string): string {
+  if (key === "matching_notes") return value;
   if (key.startsWith("custom_")) return `${categoryLabel(key.slice(7))}: ${value}`;
   const labels: Record<string, string> = {
     gaming_game: "Gaming", build_role: "Building", workshop_topic: "Workshops",
@@ -56,6 +57,21 @@ export function preferenceText(key: string, value: string): string {
     sit_down: "Sit-down meals", venue: "Stay at the venue", nearby: "Nearby places",
   };
   return `${labels[key] ?? capitalize(key.replaceAll("_", " "))}: ${values[value] ?? capitalize(value.replaceAll("_", " "))}`;
+}
+
+const MATCHING_PREFERENCE_KEYS = ["gaming_game", "build_role", "workshop_topic", "food_style", "coffee_energy", "explore_range", "group_energy", ...CATEGORIES.map((category) => `custom_${category.id}`)];
+
+export function preferenceNotes(preferences: Record<string, string>): string {
+  return [preferences.matching_notes, ...Object.entries(preferences)
+    .filter(([key, value]) => MATCHING_PREFERENCE_KEYS.includes(key) && value !== "any")
+    .map(([key, value]) => preferenceText(key, value))].filter(Boolean).join("\n");
+}
+
+export function preferencesFromNotes(text: string, previous: Record<string, string>): Record<string, string> {
+  // Keep unrelated private fields out of the matching notes sent to AI.
+  const preserved = Object.fromEntries(Object.entries(previous)
+    .filter(([key]) => key !== "matching_notes" && !MATCHING_PREFERENCE_KEYS.includes(key)));
+  return { ...preserved, ...(text.trim() ? { matching_notes: text.trim() } : {}) };
 }
 
 export function displayTime(iso: string): string {

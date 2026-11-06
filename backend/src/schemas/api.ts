@@ -19,11 +19,11 @@ const isoString = z.string();
 const category = z.enum(CATEGORIES);
 const vibe = z.enum(VIBES);
 const skills = z.array(shortText(30)).max(10);
-const preferences = z.record(shortText(40), shortText(120)).refine(
+const preferences = z.record(shortText(40), shortText(4000)).refine(
   (value) => Object.keys(value).length <= 10,
   'at most 10 preferences',
-).refine((values) => Object.entries(values).every(([key, value]) => (!Object.hasOwn(PREFERENCE_CHOICES, key) && !key.startsWith('custom_'))
-  || preferenceSchema.safeParse({ [key]: value }).success), 'choose a valid structured preference');
+).refine((values) => Object.entries(values).every(([key, value]) => key === 'matching_notes' || Object.hasOwn(PREFERENCE_CHOICES, key) || key.startsWith('custom_')
+  ? preferenceSchema.safeParse({ [key]: value }).success : value.length <= 120), 'choose a valid preference');
 
 export const idParams = z.object({ id: z.uuid() });
 export const userIdParams = z.object({ userId: z.uuid() });
@@ -88,6 +88,7 @@ export const onboardingBody = z.object({
 });
 
 export const profileUpdateBody = z.object({
+  expectedProfileVersion: z.number().int().positive().optional(),
   displayName: shortText(60).optional(),
   interests: z.array(category).length(REQUIRED_INTERESTS).optional(),
   declaredSkills: skills.optional(),

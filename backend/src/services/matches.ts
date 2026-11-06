@@ -190,9 +190,9 @@ export async function cancelCustomPreferenceOffers(tx: Tx, userId: string, chang
     .orderBy(offers.rallyId);
   for (const offer of pending) {
     const rally = await lockRally(tx, offer.rallyId);
-    if (!rally || !changed.has(`custom_${rally.category}`)) continue;
+    if (!rally || (!changed.has('matching_notes') && !changed.has(`custom_${rally.category}`))) continue;
     const candidate = (await findCandidates(tx, rally, 1, userId))[0];
-    if (candidate && Object.keys(relevantPreferences(rally.category, candidate.intent_preferences ?? {})).length) continue;
+    if (!changed.has('matching_notes') && candidate && Object.keys(relevantPreferences(rally.category, candidate.intent_preferences ?? {})).length) continue;
     await tx.update(offers).set({ status: 'cancelled' })
       .where(and(eq(offers.id, offer.id), eq(offers.status, 'pending')));
     await refreshProposal(tx, offer.proposalId);

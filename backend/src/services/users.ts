@@ -169,6 +169,7 @@ export async function completeOnboarding(deps: Deps, userId: string, input: Onbo
 }
 
 export interface ProfileUpdateInput {
+  expectedProfileVersion?: number | undefined;
   displayName?: string | undefined;
   interests?: Category[] | undefined;
   declaredSkills?: string[] | undefined;
@@ -191,6 +192,9 @@ export async function updateProfile(deps: Deps, userId: string, input: ProfileUp
     }
 
     const previous = await latestProfile(tx, userId);
+    if (input.expectedProfileVersion !== undefined && input.expectedProfileVersion !== previous?.version) {
+      throw new AppError(409, 'PROFILE_CHANGED', 'Your profile changed while you were editing. Your draft is kept; cancel edits to load the latest preferences.');
+    }
     const availableFrom =
       input.availableFrom === undefined ? (previous?.availableFrom ?? null) : input.availableFrom;
     const availableTo =

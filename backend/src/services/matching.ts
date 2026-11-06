@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
 
 import { matchProposals, offers, rallies } from '../db/schema/index.js';
-import { relevantPreferences, mergePreferences } from '../domain/questions.js';
+import { relevantPreferences, matchingPreferences, mergePreferences } from '../domain/questions.js';
 import { SHORTLIST_SIZE } from '../domain/catalog.js';
 import { MATCHABLE } from '../domain/rally-state.js';
 import { rankCandidates, scoreCandidate } from '../domain/scoring.js';
@@ -192,7 +192,7 @@ async function composeWithEngine(
       },
       candidates: candidates.map((candidate) => ({
         id: candidate.alias,
-        preferences: Object.fromEntries(Object.entries(relevantPreferences(rally.category, mergePreferences(candidate.preferences ?? {}, candidate.intent_preferences ?? {}))).map(([key, value]) => [key, redactPii(value)])),
+        preferences: Object.fromEntries(Object.entries(matchingPreferences(rally.category, mergePreferences(candidate.preferences ?? {}, candidate.intent_preferences ?? {}))).map(([key, value]) => [key, redactPii(value)])),
         optedIn: true as const,
         interests: candidate.interests,
         roleIds: openRoleIds,
@@ -375,7 +375,7 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
     const stillEligible = new Set(
       (await findCandidates(tx, locked, SHORTLIST_SIZE)).filter((current) => {
         const original = candidates.find((candidate) => candidate.user_id === current.user_id);
-        const preferences = (row: CandidateRow) => JSON.stringify(Object.entries(relevantPreferences(locked.category,
+        const preferences = (row: CandidateRow) => JSON.stringify(Object.entries(matchingPreferences(locked.category,
           mergePreferences(row.preferences ?? {}, row.intent_preferences ?? {}))).sort());
         return original && preferences(original) === preferences(current);
       }).map((row) => row.user_id),

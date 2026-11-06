@@ -705,8 +705,18 @@ category's custom profile preference closes pending invitations in that category
 sides for reevaluation. Closed invitations remain closed under the existing one-offer-per-Rally rule.
 The engine also checks preference snapshots again after composition before creating invitations.
 
-Profile shows saved preferences as labeled text, with declared skills and received vouches shown
-separately. It refreshes every 15 seconds while visible so background feedback appears without a
-new login. Editing or clearing preferences queues matching when opted in; availability and consent
-still apply. Vouches do not overwrite explicit preferences, and inferred tags are recorded evidence,
-not additional declared interests or a learned preference model.
+Profile has one free-text preference box (4,000 characters), with declared skills and received
+vouches shown separately. Existing category preferences appear as readable lines; `any` adds no
+line. Saving converts those matching preferences to `matching_notes` in the existing private JSON
+column; unrelated private fields remain separate. New category preferences appended later appear
+in the same box. No migration or extraction call is needed. Notes are redacted before inference,
+treated as untrusted context in parsing/composition, and never copied wholesale into activity
+preferences or public Arkiv records. Parsing can extract relevant category preferences into a draft;
+explicit activity choices take precedence. Deterministic fallback cannot
+interpret notes; availability, opt-in and consent still apply.
+
+The page refreshes every 15 seconds while visible, preserving unsaved edits. Saves include
+`expectedProfileVersion`; a stale draft receives 409 instead of overwriting a background update.
+Cancel edits loads the latest profile. Editing or clearing preferences queues matching when opted
+in. Vouches do not overwrite explicit preferences, and inferred tags are recorded evidence, not
+additional declared interests or a learned preference model.

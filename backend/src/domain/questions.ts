@@ -12,9 +12,9 @@ export const PREFERENCE_CHOICES = {
 } as const;
 export type PreferenceKey = keyof typeof PREFERENCE_CHOICES;
 export const customPreferenceText = z.string().trim().min(1).max(120);
-export const isCustomPreference = (key: string) => CATEGORIES.some((category) => key === `custom_${category}`);
-export const preferenceSchema = z.record(z.string().max(40), z.string().trim().min(1).max(120)).refine((v) =>
-  Object.entries(v).every(([key, value]) => isCustomPreference(key) ? customPreferenceText.safeParse(value).success
+export const isCustomPreference = (key: string) => key === 'matching_notes' || CATEGORIES.some((category) => key === `custom_${category}`);
+export const preferenceSchema = z.record(z.string().max(40), z.string().trim().min(1).max(4000)).refine((v) =>
+  Object.entries(v).every(([key, value]) => key === 'matching_notes' ? value.length <= 4000 : isCustomPreference(key) ? customPreferenceText.safeParse(value).success
     : Object.hasOwn(PREFERENCE_CHOICES, key) && (PREFERENCE_CHOICES[key as PreferenceKey] as readonly string[]).includes(value)), 'unknown preference or option');
 export type Preferences = Record<string, string>;
 const categoryKey: Partial<Record<Category, PreferenceKey>> = {
@@ -93,6 +93,11 @@ export function relevantPreferences(category: string, preferences: Preferences):
   const key = categoryKey[category as Category];
   return Object.fromEntries(Object.entries(safePreferences(preferences)).filter(([id]) =>
     id === `custom_${category}` || (id === key && !preferences[`custom_${category}`])));
+}
+/** Personal notes help matching, but must never be copied onto a published activity. */
+export function matchingPreferences(category: string, preferences: Preferences): Preferences {
+  const notes = safePreferences(preferences).matching_notes;
+  return { ...relevantPreferences(category, preferences), ...(notes ? { matching_notes: notes } : {}) };
 }
 export function mergePreferences(...sources: Preferences[]): Preferences {
   const merged: Preferences = {};

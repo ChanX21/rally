@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { useWallets } from "@privy-io/react-auth";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, type ProfileUpdate } from "@/lib/api";
-import { CATEGORIES, categoryLabel, preferenceText, rewardLabel, signedPoints, toLocalInput, fromLocalInput } from "@/lib/format";
-import { PreferenceEditor } from "@/components/PreferenceInput";
+import { CATEGORIES, categoryLabel, preferenceNotes, preferencesFromNotes, rewardLabel, signedPoints, toLocalInput, fromLocalInput } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
 
@@ -27,7 +26,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const [nameDraft, setNameDraft] = useState<string | null>(null);
   const [interestDraft, setInterestDraft] = useState<string[] | null>(null);
-  const [preferenceDraft, setPreferenceDraft] = useState<Record<string, string> | null>(null);
+  const [preferenceDraft, setPreferenceDraft] = useState<{ text: string; version: number } | null>(null);
   const [availabilityDraft, setAvailabilityDraft] = useState<{ start: string; end: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +83,7 @@ export default function ProfileScreen() {
   const savedName = currentMe?.user.displayName ?? "";
   const name = nameDraft ?? savedName;
   const profile = currentMe?.profile ?? null;
+  const notes = preferenceDraft?.text ?? preferenceNotes(profile?.preferences ?? {});
 
   const save = async (update: ProfileUpdate) => {
     setSaving(true);
@@ -170,7 +170,7 @@ export default function ProfileScreen() {
         .sw:checked { background: #1C1917; }
         .sw:checked::after { transform: translateX(20px); }
         .sw:focus-visible { outline: 2px solid #315FE8; outline-offset: 2px; }
-        input[type=text]:focus { border: 1.5px solid #315FE8 !important; }
+        input[type=text]:focus, textarea:focus-visible { outline: 2px solid #315FE8; outline-offset: 2px; }
         .availability-field { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
         .availability-field input { width: 100%; min-height: 48px; box-sizing: border-box; padding: 10px 12px; border: 1px solid #D9C8BE; border-radius: 12px; font: inherit; background: #FFFAF7; color: #1C1917; }
       `}</style>
@@ -279,21 +279,19 @@ export default function ProfileScreen() {
 
           <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div className="head">
-              <span className="mono">Preferences</span>
-              {preferenceDraft ? <button type="button" disabled={saving} onClick={async () => {
-                if (await save({ preferences: preferenceDraft })) setPreferenceDraft(null);
-              }}>Save preferences</button> : <button type="button" onClick={() => setPreferenceDraft(profile?.preferences ?? {})}>Edit preferences</button>}
+              <label htmlFor="matching-preferences" className="mono">About your preferences</label>
+              <button type="button" disabled={saving || !preferenceDraft || notes.length > 4000} onClick={async () => {
+                if (preferenceDraft && await save({ preferences: preferencesFromNotes(notes, profile?.preferences ?? {}), expectedProfileVersion: preferenceDraft.version })) setPreferenceDraft(null);
+              }}>Save</button>
             </div>
-            {preferenceDraft ? <>
-              <PreferenceEditor disabled={saving} preferences={preferenceDraft} onChange={setPreferenceDraft} categories={CATEGORIES.map((c) => c.id)} />
-              <button type="button" className="pick tag" disabled={saving} onClick={() => setPreferenceDraft(null)}>Cancel</button>
-            </> : <>
-              <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: "#766B65" }}>What you&apos;ve told Rally to use for matching. Edit anytime; clear a field to remove it from matching.</p>
-              {Object.keys(profile?.preferences ?? {}).length ? <ul style={{ margin: 0, paddingLeft: 20, fontSize: 14, lineHeight: 1.6, overflowWrap: "anywhere" }}>
-                {Object.entries(profile!.preferences).map(([key, value]) => <li key={key}>{preferenceText(key, value)}</li>)}
-              </ul> : <span style={{ fontSize: 14, color: "#766B65" }}>No preferences saved yet.</span>}
-              {profile && <span style={{ fontSize: 12, color: "#766B65" }}>Profile last updated {new Date(profile.lastUpdatedAt).toLocaleString()}</span>}
-            </>}
+            <p id="preference-help" style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: "#766B65" }}>Tell Rally what you enjoy and who you&apos;d like to meet. Write naturally, add a line, or change anything here.</p>
+            <textarea id="matching-preferences" aria-describedby="preference-help preference-length" disabled={saving || !profile} rows={8} maxLength={4000}
+              value={notes} onChange={(event) => setPreferenceDraft({ text: event.target.value, version: preferenceDraft?.version ?? profile!.version })}
+              placeholder={"I like building at hackathons and playing Valorant.\nI'd love to try candle-making workshops.\nFor food, I prefer sitting down together."}
+              style={{ width: "100%", minHeight: 220, boxSizing: "border-box", resize: "vertical", padding: 14, border: "1px solid #D9C8BE", borderRadius: 16, background: "#FFFAF7", color: "#1C1917", font: "inherit", fontSize: 15, lineHeight: 1.6 }} />
+            <span id="preference-length" style={{ fontSize: 12, color: "#766B65" }}>{notes.length}/4000 · Saved changes restart matching when you&apos;re open to invites.</span>
+            {preferenceDraft && <button type="button" className="pick tag" disabled={saving} onClick={() => setPreferenceDraft(null)}>Cancel edits</button>}
+            {profile && <span style={{ fontSize: 12, color: "#766B65" }}>Profile last updated {new Date(profile.lastUpdatedAt).toLocaleString()}</span>}
           </section>
 
           {(profile?.declaredSkills.length ?? 0) > 0 && (

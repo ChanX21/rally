@@ -10,7 +10,7 @@ import {
   MAX_QUESTIONS, ROLES
 } from '../domain/catalog.js';
 import { parseIntentFallback, redactPii } from '../domain/intent-fallback.js';
-import { activityQuestions, preferencesFromAnswers, relevantPreferences, safePreferences, PERSONAL_QUESTIONS, validPreferenceAnswer, mergePreferences } from '../domain/questions.js';
+import { activityQuestions, preferencesFromAnswers, relevantPreferences, matchingPreferences, safePreferences, PERSONAL_QUESTIONS, validPreferenceAnswer, mergePreferences } from '../domain/questions.js';
 import { latestProfile } from '../repositories/users.js';
 import type { Deps } from '../lib/deps.js';
 import { AppError, notFound } from '../lib/errors.js';
@@ -60,7 +60,7 @@ async function runParse(deps: Deps, call: ParseCall) {
       questions: questions.map(({ id, purpose, options }) => ({ id, purpose, options })),
       profile: profile ? { interests: profile.interests,
         declaredSkills: [...new Set(profile.declaredSkills.filter((s) => ROLES.some((role) => role === s)))],
-        preferences: Object.fromEntries(Object.entries(fallbackFields.category ? relevantPreferences(fallbackFields.category, profile.preferences) : safePreferences(profile.preferences)).map(([key, value]) => [key, redactPii(value)])) } : undefined,
+        preferences: Object.fromEntries(Object.entries(fallbackFields.category ? matchingPreferences(fallbackFields.category, profile.preferences) : safePreferences(profile.preferences)).map(([key, value]) => [key, redactPii(value)])) } : undefined,
       remainingQuestions: Math.max(0, MAX_QUESTIONS - answered.size),
       attempt: call.attempt,
       now: now.toISOString(),
