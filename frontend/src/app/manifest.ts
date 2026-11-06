@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Rally application",
     start_url: "/",
     display: "standalone",
-    background_color: "#111827",
-    theme_color: "#111827",
+    background_color: "#1c1917",
+    theme_color: "#1c1917",
     orientation: "portrait-primary",
     icons: [
       {
