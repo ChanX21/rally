@@ -38,7 +38,7 @@ export function isSensitive(category: Category): boolean {
 
 export interface QuestionTemplate {
   id: string;
-  /** Shown to the user. Never written by the model. */
+  /** Default wording; activity clarification may use model-tailored wording. */
   text: string;
   /** Sent to the model so it can choose relevant questions. */
   purpose: string;

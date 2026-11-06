@@ -115,3 +115,29 @@ it('shows contextual coffee questions and accepts answers through the existing f
   expect(ready.intent.preferences).toEqual({ coffee_energy: 'quiet' });
   expect(h.ai.callsFor('intent')).toHaveLength(2);
 });
+
+it('persists tailored jogging questions and completes the same answer flow', async () => {
+  const user = await h.onboarded('did:personal:jogging');
+  const questionTexts = {
+    start_time: 'What day and time would you like to go jogging?',
+    duration: 'About how many minutes would you like to jog?',
+    group_size: 'One jogging buddy or a small group—how many runners, including you?',
+  };
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'needs_answers',
+    questionIds: Object.keys(questionTexts), questionTexts });
+  const first = await user.post('/intents/parse', { text: 'Need someone to go joggin with?' });
+  expect(first.status).toBe('needs_answers');
+  expect(first.intent.questions).toEqual(Object.entries(questionTexts).map(([id, text]) => ({ id, text })));
+  expect((await user.get('/intents')).items[0].questions).toEqual(first.intent.questions);
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'ready', intent: {
+    categoryId: 'wellness', goal: 'Jog with a buddy', startAt: hoursFromNow(1),
+    durationMin: 30, groupMin: 2, groupMax: 2, zoneId: 'venue-nearby', vibe: 'any',
+  } });
+  const ready = await user.post(`/intents/${first.intent.id}/answers`, { answers: [
+    { questionId: 'start_time', answer: hoursFromNow(1) },
+    { questionId: 'duration', answer: '30 minutes' },
+    { questionId: 'group_size', answer: 'One buddy, two of us total' },
+  ] });
+  expect(ready.status).toBe('ready');
+  expect(ready.intent).toMatchObject({ category: 'wellness', durationMin: 30, groupMin: 2, groupMax: 2 });
+});

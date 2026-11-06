@@ -96,6 +96,8 @@ Prompt version `formation-v2` explicitly lists allowed question, category, zone 
 
 ## Personalization
 
+Prompt `formation-v4` also requests activity-specific `questionTexts` for selected clarification IDs. Text is limited to 200 characters and keys must belong to the selected IDs; omitted wording uses the existing templates. The prompt preserves question purposes and option meanings, skips known details, and keeps the three-question budget. It does not add matching criteria such as running pace. Wording is redacted for direct identifiers before being saved with the draft.
+
 Prompt `formation-v3` uses interest-specific catalogs and minimized structured profile context. Onboarding option answers are saved as matching preferences; the declared build role also becomes a declared skill. Activity questions vary with the request and known context; explicit current answers override defaults. Draft preferences are editable and carried into published/waiting activities. Known preference conflicts are filtered in SQL, validated in composition and rechecked at acceptance. Unknown preferences remain eligible.
 
 Apply backend migrations before deployment. `npm run ai:personalization` compares gaming/build/workshop with food/coffee/explore and asserts a gaming-specific question/answer round trip against real 0G. It uses four paid calls with synthetic input and no database writes. See `evidence/personalization-live-2026-11-06.json`.

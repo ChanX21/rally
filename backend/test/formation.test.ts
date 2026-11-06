@@ -72,6 +72,25 @@ describe('Formation Engine trust boundaries', () => {
     expect(await ai.parseActivity(activity)).toHaveProperty('status', 'needs_answers');
     expect(await ai.parseActivity({ ...activity, attempt: 1 })).toEqual({ status: 'invalid_output' });
   });
+  it('accepts tailored wording for selected catalog questions', async () => {
+    const output = { schemaVersion: 1, status: 'needs_answers', questionIds: ['time'],
+      questionTexts: { time: 'What day and time would you like to go jogging?' } };
+    expect(await engine(output).parseActivity(activity)).toEqual(output);
+  });
+  it.each([
+    { questionTexts: { fake: 'An invented question?' } },
+    { questionTexts: { time: '   ' } },
+    { questionTexts: { time: 'x'.repeat(201) } },
+    { questionIds: ['time', 'time'] },
+    { questionIds: ['time', 'duration', 'distance', 'group_size'] },
+  ])('rejects invalid clarification wording or IDs %j', async (patch) => {
+    expect(await engine({ schemaVersion: 1, status: 'needs_answers', questionIds: ['time'], ...patch })
+      .parseActivity(activity)).toEqual({ status: 'invalid_output' });
+  });
+  it('respects the remaining question budget with tailored wording', async () => {
+    const ai = engine({ schemaVersion: 1, status: 'needs_answers', questionIds: ['time'], questionTexts: { time: 'When would you like to jog?' } });
+    expect(await ai.parseActivity({ ...activity, remainingQuestions: 0 })).toEqual({ status: 'invalid_output' });
+  });
   it('completes the Rally questionnaire after answering the missing time', async () => {
     const responses = [
       { schemaVersion: 1, status: 'needs_answers', questionIds: ['time'] },
