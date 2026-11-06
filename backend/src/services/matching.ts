@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 import { matchProposals, offers, rallies } from '../db/schema/index.js';
 import { relevantPreferences, matchingPreferences, mergePreferences } from '../domain/questions.js';
@@ -99,7 +99,7 @@ export function composeDeterministically(
   return {
     members: chosen.map((candidate, index) => ({
       userId: candidate.user_id,
-      role: roles[index]!,
+      role: roles[index % roles.length]!,
     })),
     reason: defaultReason(rally),
     score: Math.round(
@@ -173,6 +173,7 @@ async function composeWithEngine(
   const { result, modelRunId } = await deps.formation((engine, runId) =>
     engine.composeGroup({
       requestId: runId,
+      invitationLimit: maxMembers,
       rally: {
         id: rally.opaqueId,
         intent: {
@@ -182,7 +183,7 @@ async function composeWithEngine(
           startAt: start,
           durationMin: rally.durationMin,
           groupMin: members.length + minMembers,
-          groupMax: members.length + maxMembers,
+          groupMax: rally.capacity,
           zoneId: rally.zone,
           vibe: (rally.vibe as 'quiet' | 'chatty' | 'any' | null) ?? 'any',
         },
@@ -212,7 +213,8 @@ async function composeWithEngine(
   const aliases = new Set(candidates.map((candidate) => candidate.alias));
   const chosen = result.memberIds.filter((id) => aliases.has(id));
   const roleOf = new Map(result.roles.map((entry) => [entry.memberId, entry.roleId]));
-  const unassigned = [...roles];
+  const invitationRoles = Array.from({ length: 3 }, () => roles).flat();
+  const unassigned = [...invitationRoles];
   for (const id of chosen) {
     const index = unassigned.indexOf(roleOf.get(id) ?? '');
     if (index !== -1) unassigned.splice(index, 1);
@@ -222,12 +224,20 @@ async function composeWithEngine(
   const violation = validateComposition(
     { memberIds: chosen, roles: chosenRoles },
     aliases,
-    roles,
+    invitationRoles,
     minMembers,
     maxMembers,
   );
   if (violation !== null) {
     deps.log.warn({ violation }, 'composition rejected after engine validation');
+    return { kind: 'failed', failure: 'invalid_output', modelRunId };
+  }
+  const uncovered = [...roles];
+  for (const role of chosenRoles) {
+    const index = uncovered.indexOf(role);
+    if (index !== -1) uncovered.splice(index, 1);
+  }
+  if (roles.length - uncovered.length < minMembers) {
     return { kind: 'failed', failure: 'invalid_output', modelRunId };
   }
 
@@ -276,23 +286,11 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
   const claimCount = await countActiveClaims(deps.db, rallyId);
   const pending = await countPendingOffers(deps.db, rallyId);
   const shortfall = rally.groupMin - claimCount - pending;
-  // Once people are being asked, only top up if those answers cannot reach the minimum anyway.
-  if (rally.status === 'proposed' && shortfall <= 0) return 'no_need';
-
-  const pendingRoles = await deps.db
-    .select({ role: offers.role })
-    .from(offers)
-    .where(sql`${offers.rallyId} = ${rallyId} and ${offers.status} = 'pending'`);
+  // Invitations compete for seats; a small pool avoids serial waits without notifying everyone.
+  const target = Math.min(SHORTLIST_SIZE, rally.openSeats * 3);
+  if (pending >= target) return 'no_need';
   const roles = (await openSlots(deps.db, rallyId)).map((slot) => slot.role);
-  for (const { role } of pendingRoles) {
-    const index = roles.indexOf(role);
-    if (index !== -1) roles.splice(index, 1);
-  }
-
-  const seatsToOffer = Math.min(
-    roles.length,
-    rally.status === 'proposed' ? shortfall : rally.openSeats - pending,
-  );
+  const seatsToOffer = roles.length ? target - pending : 0;
   const candidates = scoreAll(rally, await findCandidates(deps.db, rally, SHORTLIST_SIZE));
 
   const minMembers = Math.max(shortfall, 1);
@@ -380,13 +378,14 @@ export async function evaluateRally(deps: Deps, rallyId: string): Promise<Evalua
         return original && preferences(original) === preferences(current);
       }).map((row) => row.user_id),
     );
-    const offered = composition.members.filter((member) => stillEligible.has(member.userId));
+    const openRoles = new Set((await openSlots(tx, rallyId)).map((slot) => slot.role));
+    const offered = composition.members.filter((member) => stillEligible.has(member.userId) && openRoles.has(member.role));
     const nowPending = await countPendingOffers(tx, rallyId);
     const nowClaims = await countActiveClaims(tx, rallyId);
     if (
       offered.length === 0 ||
       nowClaims + nowPending + offered.length < locked.groupMin ||
-      nowPending + offered.length > locked.openSeats
+      nowPending + offered.length > Math.min(SHORTLIST_SIZE, locked.openSeats * 3)
     ) {
       return 'stale';
     }

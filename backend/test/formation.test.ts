@@ -14,6 +14,19 @@ describe('Formation Engine trust boundaries', () => {
   it('accepts a feasible proposal including creator', async () => {
     expect(await engine(proposal).composeGroup(input)).toEqual(proposal);
   });
+  it('allows a bounded invitation pool to exceed membership capacity only when explicitly supplied', async () => {
+    const pool = { ...input, rally: { ...input.rally, intent: { ...intent, groupMax: 2 } }, candidates: [person('guest'), person('guest2'), person('guest3')] };
+    const reply = { ...proposal, memberIds: ['host', 'guest', 'guest2', 'guest3'], roles: pool.candidates.map((candidate) => ({ memberId: candidate.id, roleId: 'buddy' })) };
+    expect(await engine(reply).composeGroup(pool)).toEqual({ status: 'invalid_output' });
+    let sent: unknown;
+    const ai = createFormationEngine(async (_system, context) => {
+      sent = context;
+      return { text: JSON.stringify(reply), model: 'fixture' };
+    });
+    expect(await ai.composeGroup({ ...pool, invitationLimit: 3 })).toEqual(reply);
+    expect(sent).toMatchObject({ invitationLimit: 3, rally: { intent: { groupMax: 2 } } });
+    expect(await engine(reply).composeGroup({ ...pool, invitationLimit: 2 })).toEqual({ status: 'invalid_output' });
+  });
   it.each([
     { memberIds: ['host', 'fake'] }, { memberIds: ['guest', 'other'] },
     { memberIds: ['host', 'host'] }, { memberIds: ['host'] },

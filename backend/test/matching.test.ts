@@ -125,15 +125,18 @@ describe('candidate filters', () => {
     expect(await matchesFor(late)).toEqual([]);
   });
 
-  it('never exceeds open seats', async () => {
+  it('can invite more people than open seats without allocating seats', async () => {
     const candidates = await Promise.all(
       [1, 2, 3, 4].map(async (n) => h.onboarded(did(`c${n}`))),
     );
     const creator = await creatorFor();
-    await h.rally(creator, { capacity: 3 });
+    const rally = await h.rally(creator, { capacity: 3 });
     await h.drainOutbox();
     const counts = await Promise.all(candidates.map((c) => matchesFor(c)));
-    expect(counts.flat()).toHaveLength(2);
+    expect(counts.flat()).toHaveLength(4);
+    expect((await creator.get(`/rallies/${rally.id}`)).openSeats).toBe(2);
+    await evaluateRally(h.app.deps, rally.id);
+    expect((await h.app.deps.db.select().from(offers)).length).toBe(4);
   });
 
   it('needs enough people for the group minimum, without inventing any', async () => {
@@ -266,7 +269,7 @@ describe('AI composition', () => {
       outcome: 'ok',
       provider: '0xprovider',
       model: 'fake-model',
-      promptVersion: 'formation-v7',
+      promptVersion: 'formation-v8',
       totalTokens: 15,
       cost: '100 usd_micro',
     });

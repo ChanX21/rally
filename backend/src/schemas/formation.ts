@@ -43,6 +43,7 @@ const person = z.strictObject({
 }).refine((v) => Date.parse(v.availableFrom) < Date.parse(v.availableUntil));
 export const compositionInput = z.strictObject({
   ...base,
+  invitationLimit: z.number().int().min(1).max(11).optional(),
   rally: z.strictObject({
     id, intent: intentSchema, requiredMembers: z.array(person).min(1).max(20), requiredRoleIds: ids,
   }),

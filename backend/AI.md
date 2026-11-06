@@ -60,6 +60,12 @@ Subscribe the backend's future worker to `UserOnboarded` and `RallyPublished`; b
 
 Before passing candidates, enforce auth, opt-in, category compatibility, blocks, visibility, expiry, active claims and live capacity. After a proposal, recheck current state before saving offers. At acceptance, atomically validate and allocate seats; unlock a room only after mutual consent. Do not expose arbitrary candidate composition over a public endpoint.
 
+Composition accepts an optional `invitationLimit` (1–11). With it, returned candidates form an
+invitation pool that may exceed activity capacity; the activity's `groupMax` still describes actual
+membership. Select compatible invitees up to the pool limit, including required members, and allow
+multiple invitees to compete for the same available role. Without it, the original group-size checks
+apply. The backend validates role coverage and allocates seats only on first valid acceptance.
+
 There are deliberately no HTTP AI routes yet: authentication, product tables and matching workers are not in this backend foundation. Authenticated routes should use existing success/error envelopes. This module is available to those callers without introducing an unauthenticated paid inference endpoint.
 
 ## Validation and limits

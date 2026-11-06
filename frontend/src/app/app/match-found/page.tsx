@@ -52,7 +52,7 @@ export default function MatchFoundScreen() {
     const { matches } = await api.listMatches();
     return matches.find((m) => m.status === "pending" && new Date(m.holdUntil).getTime() > Date.now()) ?? null;
   }, [api, matchId]);
-  const { data: match, error, loaded, setData } = usePolled(load);
+  const { data: match, error, loaded, setData } = usePolled(load, 10_000);
 
   useEffect(() => {
     const tick = () => setNow(Date.now());
@@ -244,7 +244,7 @@ export default function MatchFoundScreen() {
                 The exact spot is shared once the group forms.
               </div>
               <p style={{ margin: "-12px 0 0", fontSize: "13px", lineHeight: 1.45, color: "#766B65" }}>
-                No answer by the deadline counts as declining. The spot goes to someone else.
+                Places go to the first people who accept. This invitation doesn&apos;t reserve a seat and expires at the deadline.
               </p>
             </>
           )}

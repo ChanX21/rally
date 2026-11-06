@@ -59,6 +59,13 @@ export function preferenceText(key: string, value: string): string {
   return `${labels[key] ?? capitalize(key.replaceAll("_", " "))}: ${values[value] ?? capitalize(value.replaceAll("_", " "))}`;
 }
 
+export function matchingProgressLabels(progress: { identified: number; accepted: number }) {
+  return {
+    identified: progress.identified ? `${progress.identified} ${progress.identified === 1 ? "match" : "matches"} identified` : "No matches yet",
+    accepted: progress.accepted ? `${progress.accepted} accepted` : "No one has accepted yet",
+  };
+}
+
 const MATCHING_PREFERENCE_KEYS = ["gaming_game", "build_role", "workshop_topic", "food_style", "coffee_energy", "explore_range", "group_energy", ...CATEGORIES.map((category) => `custom_${category.id}`)];
 
 export function preferenceNotes(preferences: Record<string, string>): string {
@@ -155,6 +162,7 @@ export function notificationPath(type: string, data: Record<string, string>): st
   switch (type) {
     case "match.proposed":
     case "match.expired":
+    case "match.unavailable":
       return matchId ? `/app/match-found?id=${matchId}` : "/app/match-found";
     case "rally.seat_open":
       return "/app/match-found";

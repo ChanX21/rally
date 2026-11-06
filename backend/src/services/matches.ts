@@ -238,6 +238,9 @@ export async function respondToMatch(
       return loadMatchView(tx, userId, offerId);
     }
     if (offer.status !== 'pending') {
+      if (response === 'accept' && offer.status === 'cancelled' && rally.openSeats <= 0 && ACCEPTING.includes(rally.status)) {
+        throw new AppError(409, 'RALLY_FULL', 'That was the last seat, and someone else just took it');
+      }
       throw new AppError(409, 'OFFER_CLOSED', `This match is ${offer.status}`);
     }
     if (offer.holdUntil <= new Date()) {

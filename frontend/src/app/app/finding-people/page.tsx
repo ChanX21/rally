@@ -7,6 +7,7 @@ import RallyOrb from "@/components/RallyOrb";
 import { errorCode, errorMessage, type Rally } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
+import { matchingProgressLabels } from "@/lib/format";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -39,8 +40,8 @@ function describe(rally: Rally, isCreator: boolean): { title1: string; title2: s
     case "waiting":
     case "proposed":
       return rally.matchingProgress
-        ? { title1: `${rally.matchingProgress.identified} ${rally.matchingProgress.identified === 1 ? "match" : "matches"}`, title2: "identified",
-          sub: `${rally.matchingProgress.accepted} accepted. You can leave this screen—we'll notify you when the group is ready.` }
+        ? { title1: matchingProgressLabels(rally.matchingProgress).identified, title2: "",
+          sub: `${matchingProgressLabels(rally.matchingProgress).accepted}. Places go to the first people who accept. We'll notify you when the group is ready.` }
         : { title1: "Connecting", title2: "your Rally", sub: "Checking matches. You can leave this screen; we'll notify you when there's an update." };
     case "ready":
       return isCreator
@@ -107,8 +108,8 @@ export default function FindingPeopleScreen() {
   const needsMeetingPoint = rally?.status === "ready" && isCreator && !rally.hasMeetingPoint;
   const canLeave = rally && ["draft", "open", "waiting", "proposed", "ready"].includes(rally.status);
   const steps = ["Plan published",
-    rally?.matchingProgress ? `${rally.matchingProgress.identified} ${rally.matchingProgress.identified === 1 ? "match" : "matches"} identified` : "Checking matches",
-    rally?.matchingProgress ? `${rally.matchingProgress.accepted} accepted` : "Acceptance updates",
+    rally?.matchingProgress ? matchingProgressLabels(rally.matchingProgress).identified : "Checking matches",
+    rally?.matchingProgress ? matchingProgressLabels(rally.matchingProgress).accepted : "Acceptance updates",
     "Meeting point set"];
 
   return (

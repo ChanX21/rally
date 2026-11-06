@@ -727,3 +727,15 @@ non-host participants. The host is excluded from both, and withdrawing reduces a
 connecting screen polls these counts and shows “X matches identified / Y accepted”; a no-fit stays
 on that screen with zero counts. It does not invent a shortlist size or redirect to a waiting page.
 Other Rally response shapes may omit progress, so clients show a loading description until GET.
+
+Connecting empty states read “No matches yet” and “No one has accepted yet”. Matching can invite
+more people than seats: at most three pending invitations per remaining seat, capped at the existing
+11-person shortlist. Pending invitations do not reserve seats or roles. The model receives a separate
+`invitationLimit`; activity capacity remains the actual membership limit. Pool validation still checks
+candidate IDs, eligibility, role availability and enough role coverage to reach the group minimum.
+The deterministic fallback distributes invitations across available roles.
+
+Acceptance holds the Rally row lock and claims an actual role/seat, so concurrent accepts cannot
+overfill the Rally. First valid acceptances win. Filling the last place for a role closes competing
+pending invitations, notifies those users and queues them to check other Rallies. The invitation
+screen refreshes every ten seconds and clearly says that an invitation does not reserve a place.

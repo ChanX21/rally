@@ -1,4 +1,4 @@
-import { and, eq, ne } from 'drizzle-orm';
+import { and, eq, ne, notInArray } from 'drizzle-orm';
 
 import {
   arkivEntities,
@@ -15,6 +15,7 @@ import {
   activeMembers,
   countActiveClaims,
   countPendingOffers,
+  openSlots,
   type Rally,
 } from '../repositories/rallies.js';
 
@@ -88,6 +89,17 @@ export async function settleRally(tx: Tx, rally: Rally): Promise<Rally> {
   if (!ACCEPTING.includes(rally.status)) return rally;
 
   const claimCount = await countActiveClaims(tx, rally.id);
+  const availableRoles = [...new Set((await openSlots(tx, rally.id)).map((slot) => slot.role))];
+  const closed = await tx.update(offers).set({ status: 'cancelled' })
+    .where(and(eq(offers.rallyId, rally.id), eq(offers.status, 'pending'),
+      availableRoles.length ? notInArray(offers.role, availableRoles) : undefined))
+    .returning({ id: offers.id, candidateId: offers.candidateId, proposalId: offers.proposalId });
+  for (const offer of closed) {
+    await refreshProposal(tx, offer.proposalId);
+    await notify(tx, { userId: offer.candidateId, type: 'match.unavailable', title: 'That place was taken',
+      body: 'Someone accepted first. Rally will keep looking for another match.', data: { matchId: offer.id }, dedupeKey: `match.unavailable:${offer.id}` });
+    await enqueue(tx, { type: 'match.reevaluate', payload: { userId: offer.candidateId } });
+  }
   const pending = await countPendingOffers(tx, rally.id);
 
   let current = rally;

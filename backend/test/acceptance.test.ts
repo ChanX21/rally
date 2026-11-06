@@ -42,11 +42,49 @@ const activeClaims = async (rallyId: string) =>
     .where(and(eq(claims.rallyId, rallyId), eq(claims.status, 'active')));
 
 describe('accepting', () => {
+  it('invites more people than seats and awards the last seat to exactly one concurrent accepter', async () => {
+    const { candidates, creator, rally, matchIds } = await setUp(3, { capacity: 2, meetingPoint: 'Lobby' });
+    expect(matchIds.filter(Boolean)).toHaveLength(3);
+    expect((await creator.get(`/rallies/${rally.id}`)).matchingProgress).toEqual({ identified: 3, accepted: 0 });
+    const results = await Promise.all(candidates.map((candidate, index) => respond(candidate, matchIds[index]!, 'accept')));
+    expect(results.map((result) => result.statusCode).sort()).toEqual([200, 409, 409]);
+    for (const result of results.filter((response) => response.statusCode === 409)) expect(result.json().error.code).toBe('RALLY_FULL');
+    expect(await activeClaims(rally.id)).toHaveLength(2);
+    const current = await creator.get(`/rallies/${rally.id}`);
+    expect(current).toMatchObject({ status: 'formed', openSeats: 0, matchingProgress: { identified: 3, accepted: 1 } });
+    const winner = results.findIndex((result) => result.statusCode === 200);
+    expect((await respond(candidates[winner]!, matchIds[winner]!, 'accept')).statusCode).toBe(200);
+    const rows = await h.app.deps.db.select().from(offers).where(eq(offers.rallyId, rally.id));
+    expect(rows.map((offer) => offer.status).sort()).toEqual(['accepted', 'cancelled', 'cancelled']);
+    for (let index = 0; index < candidates.length; index++) {
+      if (index === winner) continue;
+      expect((await candidates[index]!.get('/notifications')).items.map((item: Json) => item.type)).toContain('match.unavailable');
+    }
+    await h.drainOutbox();
+    expect(await activeClaims(rally.id)).toHaveLength(2);
+  });
+
   it('shows zero progress when no invitation or acceptance exists', async () => {
     const creator = await h.onboarded(did('progress-host'), { optInMatching: false });
     const rally = await h.rally(creator);
     await h.drainOutbox();
     expect((await creator.get(`/rallies/${rally.id}`)).matchingProgress).toEqual({ identified: 0, accepted: 0 });
+  });
+
+  it('closes invitations for a filled role while keeping the other role available', async () => {
+    const { candidates, creator, rally, matchIds } = await setUp(5, { capacity: 3, groupMin: 3, slotRoles: ['builder', 'reviewer'] });
+    const before = await h.app.deps.db.select().from(offers).where(eq(offers.rallyId, rally.id));
+    const builder = before.find((offer) => offer.role === 'builder')!;
+    const builderIndex = matchIds.indexOf(builder.id);
+    await candidates[builderIndex]!.post(`/matches/${builder.id}/respond`, { response: 'accept' });
+    const after = await h.app.deps.db.select().from(offers).where(eq(offers.rallyId, rally.id));
+    expect(after.filter((offer) => offer.role === 'builder' && offer.id !== builder.id).every((offer) => offer.status === 'cancelled')).toBe(true);
+    const reviewer = after.find((offer) => offer.role === 'reviewer' && offer.status === 'pending')!;
+    expect(reviewer).toBeDefined();
+    const reviewerIndex = matchIds.indexOf(reviewer.id);
+    await candidates[reviewerIndex]!.post(`/matches/${reviewer.id}/respond`, { response: 'accept' });
+    expect((await creator.get(`/rallies/${rally.id}`))).toMatchObject({ status: 'ready', openSeats: 0 });
+    expect(await activeClaims(rally.id)).toHaveLength(3);
   });
 
   it('reports real matching progress without counting the host or withdrawn seats as accepted', async () => {
@@ -355,7 +393,7 @@ describe('declining and withdrawing', () => {
   it('notifies people holding an offer, without accepting for them', async () => {
     const { candidates, rally, matchIds } = await setUp(3, { capacity: 3 });
     const pendingIndex = [0, 1, 2].filter((i) => matchIds[i]);
-    expect(pendingIndex).toHaveLength(2);
+    expect(pendingIndex).toHaveLength(3);
     const [first, second] = pendingIndex;
 
     await respond(candidates[first!]!, matchIds[first!]!, 'accept');
