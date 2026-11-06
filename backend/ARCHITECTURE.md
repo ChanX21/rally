@@ -46,6 +46,11 @@ flowchart LR
 
 ## Database architecture
 
+The runtime uses `prepare: false` and `max_pipeline: 1` for Supavisor transaction-pooler compatibility.
+Concurrent requests use separate pool connections rather than pipelining queries on one connection,
+which reproduced lost replies and hanging session/readiness requests against the hosted pooler.
+Single-connection tests cover concurrent response ordering, transactions and rollback recovery.
+
 ```mermaid
 erDiagram
   users ||--o{ profile_versions : has
@@ -167,7 +172,9 @@ sequenceDiagram
   fetches the JWKS.
 - Identity comes from the token `sub`. Bodies are never trusted. An invalid token returns 401.
 - If Privy's user API fails during session creation, the session still succeeds and any known wallet
-  is kept. A verified wallet is required later only for reward vouchers.
+  is kept. The optional wallet lookup has a five-second deadline and no SDK retries, below the
+  browser's 20-second request timeout. Token verification still fails closed. A verified wallet is
+  required later only for reward vouchers.
 
 ## Intent processing with 0G
 

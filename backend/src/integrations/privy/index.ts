@@ -33,7 +33,8 @@ export function createPrivyVerifier(options: PrivyOptions): AuthVerifier {
     },
 
     async getWallet(did) {
-      const user = await client.users()._get(did);
+      // Wallet enrichment must finish before the browser's 20-second session deadline.
+      const user = await client.users()._get(did, { timeout: 5000, maxRetries: 0 });
       for (const account of user.linked_accounts) {
         if (account.type === 'wallet' && 'address' in account && account.chain_type === 'ethereum') {
           return account.address;
