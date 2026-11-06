@@ -93,7 +93,9 @@ export function createArkivGateway(options: ArkivOptions): ArkivGateway | null {
 
   const schema = listingSchema(options.schemaName);
   const chain = rabdi({ accessKey: options.accessKey ?? '' });
-  const transport = http(options.rpcUrl, { timeout: options.queryTimeoutMs });
+  // No retries: the transport waits out Retry-After, ignoring the timeout, and Arkiv can send 980
+  // seconds. A failed read shows a notice on Discover and retries on the next poll or outbox attempt.
+  const transport = http(options.rpcUrl, { timeout: options.queryTimeoutMs, retryCount: 0 });
   const account = privateKeyToAccount(options.privateKey as Hex);
   const publicClient = createPublicClient({ chain, transport });
   // Chain writes wait for a block, so they get a longer deadline than reads.

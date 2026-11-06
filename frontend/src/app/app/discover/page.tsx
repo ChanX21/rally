@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, getPreview, type PreviewActivity } from "@/lib/api";
-import { bucketLabel, capitalize, categoryPhrase } from "@/lib/format";
+import { CATEGORIES, SENSITIVE_CATEGORIES, ZONES, bucketLabel, capitalize, categoryPhrase, zoneLabel } from "@/lib/format";
 import { AiRequests } from "@/components/AiRequests";
 import VenueMap from "@/components/VenueMap";
 import RallyLogo from "@/components/RallyLogo";
@@ -17,6 +17,9 @@ const SANS = "var(--font-inter), system-ui, sans-serif";
 const SERIF = "var(--font-serif), Georgia, serif";
 const MONO = "var(--font-mono), monospace";
 
+// Sensitive categories are never published, so filtering by one could only ever show nothing.
+const PUBLIC_CATEGORIES = CATEGORIES.filter((category) => !SENSITIVE_CATEGORIES.includes(category.id));
+
 export default function DiscoverScreen() {
   // Cards stay vague on purpose: activity in plain words, coarse zone, hour bucket, counts. No names.
   // Tapping a card opens why; it never joins anything — joining only happens through matching.
@@ -26,21 +29,37 @@ export default function DiscoverScreen() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mapOpen, setMapOpen] = useState(true);
+  // Sent to the Arkiv query, so the board narrows at the source rather than after loading.
+  const [category, setCategory] = useState("");
+  const [zone, setZone] = useState("");
+  const filters = useMemo(() => ({ category: category || undefined, zone: zone || undefined }), [category, zone]);
+  const filtered = Boolean(category || zone);
+  const latestLoad = useRef(0);
 
   const loadPage = useCallback(async (next?: string) => {
+    // A slow answer for the previous filter must not replace the current one.
+    const load = ++latestLoad.current;
     setLoading(true);
     try {
-      const page = await getPreview({ limit: 20, cursor: next });
+      const page = await getPreview({ limit: 20, cursor: next, ...filters });
+      if (load !== latestLoad.current) return;
       setActivities((prev) => (next ? [...prev, ...page.activities] : page.activities));
       setCursor(page.nextCursor);
       // Arkiv being down is not an error: show the notice and carry on.
       setNotice(page.available ? null : page.notice ?? "The live board is resting. We'll match you when it's back.");
     } catch (err) {
-      setNotice(errorMessage(err));
+      if (load === latestLoad.current) setNotice(errorMessage(err));
     } finally {
-      setLoading(false);
+      if (load === latestLoad.current) setLoading(false);
     }
-  }, []);
+  }, [filters]);
+
+  const changeFilter = (apply: (value: string) => void, value: string) => {
+    apply(value);
+    setActivities([]);
+    setCursor(null);
+    setOpen(-1);
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- first page of an external API
@@ -59,7 +78,7 @@ export default function DiscoverScreen() {
         let next: string | undefined;
         let pagesLeft = Math.max(1, Math.ceil(activities.length / 20));
         do {
-          const page = await getPreview({ limit: 20, cursor: next });
+          const page = await getPreview({ limit: 20, cursor: next, ...filters });
           if (!page.available) {
             if (alive) setNotice(page.notice);
             return;
@@ -79,7 +98,7 @@ export default function DiscoverScreen() {
       }
     }, 15_000);
     return () => { alive = false; clearInterval(timer); };
-  }, [activities.length, loading]);
+  }, [activities.length, filters, loading]);
 
   // One dot on the map per rally that still has room.
   const openRallies = useMemo(() => activities.filter((a) => a.status !== "full" && a.openSeats > 0), [activities]);
@@ -107,6 +126,8 @@ export default function DiscoverScreen() {
         .btn-p:hover { background: #292421; color: #FFF5EF; }
         .btn-o { height: 40px; font-size: 14px; background: #315FE8; color: #FFF5EF; }
         .btn-o:hover { background: #2448C9; color: #FFF5EF; }
+        .filter { width: 100%; min-width: 0; height: 44px; padding: 0 12px; border: 1px solid #D9C8BE; border-radius: 12px; background: #FFFAF7; color: #1C1917; font-family: inherit; font-size: 16px; box-sizing: border-box; }
+        .filter:focus-visible { outline: 2px solid #315FE8; outline-offset: 1px; }
         .pulse { animation: pulse 1.8s ease-in-out infinite; }
         @keyframes pulse { 50% { opacity: .35; } }
         @media (prefers-reduced-motion: reduce) { .pulse { animation: none; } }
@@ -157,6 +178,16 @@ export default function DiscoverScreen() {
           >
             What people are <span className="em">rallying for</span>
           </h1>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "12px" }}>
+            <select className="filter" aria-label="Filter by activity" value={category} onChange={(event) => changeFilter(setCategory, event.target.value)}>
+              <option value="">All activities</option>
+              {PUBLIC_CATEGORIES.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+            <select className="filter" aria-label="Filter by area" value={zone} onChange={(event) => changeFilter(setZone, event.target.value)}>
+              <option value="">All areas</option>
+              {ZONES.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* Live cards */}
@@ -169,7 +200,7 @@ export default function DiscoverScreen() {
           {loading && !notice && activities.length === 0 && <RallyLoader context="discover" />}
           {!loading && !notice && activities.length === 0 && (
             <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.45, color: "#766B65" }}>
-              Nothing is live yet. We&apos;ll match you in as soon as something fits.
+              {filtered ? "Nothing matches these filters right now." : "Nothing is live yet. We'll match you in as soon as something fits."}
             </p>
           )}
           {activities.map((c, i) => {
@@ -186,6 +217,7 @@ export default function DiscoverScreen() {
                     <span style={{ fontFamily: SERIF, fontSize: "19px", lineHeight: 1.15 }}>{categoryPhrase(c.category)}</span>
                     <span style={{ fontSize: "13px", color: "#766B65" }}>
                       <span style={{ fontFamily: MONO, color: "#1C1917" }}>{bucketLabel(c.startBucket)}</span>
+                      {" · "}{zoneLabel(c.zone)}
                     </span>
                   </span>
                   <span style={{ display: "flex", flexDirection: "column", gap: "4px", flexShrink: 0 }}>

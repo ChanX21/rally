@@ -408,6 +408,36 @@ describe('real SDK gateway against a local JSON-RPC stub', () => {
     ).toBeNull();
   });
 
+  it('fails fast when rate limited, rather than waiting out Retry-After', async () => {
+    let hits = 0;
+    const limited = createServer((req, res) => {
+      hits += 1;
+      req.resume();
+      req.on('end', () => {
+        res.writeHead(429, { 'retry-after': '980' });
+        res.end('Too Many Requests');
+      });
+    });
+    await new Promise<void>((resolve) => limited.listen(0, '127.0.0.1', resolve));
+    try {
+      const startedAt = Date.now();
+      const rateLimited = createArkivGateway({
+        privateKey: `0x${'11'.repeat(32)}`,
+        accessKey: 'test-access-key',
+        rpcUrl: `http://127.0.0.1:${(limited.address() as AddressInfo).port}`,
+        app: 'rally-mumbai',
+        event: 'ethglobal-mumbai-2026',
+        schemaName: 'rally-mumbai.activity.v1',
+        queryTimeoutMs: 2000,
+      })!;
+      await expect(rateLimited.queryListings({ limit: 20 })).rejects.toThrow();
+      expect(hits).toBe(1);
+      expect(Date.now() - startedAt).toBeLessThan(5000);
+    } finally {
+      await new Promise((resolve) => limited.close(resolve));
+    }
+  });
+
   it('fits the attribute limit for a named schema', () => {
     expect(Object.keys(listingSchema('x').columns ?? {}).length).toBeLessThanOrEqual(31);
   });
