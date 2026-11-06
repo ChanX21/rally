@@ -16,6 +16,7 @@
 <p align="center">
   <a href="https://www.therally.xyz">Live application</a> ·
   <a href="https://youtu.be/NZan1O1gnhM">Demo video</a> ·
+  <a href="https://canva.link/ohur3g1eez1crfo">Pitch deck</a> ·
   <a href="https://www.therally.xyz/app/discover">Browse live rallies</a> ·
   <a href="https://rally-6ncc.onrender.com/health/ready">API readiness</a> ·
   <a href="#quick-start">Run locally</a> ·
