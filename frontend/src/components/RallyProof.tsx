@@ -15,9 +15,11 @@ export function RallyProof({ rallyId }: { rallyId: string }) {
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const requestKey = useRef<string | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const submit = async () => {
-    if (!files.length || busy) return;
+    if (busy) return;
+    if (!files.length) { fileInput.current?.click(); return; }
     setBusy(true);
     setProblem(null);
     requestKey.current ??= crypto.randomUUID();
@@ -30,6 +32,7 @@ export function RallyProof({ rallyId }: { rallyId: string }) {
       })));
       await api.submitProof(rallyId, { images, note }, requestKey.current);
       setFiles([]);
+      if (fileInput.current) fileInput.current.value = "";
       setNote("");
       requestKey.current = null;
       refresh();
@@ -52,7 +55,7 @@ export function RallyProof({ rallyId }: { rallyId: string }) {
       {proof.canSubmit && <>
         <label style={{ display: "grid", gap: 8, fontSize: 14 }}>
           Choose 1–3 JPEG or PNG photos (up to 5 MB each)
-          <input type="file" accept="image/jpeg,image/png" multiple disabled={busy} onChange={(e) => {
+          <input ref={fileInput} type="file" accept="image/jpeg,image/png" multiple disabled={busy} onChange={(e) => {
             const selected = Array.from(e.target.files ?? []);
             requestKey.current = null;
             if (selected.length > 3 || selected.some((f) => f.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png"].includes(f.type))) {
@@ -65,7 +68,7 @@ export function RallyProof({ rallyId }: { rallyId: string }) {
           <textarea value={note} maxLength={300} rows={2} disabled={busy} onChange={(e) => { setNote(e.target.value); requestKey.current = null; }} style={{ font: "inherit", border: "1px solid #D9C8BE", borderRadius: 8, padding: 8 }} />
         </label>
         <p style={{ margin: 0, fontSize: 12, color: "#766B65", lineHeight: 1.5 }}>Only share photos you have permission to submit. Photos are privately processed with Rally intelligence and deleted after 30 days. They are never posted publicly or on-chain.</p>
-        <button className="btn btn-p" type="button" disabled={busy || !files.length} onClick={() => void submit()}>{busy ? "Sending photos…" : "Submit group photos"}</button>
+        <button className="btn btn-p" type="button" disabled={busy} onClick={() => void submit()}>{busy ? "Sending photos…" : files.length ? "Submit group photos" : "Choose group photos"}</button>
       </>}
       {!proof.canSubmit && !["processing", "accepted"].includes(proof.state) && <p style={{ margin: 0, fontSize: 13 }}>No further photo submissions are available for this Rally right now. Your Rally remains completed.</p>}
     </>}
