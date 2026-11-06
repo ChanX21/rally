@@ -41,7 +41,9 @@ Set both URLs in `.env`, taken from the Supabase dashboard (Connect):
 Use the pooler hosts (`*.pooler.supabase.com`). The direct `db.<ref>.supabase.co` host is IPv6-only and
 fails with `ENETUNREACH` on networks without IPv6.
 
-Prepared statements are disabled because the transaction pooler does not support them.
+Prepared statements are disabled because the transaction pooler does not support them. The runtime
+also limits each connection to one query in flight: pipelined queries can hang behind Supavisor's
+transaction pooler. The configured pool still runs queries concurrently across connections.
 
 ## Scripts
 

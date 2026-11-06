@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { exportSPKI, generateKeyPair, SignJWT } from 'jose';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { type App, buildApp } from '../src/app.js';
 import { users } from '../src/db/schema/index.js';
@@ -49,6 +49,23 @@ describe('createPrivyVerifier using the real SDK', () => {
 
   it('accepts a valid token and returns the DID', async () => {
     await expect(verifier().verify(await sign({}))).resolves.toEqual({ did: 'did:privy:abc' });
+  });
+
+  it('aborts a stalled wallet lookup after five seconds without retrying', async () => {
+    vi.useFakeTimers();
+    const fetch = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      }));
+    try {
+      const result = expect(verifier().getWallet('did:privy:abc')).rejects.toThrow();
+      await vi.advanceTimersByTimeAsync(5001);
+      await result;
+      expect(fetch).toHaveBeenCalledTimes(1);
+    } finally {
+      fetch.mockRestore();
+      vi.useRealTimers();
+    }
   });
 
   it('rejects another app, another issuer, an expired token and a forged signature', async () => {
@@ -172,6 +189,20 @@ describe('authentication', () => {
     const response = await user.request('GET', '/me');
     expect(response.statusCode).toBe(403);
     expect(response.json().error.code).toBe('ACCOUNT_SUSPENDED');
+  });
+
+  it('allows new and returning sessions when the optional wallet lookup fails', async () => {
+    const did = 'did:privy:wallet-timeout';
+    const auth = h.app.deps.auth!;
+    const lookup = vi.spyOn(auth, 'getWallet').mockRejectedValue(new Error('wallet lookup timed out'));
+    try {
+      const first = await h.user(did);
+      const again = await h.user(did);
+      expect(again.id).toBe(first.id);
+      expect((await again.get('/me')).user.walletAddress).toBeNull();
+    } finally {
+      lookup.mockRestore();
+    }
   });
 
   it('hides internal metrics without a token configured', async () => {

@@ -13,6 +13,8 @@ export function createDatabase({ url, poolMax }: DatabaseOptions) {
     max: poolMax,
     // Supabase's transaction pooler does not support prepared statements.
     prepare: false,
+    // Supavisor's transaction pooler can lose replies to pipelined queries.
+    max_pipeline: 1,
     connect_timeout: 5,
     idle_timeout: 20,
     onnotice: () => {},
