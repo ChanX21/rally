@@ -6,6 +6,8 @@ import type { Deps } from '../lib/deps.js';
 import { lockRally } from '../repositories/rallies.js';
 import { reconcileArkiv } from '../services/arkiv-sync.js';
 import { queueChainWork } from '../services/chain-sync.js';
+import { completeDueRallies } from '../services/completion.js';
+import { cleanupProofPhotos } from '../services/proofs.js';
 import { expireDisputes } from '../services/disputes.js';
 import { expireOffersForRally } from '../services/matches.js';
 import { closeRally } from '../services/rally-lifecycle.js';
@@ -33,7 +35,7 @@ export async function expireRallies(deps: Deps): Promise<number> {
     .select({ id: rallies.id })
     .from(rallies)
     .where(
-      sql`${rallies.expiresAt} <= now() and ${inArray(rallies.status, [...EXPIRABLE])}`,
+      sql`${rallies.expiresAt} <= now() and ${inArray(rallies.status, [...EXPIRABLE])} and not (${rallies.proofFlow} and ${rallies.status} = 'formed')`,
     )
     .limit(BATCH);
 
@@ -42,7 +44,7 @@ export async function expireRallies(deps: Deps): Promise<number> {
     await deps.db.transaction(async (tx) => {
       const rally = await lockRally(tx, id);
       // Checked again under the lock: the rally may have changed since the query above.
-      if (rally && EXPIRABLE.includes(rally.status) && rally.expiresAt <= new Date()) {
+      if (rally && !(rally.proofFlow && rally.status === 'formed') && EXPIRABLE.includes(rally.status) && rally.expiresAt <= new Date()) {
         await penaliseAbsentHost(tx, rally);
         await closeRally(tx, rally, 'expired');
         expired += 1;
@@ -79,12 +81,14 @@ export async function runScheduledJobs(deps: Deps): Promise<void> {
   const jobs = {
     recoverStaleEvents,
     expireOffers,
+    completeDueRallies,
     expireRallies,
     expireIntents,
     reconcileArkiv,
     applyDuePenalties,
     expireDisputes,
     queueChainWork,
+    cleanupProofPhotos,
     cleanup,
   };
   for (const [name, job] of Object.entries(jobs)) {

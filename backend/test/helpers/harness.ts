@@ -46,8 +46,8 @@ export async function createHarness(envOverrides: Record<string, string> = {}): 
   const arc = new FakeArc();
   const wallets: Record<string, string> = {};
   const app = await buildApp({
-    env: testEnv({ DATABASE_URL: database.url, RATE_LIMIT_MAX: '100000', ...envOverrides }),
-    integrations: { auth: fakeAuth(wallets), infer: ai.infer, arkiv, arc },
+    env: testEnv({ DATABASE_URL: database.url, RATE_LIMIT_MAX: '100000', PROOFS_ENABLED: 'false', ...envOverrides }),
+    integrations: { auth: fakeAuth(wallets), infer: ai.infer, visionInfer: ai.infer, arkiv, arc },
   });
   await app.ready();
 

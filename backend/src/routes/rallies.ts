@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 
+import { proofBody, proofViewSchema, getProof, submitProof } from '../services/proofs.js';
 import { requireUser } from '../plugins/auth.js';
 import {
   arrivalSchema,
@@ -17,6 +18,7 @@ import {
   roomSchema,
   updateRallyBody,
 } from '../schemas/api.js';
+import { AppError } from '../lib/errors.js';
 import { ok, successSchema } from '../schemas/common.js';
 import { raiseDispute } from '../services/disputes.js';
 import { submitFeedback } from '../services/feedback.js';
@@ -40,6 +42,17 @@ const rallyResponse = { response: { 200: successSchema(rallySchema) } };
 export const rallyRoutes: FastifyPluginAsyncZod = async (app) => {
   const { deps } = app;
   const auth = { onRequest: app.authenticate };
+
+  app.get('/rallies/:id/proof', { ...auth, schema: { ...secured, params: idParams, response: { 200: successSchema(proofViewSchema) } } },
+    async (request) => ok(await getProof(deps, requireUser(request).id, request.params.id)));
+  app.post('/rallies/:id/proof', { ...auth, bodyLimit: 22 * 1024 * 1024,
+    config: { rateLimit: { max: 6, timeWindow: '1 hour' } },
+    schema: { ...secured, params: idParams, headers: idempotencyHeader, body: proofBody, response: { 200: successSchema(proofViewSchema) } } },
+    async (request) => {
+      const key = request.headers['idempotency-key'];
+      if (!key) throw new AppError(400, 'IDEMPOTENCY_REQUIRED', 'A request key is required');
+      return ok(await submitProof(deps, requireUser(request).id, request.params.id, request.body, key));
+    });
 
   app.post(
     '/rallies',

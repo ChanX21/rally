@@ -130,3 +130,23 @@ See `.env.example` for all configuration.
 Onboarding questions, activity parsing and group composition all run through the Formation Engine. See
 [AI.md](AI.md) for its contract, and `ARCHITECTURE.md` for how routes use it. Run `npm run test:ai` for
 isolated AI tests; `npm run ai:smoke` and `npm run ai:demo` check funded 0G access.
+
+
+## Group photo rewards
+
+New Rallies automatically complete after their planned activity plus 15 minutes. Optional vouches
+are saved without points. One accepted photo submission earns 10 RALLY for every confirmed member.
+Use `PROOFS_ENABLED=false` to create Rallies with the legacy flow; existing Rallies retain their policy.
+Configure `ZERO_G_VISION_MODEL=gemini-2.5-flash-lite` alongside the existing 0G API key. The outbox and
+scheduler (`WORKERS_ENABLED=true`) must run. Migration 0007 creates private evidence storage.
+
+Completion points work off-chain immediately. Keep `ARC_COMPLETION_REWARDS_ENABLED=false` until
+the updated nine-action contract is explicitly deployed and configured; the addresses recorded in
+the contracts README are the old eight-action deployment. No production migration or contract
+deployment is implied by running tests. See `ARCHITECTURE.md` for limits and retention.
+
+Opt-in real AI proof test (public fixture, synthetic group, isolated test database; spends credits):
+
+```sh
+RUN_LIVE_PROOF=true npm test -- --run test/proof-live.test.ts
+```

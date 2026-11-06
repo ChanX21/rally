@@ -1,0 +1,18 @@
+{
+  "at": "2026-11-06T02:59:18.023Z",
+  "scope": "Public NASA fixture, real 0G, isolated throwaway database, synthetic login/group, no production users or chain writes",
+  "fixture": "https://www.nasa.gov/image-article/hera-crew-members-enjoy-meal-together/",
+  "status": "accepted",
+  "participantsRewarded": 2,
+  "pointsPerParticipant": 10,
+  "duplicateWorkerDidNotPayAgain": true,
+  "calls": [
+    {
+      "model": "gemini-2.5-flash-lite",
+      "requestId": "f2407fd2-e8ba-4e83-996f-1bb01a03daab",
+      "tokens": 2057,
+      "cost": "224 usd_micro",
+      "outcome": "ok"
+    }
+  ]
+}

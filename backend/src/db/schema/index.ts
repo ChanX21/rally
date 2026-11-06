@@ -249,6 +249,8 @@ export const rallies = pgTable(
     formedAt: timestamptz('formed_at'),
     metAt: timestamptz('met_at'),
     completedAt: timestamptz('completed_at'),
+    proofFlow: boolean('proof_flow').notNull().default(false),
+    completionMemberIds: jsonb('completion_member_ids').$type<string[]>().notNull().default([]),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -407,6 +409,34 @@ export const feedback = pgTable(
   ],
 );
 
+// shortcut: bounded normalized photos live privately in Postgres for the pilot; move to object storage when volume grows.
+export const rallyProofs = pgTable('rally_proofs', {
+  id: id(),
+  rallyId: uuid('rally_id').notNull().references(() => rallies.id),
+  uploaderId: uuid('uploader_id').notNull().references(() => users.id),
+  requestKey: text('request_key').notNull(),
+  requestHash: text('request_hash').notNull(),
+  state: text('state').$type<'processing' | 'accepted' | 'needs_clearer_photos' | 'unavailable'>().notNull().default('processing'),
+  images: jsonb('images').$type<{ data: string; hash: string }[]>().notNull().default([]),
+  note: text('note').notNull().default(''),
+  reason: text('reason'),
+  modelRunId: uuid('model_run_id').references(() => modelRuns.id),
+  assessment: jsonb('assessment').$type<Record<string, unknown>>(),
+  attempts: integer('attempts').notNull().default(0),
+  leaseUntil: timestamptz('lease_until'),
+  rewardAmount: integer('reward_amount').notNull(),
+  policyVersion: integer('policy_version').notNull(),
+  createdAt: createdAt(),
+  decidedAt: timestamptz('decided_at'),
+}, (table) => [
+  uniqueIndex('rally_proofs_request_key').on(table.rallyId, table.requestKey),
+  uniqueIndex('rally_proofs_one_live').on(table.rallyId).where(sql`${table.state} in ('processing', 'accepted')`),
+  index('rally_proofs_rally_idx').on(table.rallyId, table.createdAt),
+  check('rally_proofs_state_valid', sql`${table.state} in ('processing', 'accepted', 'needs_clearer_photos', 'unavailable')`),
+  check('rally_proofs_attempts_valid', sql`${table.attempts} between 0 and 2`),
+  check('rally_proofs_reward_valid', sql`${table.rewardAmount} > 0 and ${table.rewardAmount} <= 100`),
+]);
+
 export const rewardLedger = pgTable(
   'reward_ledger',
   {
@@ -424,6 +454,7 @@ export const rewardLedger = pgTable(
     state: rewardEntryState('state').notNull().default('applied'),
     appliesAt: timestamptz('applies_at'),
     groupKey: text('group_key'),
+    proofId: uuid('proof_id').references(() => rallyProofs.id),
     chainStatus: chainStatus('chain_status').notNull().default('pending'),
     chainTxHash: text('chain_tx_hash'),
     createdAt: createdAt(),

@@ -64,6 +64,7 @@ export async function raiseDispute(deps: Deps, userId: string, rallyId: string, 
   return deps.db.transaction(async (tx) => {
     const [rally] = await tx.select().from(rallies).where(eq(rallies.id, rallyId));
     if (!rally) throw notFound('Rally');
+    if (rally.proofFlow) throw new AppError(409, 'REPORTS_DISABLED', 'Reports are not enabled for this Rally');
     if (input.category === 'no_show_appeal') {
       return raiseAppeal(tx, userId, rallyId, input.description);
     }

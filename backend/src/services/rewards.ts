@@ -36,7 +36,7 @@ export async function latestPolicy(db: Db): Promise<Policy> {
     .orderBy(desc(rewardPolicies.version))
     .limit(1);
   return row
-    ? { version: row.version, amounts: row.amounts as PolicyAmounts }
+    ? { version: row.version, amounts: { ...DEFAULT_AMOUNTS, ...row.amounts } }
     : { version: DEFAULT_POLICY_VERSION, amounts: DEFAULT_AMOUNTS };
 }
 
@@ -151,6 +151,7 @@ export async function rewardCheckIn(
   members: Member[],
   present: Set<string>,
 ): Promise<void> {
+  if (rally.proofFlow) return;
   const policy = await latestPolicy(tx);
   const groupKey = groupKeyFor(present);
   for (const member of members) {
@@ -225,6 +226,7 @@ async function holdNoShow(tx: Tx, policy: Policy, rally: Rally, userId: string):
 
 /** Host completes a rally. Needs at least two people present, which check-in already requires. */
 export async function rewardHostCompleted(tx: Tx, rally: Rally, present: Set<string>): Promise<void> {
+  if (rally.proofFlow) return;
   const policy = await latestPolicy(tx);
   const earned = await earnForGroup(tx, policy, {
     userId: rally.creatorId,
@@ -240,6 +242,7 @@ export async function rewardHostCompleted(tx: Tx, rally: Rally, present: Set<str
 
 /** Call before the claim is released. Only people who were counted on get a late-cancel penalty. */
 export async function penaliseLateCancel(tx: Tx, rally: Rally, userId: string): Promise<void> {
+  if (rally.proofFlow) return;
   if (rally.status !== 'ready' && rally.status !== 'formed') return;
   const cutoff = meetTime(rally).getTime() - LATE_CANCEL_WINDOW_MIN * 60_000;
   if (Date.now() < cutoff) return;
@@ -260,7 +263,7 @@ export async function penaliseLateCancel(tx: Tx, rally: Rally, userId: string): 
  * if a member's tap shows someone turned up and the host did not. Nobody else can be judged.
  */
 export async function penaliseAbsentHost(tx: Tx, rally: Rally): Promise<void> {
-  if (rally.status !== 'formed') return;
+  if (rally.proofFlow || rally.status !== 'formed') return;
   const members = await activeMembers(tx, rally.id);
   const host = members.find((member) => member.userId === rally.creatorId);
   const someoneCame = members.some(
@@ -275,7 +278,7 @@ export async function applyDuePenalties(deps: Deps): Promise<number> {
   const due = await deps.db
     .select({ id: rewardLedger.id })
     .from(rewardLedger)
-    .where(and(eq(rewardLedger.state, 'pending'), lte(rewardLedger.appliesAt, new Date())))
+    .where(and(eq(rewardLedger.state, 'pending'), sql`${rewardLedger.delta} < 0`, lte(rewardLedger.appliesAt, new Date())))
     .limit(100);
   if (due.length === 0) return 0;
 

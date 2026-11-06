@@ -12,9 +12,9 @@ contract DeployLedger is Script {
         address admin = vm.envAddress("RALLY_ADMIN");
         address operator = vm.envAddress("RALLY_OPERATOR");
 
-        // OnTime, HostCompleted, Vouched, Late, LateCancel, NoShow, ComplaintUpheld, FalseComplaint.
+        // OnTime, HostCompleted, Vouched, Late, LateCancel, NoShow, ComplaintUpheld, FalseComplaint, RallyCompleted.
         // Must match DEFAULT_AMOUNTS in backend/src/domain/reward-policy.ts.
-        int32[8] memory amounts = [int32(10), 5, 25, -5, -10, -20, -15, -10];
+        int32[9] memory amounts = [int32(10), 5, 25, -5, -10, -20, -15, -10, 10];
 
         vm.startBroadcast();
         ledger = new RallyLedger(admin, operator, amounts);

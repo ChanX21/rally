@@ -179,7 +179,7 @@ describe('policy sync', () => {
     });
     await sync();
     expect(h.arc.policies).toEqual([
-      { version: 2, amounts: [12, 5, 25, -5, -10, -20, -15, -10] },
+      { version: 2, amounts: [12, 5, 25, -5, -10, -20, -15, -10, 10] },
     ]);
   });
 });

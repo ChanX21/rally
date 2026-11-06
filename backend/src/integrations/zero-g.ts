@@ -17,7 +17,7 @@ export interface InferenceReply {
   provider?: string;
   cost?: string;
 }
-export type Infer = (system: string, input: unknown) => Promise<InferenceReply>;
+export type Infer = (system: string, input: unknown, images?: readonly string[]) => Promise<InferenceReply>;
 const responseSchema = z.object({
   id: z.string().max(200).optional(),
   choices: z.array(z.object({ finish_reason: z.string().max(64).optional(), message: z.object({ content: z.string().max(16000).nullable() }) })).min(1),
@@ -32,7 +32,7 @@ const responseSchema = z.object({
 
 /** 0G Router API; no wallet signing or unverified TEE claims. */
 export function createZeroG(env: InferenceEnv, transport: typeof fetch = fetch): Infer {
-  return async (system, input) => {
+  return async (system, input, images) => {
     if (!env.ZERO_G_API_KEY || !env.ZERO_G_MODEL) throw new InferenceError('unavailable');
     const signal = AbortSignal.timeout(env.AI_TIMEOUT_MS);
     try {
@@ -40,7 +40,10 @@ export function createZeroG(env: InferenceEnv, transport: typeof fetch = fetch):
         method: 'POST', signal, redirect: 'error',
         headers: { authorization: `Bearer ${env.ZERO_G_API_KEY}`, 'content-type': 'application/json' },
         body: JSON.stringify({ model: env.ZERO_G_MODEL, temperature: 0, max_tokens: env.AI_MAX_OUTPUT_TOKENS,
-          messages: [{ role: 'system', content: system }, { role: 'user', content: JSON.stringify(input) }] }),
+          messages: [{ role: 'system', content: system }, { role: 'user', content: images?.length ? [
+            { type: 'text', text: JSON.stringify(input) },
+            ...images.map((url) => ({ type: 'image_url', image_url: { url } })),
+          ] : JSON.stringify(input) }] }),
       });
       if (!response.ok) { await response.body?.cancel(); throw new InferenceError('unavailable', { reason: 'http_error', httpStatus: response.status }); }
       if (!response.body) throw new InferenceError('invalid_output');

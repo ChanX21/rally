@@ -5,6 +5,7 @@ import {
   disputes,
   outboxEvents,
   rewardLedger,
+  rallyProofs,
   rewardPolicies,
   users,
 } from '../db/schema/index.js';
@@ -46,7 +47,14 @@ function requireArc(deps: Deps) {
 export async function syncRewardEntry(deps: Deps, entryId: string): Promise<void> {
   const arc = requireArc(deps);
   const [entry] = await deps.db.select().from(rewardLedger).where(eq(rewardLedger.id, entryId));
-  if (!entry || entry.chainStatus === 'synced' || !entry.action) return;
+  if (!entry || entry.state !== 'applied' || entry.chainStatus === 'synced' || !entry.action) return;
+  let proofHash: string | null = null;
+  if (entry.action === 'RallyCompleted') {
+    if (!deps.env.ARC_COMPLETION_REWARDS_ENABLED || !entry.proofId) return;
+    const [proof] = await deps.db.select().from(rallyProofs).where(eq(rallyProofs.id, entry.proofId));
+    if (!proof || proof.state !== 'accepted') return;
+    proofHash = proof.requestHash;
+  }
 
   const subject = await pinAddress(deps.db, entry.subjectUserId);
   if (!subject) throw new Error('User has no wallet address');
@@ -58,7 +66,7 @@ export async function syncRewardEntry(deps: Deps, entryId: string): Promise<void
     policyVersion: entry.policyVersion,
     // Different for each person, so two records from one rally do not show that they met.
     ref: secretHash(deps, 'ref', entry.rallyId ?? entry.id, subject.toLowerCase()),
-    evidenceHash: secretHash(deps, 'evidence', entry.id),
+    evidenceHash: proofHash ? secretHash(deps, 'proof', proofHash, entry.subjectUserId) : secretHash(deps, 'evidence', entry.id),
     key: plainKey(`entry:${entry.idempotencyKey}`),
   });
   await deps.db
@@ -137,6 +145,7 @@ export async function queueChainWork(deps: Deps): Promise<number> {
     .where(
       and(
         eq(rewardLedger.state, 'applied'),
+        deps.env.ARC_COMPLETION_REWARDS_ENABLED ? undefined : ne(rewardLedger.action, 'RallyCompleted'),
         eq(rewardLedger.chainStatus, 'pending'),
         isNotNull(rewardLedger.action),
         or(isNotNull(users.rewardAddress), isNotNull(users.walletAddress)),

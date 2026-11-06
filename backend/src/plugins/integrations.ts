@@ -25,6 +25,7 @@ export function createIntegrations(env: Env): Integrations {
           })
         : null,
     infer: createZeroG(env),
+    visionInfer: createZeroG({ ...env, ZERO_G_MODEL: env.ZERO_G_VISION_MODEL, AI_MAX_OUTPUT_TOKENS: 1000 }),
     arkiv: createArkivGateway({
       privateKey: env.ARKIV_PRIVATE_KEY,
       accessKey: env.ARKIV_ACCESS_KEY,
@@ -52,13 +53,13 @@ export function createIntegrations(env: Env): Integrations {
 
 export const integrationsPlugin = fp<{ env: Env; integrations: Integrations }>(
   (app, { env, integrations }, done) => {
-    const { infer, ...services } = integrations;
+    const { infer, visionInfer, ...services } = integrations;
     app.decorate('deps', {
       ...services,
       db: app.db,
       env,
       log: app.log,
-      formation: createFormationRunner(infer, app.db, app.log),
+      formation: createFormationRunner(infer, app.db, app.log, visionInfer),
     });
     done();
   },

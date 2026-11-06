@@ -40,6 +40,7 @@ export function createFormationRunner(
   infer: Infer,
   db: Database,
   log: FastifyBaseLogger,
+  visionInfer: Infer = infer,
 ): FormationRunner {
   return async (call) => {
     const runId = randomUUID();
@@ -47,7 +48,7 @@ export function createFormationRunner(
     const engine = createFormationEngine(infer, (value) => {
       trace = value;
       log.info(value, 'formation inference');
-    });
+    }, visionInfer);
 
     const result = await call(engine, runId);
     const recorded = trace;

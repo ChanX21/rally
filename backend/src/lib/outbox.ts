@@ -6,6 +6,7 @@ export type OutboxEventType =
   | 'user.onboarded'
   | 'match.reevaluate'
   | 'arkiv.sync'
+  | 'proof.assess'
   | 'vouch.verified'
   | 'reward.chain_sync'
   | 'reward.policy_sync'

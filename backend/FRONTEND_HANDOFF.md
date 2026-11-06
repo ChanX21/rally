@@ -506,3 +506,25 @@ Onboarding now returns interest-specific questions. A question can include `opti
 Intent responses include `preferences`. Keep these in the editable plan, show controls for their known values, and send them when creating a Rally or activating a waiting intent. An explicit user answer overrides model/profile defaults. Changing category should clear unrelated preferences. Unknown or `any` preferences remain eligible, but known conflicting choices are excluded. Acceptance may return `409 MATCH_NO_LONGER_ELIGIBLE` if availability/preferences changed after the invitation.
 
 Backend migration 0005 must run before deployment. See `ARCHITECTURE.md`. The local preview uses frontend `http://localhost:3000` and backend `http://localhost:3123`; production data was not migrated by starting this preview.
+
+
+## Group photo rewards
+
+Rally/room responses now include `proofFlow` and `completedAt`. For proof-flow Rallies, hide host
+check-in, arrival rewards and complaint controls. Completed rooms remain accessible and allow
+optional vouches without host attendance marking. Show completion as automatic, not verified presence.
+
+`GET /rallies/:id/proof` returns `{id,state,reason,canSubmit,rewardAmount,rewardedCount,
+submissionsLeft,closesAt}` to a frozen completed-group member. States are `not_submitted`,
+`processing`, `accepted`, `needs_clearer_photos`, `unavailable`. No photo data is returned.
+`POST /rallies/:id/proof` takes `{images:["data:image/jpeg;base64,..."],note?:"..."}` and a required
+`Idempotency-Key` (8–128 characters). Accept 1–3 JPEG/PNG photos, 5 MB each, at most 20 megapixels.
+The request limit is 22 MB; normalized photos stay private. Reuse a key after a network error;
+change it only for a changed selection/note. Submission returns immediately and assessment happens
+in the worker. Poll at 10-second intervals; never present temporary AI failure as reward approval.
+
+A single accepted submission rewards all confirmed members once (including host), default 10 each.
+A vouch is optional feedback only. Route `rally.completed` and `proof.needs_clearer_photos`
+notifications to the room. `RallyCompleted` is the new reward-history label. New points may be
+pending chain synchronization until the revised contract is deployed/configured; no wallet action
+or stablecoin claim is part of this flow.

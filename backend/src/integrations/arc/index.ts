@@ -15,6 +15,8 @@ export const LEDGER_ABI = parseAbi([
   'function record(address subject, uint8 action, int32 delta, uint32 policyVersion, bytes32 ref, bytes32 evidenceHash, bytes32 key)',
   'function recordRuling(bytes32 disputeRef, address subject, address raiser, uint8 category, uint8 outcome, bytes32 evidenceHash, bytes32 key)',
   'function publishPolicy(uint32 version, int32[8] amounts)',
+  'function publishPolicy(uint32 version, int32[9] amounts)',
+  'function ACTION_COUNT() view returns (uint256)',
   'function latestPolicy() view returns (uint32)',
   'function netOf(address subject) view returns (int256)',
   'function debt(address subject) view returns (uint256)',
@@ -85,6 +87,8 @@ export function createArcGateway(options: ArcOptions): ArcGateway {
 
   return {
     async record(input) {
+      const count = await reader.readContract({ address, abi: LEDGER_ABI, functionName: 'ACTION_COUNT' });
+      if (BigInt(input.action) >= count) throw new Error('Configured ledger does not support this reward action; deploy and configure the updated ledger first');
       return confirm(
         await writer.writeContract({
           address,
@@ -129,14 +133,13 @@ export function createArcGateway(options: ArcOptions): ArcGateway {
         functionName: 'latestPolicy',
       });
       if (latest >= version) return null;
-      return confirm(
-        await writer.writeContract({
-          address,
-          abi: LEDGER_ABI,
-          functionName: 'publishPolicy',
-          args: [version, amounts as unknown as readonly [number, number, number, number, number, number, number, number]],
-        }),
-      );
+      const count = await reader.readContract({ address, abi: LEDGER_ABI, functionName: 'ACTION_COUNT' });
+      if (count !== 8n && count !== 9n) throw new Error('Unsupported ledger action count');
+      const args = count === 9n
+        ? [version, amounts as unknown as readonly [number, number, number, number, number, number, number, number, number]] as const
+        : [version, amounts.slice(0, 8) as unknown as readonly [number, number, number, number, number, number, number, number]] as const;
+      if (amounts.length < Number(count)) throw new Error('Incomplete policy amounts');
+      return confirm(await writer.writeContract({ address, abi: LEDGER_ABI, functionName: 'publishPolicy', args }));
     },
   };
 }

@@ -12,11 +12,12 @@ import type { FormationRunner } from '../services/formation-runs.js';
 export interface Integrations {
   auth: AuthVerifier | null;
   infer: Infer;
+  visionInfer: Infer;
   arkiv: ArkivGateway | null;
   arc: ArcGateway | null;
 }
 
-export interface Deps extends Omit<Integrations, 'infer'> {
+export interface Deps extends Omit<Integrations, 'infer' | 'visionInfer'> {
   /** The Formation Engine, with each inference recorded in model_runs. */
   formation: FormationRunner;
   db: Database;

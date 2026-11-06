@@ -37,6 +37,8 @@ await runMigrations(databaseUrl);
 const env = parseEnv({
   ...process.env,
   NODE_ENV: 'test',
+  // This script exercises the legacy check-in/vouch journey; proof-live.test.ts covers the new flow.
+  PROOFS_ENABLED: 'false',
   LOG_LEVEL: 'warn',
   DATABASE_URL: databaseUrl,
   // A separate tag keeps these listings out of real discovery results.

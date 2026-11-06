@@ -208,6 +208,8 @@ export const rallyStatusSchema = z.enum([
 ]);
 
 export const rallySchema = z.object({
+  proofFlow: z.boolean(),
+  completedAt: isoString.nullable(),
   preferences: preferenceSchema,
   id: z.uuid(),
   opaqueId: z.string(),
@@ -245,6 +247,8 @@ export const participantSchema = z.object({
 export const arrivalSchema = z.object({ arrivedAt: isoString, meetAt: isoString });
 
 export const roomSchema = z.object({
+  proofFlow: z.boolean(),
+  completedAt: isoString.nullable(),
   rallyId: z.uuid(),
   status: rallyStatusSchema,
   goal: z.string(),
@@ -464,6 +468,7 @@ const policyAmounts = z.object({
   NoShow: z.number().int(),
   ComplaintUpheld: z.number().int(),
   FalseComplaint: z.number().int(),
+  RallyCompleted: z.number().int().min(1).max(100).default(10),
 });
 
 export const policyBody = z.object({ amounts: policyAmounts });

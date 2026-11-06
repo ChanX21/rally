@@ -18,7 +18,7 @@ const TRANSITIONS: Record<RallyStatus, readonly RallyStatus[]> = {
   waiting: ['open', 'proposed', 'ready', 'cancelled', 'expired'],
   proposed: ['ready', 'open', 'waiting', 'cancelled', 'expired'],
   ready: ['formed', 'open', 'proposed', 'cancelled', 'expired'],
-  formed: ['met', 'open', 'proposed', 'cancelled', 'expired'],
+  formed: ['completed', 'met', 'open', 'proposed', 'cancelled', 'expired'],
   met: ['completed'],
   completed: [],
   cancelled: [],

@@ -8,6 +8,24 @@ Core Rally needs no smart contract. Everything here is optional, and the backend
 | `RallyLedger` | Public history of point changes and dispute rulings | Arc Testnet: `0xf36Fab5B39f0741Ee549B83Aefa64af7BbE9F642` |
 | `RewardClaim` | Stablecoin payouts for earned points | Not deployed, not planned |
 
+## Completion reward contract revision
+
+The source now appends `RallyCompleted` at action index 8 and uses nine policy amounts. The Arc
+addresses above refer to the older **eight-action deployment**, not this revised source. Do not
+send completion records there. Existing action indexes 0–7 are unchanged.
+
+The backend awards approved group completion points in Postgres and leaves their chain status
+pending by default (`ARC_COMPLETION_REWARDS_ENABLED=false`). Its gateway supports legacy eight-action
+policies and new nine-action policies; it checks the contract action count before sending a record.
+
+A new public deployment needs explicit authorization. Before switching the backend to it, drain the
+old ledger queue, preserve old token/ledger addresses and transaction history, and publish every
+policy version referenced by future entries to the new contract. Existing database balances and
+old on-chain records remain intact. Old points are not automatically re-minted to the new token;
+new-token balances and the app's historical total therefore differ unless a separately agreed
+migration is performed. Never reset old `chainStatus` fields to backfill silently. Only after
+validating the new addresses, roles and policies should completion-chain writes be enabled.
+
 ## RallyLedger and RallyToken
 
 `RallyLedger` deploys `RallyToken` in its constructor and is the only account that can mint or burn it.

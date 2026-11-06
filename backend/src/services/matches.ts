@@ -1,6 +1,7 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { claims, intents, matchProposals, offers, rallies, userBlocks } from '../db/schema/index.js';
+import { meetTime } from '../domain/reward-policy.js';
 import { ACCEPTING } from '../domain/rally-state.js';
 import type { Tx } from '../lib/db-types.js';
 import type { Deps } from '../lib/deps.js';
@@ -112,7 +113,7 @@ async function assertNoBlockWithMembers(tx: Tx, userId: string, rallyId: string)
 }
 
 async function accept(tx: Tx, userId: string, offer: Offer, rally: Rally) {
-  if (!ACCEPTING.includes(rally.status) || rally.expiresAt <= new Date()) {
+  if ((rally.proofFlow && meetTime(rally) <= new Date()) || !ACCEPTING.includes(rally.status) || rally.expiresAt <= new Date()) {
     throw new AppError(409, 'RALLY_CLOSED', 'This rally is no longer accepting people');
   }
   // PostgreSQL is authoritative here. Arkiv's public seat count is never consulted.

@@ -50,6 +50,8 @@ import { penaliseLateCancel, rewardCheckIn } from './rewards.js';
 export function rallyView(rally: Rally) {
   return {
     id: rally.id,
+    proofFlow: rally.proofFlow,
+    completedAt: rally.completedAt?.toISOString() ?? null,
     preferences: rally.preferences,
     opaqueId: rally.opaqueId,
     creatorId: rally.creatorId,
@@ -141,6 +143,7 @@ export async function createRally(
 ) {
   const now = new Date();
   assertSchedule(input, now);
+  if (deps.env.PROOFS_ENABLED && input.windowStart <= now) throw new AppError(422, 'INVALID_START', 'Choose a future start time');
   assertZone(deps, input.zone);
   if (input.groupMin > input.capacity) {
     throw new AppError(422, 'INVALID_GROUP', 'The group minimum exceeds capacity');
@@ -188,6 +191,7 @@ export async function createRally(
         .values({
           opaqueId: `rly_${randomBytes(12).toString('base64url')}`,
           creatorId: userId,
+          proofFlow: deps.env.PROOFS_ENABLED,
           intentId: input.intentId,
           preferences: relevantPreferences(input.category, confirmedPreferences ?? {}),
           visibility,
@@ -465,6 +469,7 @@ export async function cancelRally(deps: Deps, userId: string, rallyId: string) {
     if (!CANCELLABLE.includes(rally.status)) {
       throw new AppError(409, 'INVALID_STATE', `A ${rally.status} rally cannot be cancelled`);
     }
+    if (rally.proofFlow && meetTime(rally) <= new Date()) throw new AppError(409, 'RALLY_STARTED', 'This Rally has started');
     await penaliseLateCancel(tx, rally, userId);
     return rallyView(await closeRally(tx, rally, 'cancelled'));
   });
@@ -486,6 +491,7 @@ export async function withdrawFromRally(deps: Deps, userId: string, rallyId: str
     // A retry after a successful withdrawal finds no claim and is simply a no-op.
     if (!claim) return rallyView(rally);
 
+    if (rally.proofFlow && meetTime(rally) <= new Date()) throw new AppError(409, 'RALLY_STARTED', 'This Rally has started');
     await penaliseLateCancel(tx, rally, userId);
     await tx
       .update(claims)
@@ -544,6 +550,8 @@ export async function getRoom(deps: Deps, userId: string, rallyId: string) {
   const members = await listParticipants(deps, userId, rallyId);
   return {
     rallyId: rally.id,
+    proofFlow: rally.proofFlow,
+    completedAt: rally.completedAt?.toISOString() ?? null,
     status: rally.status,
     goal: rally.goal,
     windowStart: rally.windowStart.toISOString(),
@@ -592,6 +600,7 @@ export async function checkIn(
   return deps.db.transaction(async (tx) => {
     const rally = await requireCreator(tx, rallyId, userId);
     if (rally.status === 'met') return rallyView(rally);
+    if (rally.proofFlow) throw new AppError(409, 'AUTO_COMPLETION', 'This Rally completes automatically; no check-in is needed');
     if (rally.status !== 'formed') {
       throw new AppError(409, 'INVALID_STATE', 'Check-in opens once the group has formed');
     }

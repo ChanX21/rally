@@ -38,6 +38,7 @@ const corsOrigins = z
 export const inferenceEnvSchema = z.object({
   ZERO_G_API_KEY: z.string().min(1).optional(),
   ZERO_G_MODEL: z.string().min(1).optional(),
+  ZERO_G_VISION_MODEL: z.string().min(1).default('gemini-2.5-flash-lite'),
   AI_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(128).max(8192).default(4096),
   AI_TIMEOUT_MS: z.coerce.number().int().min(100).max(120000).default(60000),
 });
@@ -62,6 +63,8 @@ const envSchema = z
     RATE_LIMIT_WINDOW_MS: z.coerce.number().int().min(1000).default(60_000),
     SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(1000).default(15_000),
 
+    PROOFS_ENABLED: booleanString.default(true),
+    ARC_COMPLETION_REWARDS_ENABLED: booleanString.default(false),
     WORKERS_ENABLED: booleanString.default(true),
     OUTBOX_POLL_MS: z.coerce.number().int().min(100).default(1000),
     SCHEDULER_INTERVAL_MS: z.coerce.number().int().min(1000).default(30_000),

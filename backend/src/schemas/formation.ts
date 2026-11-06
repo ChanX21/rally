@@ -61,3 +61,13 @@ export const compositionResult = z.discriminatedUnion('status', [
 ]);
 export type CompositionInput = z.infer<typeof compositionInput>;
 export type CompositionResult = z.infer<typeof compositionResult>;
+
+export const proofInput = z.strictObject({
+  requestId: id, category: id, goal: z.string().min(1).max(160), note: z.string().max(300),
+  images: z.array(z.string().startsWith('data:image/jpeg;base64,').max(1_400_000)).min(1).max(3),
+});
+export const proofAssessment = z.strictObject({
+  schemaVersion: z.literal(1), activityMatch: z.enum(['matched', 'mismatched', 'uncertain']),
+  assessable: z.boolean(), groupEvidence: z.boolean(), visiblePeople: z.number().int().min(0).max(100),
+  duplicateImages: z.boolean(), reason: z.string().min(1).max(500),
+});

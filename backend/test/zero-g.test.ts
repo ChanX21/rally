@@ -7,7 +7,7 @@ const env = () => parseEnv({ DATABASE_URL: 'postgres://localhost/rally', ZERO_G_
 const reply = (content: string) => Response.json({ id: 'provider-1', choices: [{ message: { content } }], usage: { total_tokens: 8 } });
 describe('0G Router adapter', () => {
   it('can configure inference without a database', () => {
-    expect(inferenceEnvSchema.parse({ ZERO_G_API_KEY: 'key', ZERO_G_MODEL: 'model' })).toEqual({ ZERO_G_API_KEY: 'key', ZERO_G_MODEL: 'model', AI_TIMEOUT_MS: 60000, AI_MAX_OUTPUT_TOKENS: 4096 });
+    expect(inferenceEnvSchema.parse({ ZERO_G_API_KEY: 'key', ZERO_G_MODEL: 'model' })).toEqual({ ZERO_G_API_KEY: 'key', ZERO_G_MODEL: 'model', AI_TIMEOUT_MS: 60000, AI_MAX_OUTPUT_TOKENS: 4096, ZERO_G_VISION_MODEL: 'gemini-2.5-flash-lite' });
   });
   it('bounds the configurable inference deadline', () => {
     expect(inferenceEnvSchema.parse({ AI_TIMEOUT_MS: '90000' }).AI_TIMEOUT_MS).toBe(90000);
@@ -29,6 +29,15 @@ describe('0G Router adapter', () => {
     expect(result).toMatchObject({ model: 'test-model', providerRequestId: 'provider-1', tokens: 8 });
     expect(transport.mock.calls[0]?.[0]).toBe('https://router-api.0g.ai/v1/chat/completions');
     expect(transport.mock.calls[0]?.[1]).toMatchObject({ redirect: 'error', headers: { authorization: 'Bearer test-key' } });
+  });
+  it('sends image parts through the shared adapter rather than JSON-stringifying image bytes into text', async () => {
+    const transport = vi.fn<typeof fetch>(async () => reply('{"ok":true}'));
+    await createZeroG(env(), transport)('Assess the image', { category: 'food' }, ['data:image/jpeg;base64,aGVsbG8=']);
+    const body = JSON.parse(transport.mock.calls[0]?.[1]?.body as string) as { messages: { content: unknown }[] };
+    expect(body.messages[1]?.content).toEqual([
+      { type: 'text', text: '{"category":"food"}' },
+      { type: 'image_url', image_url: { url: 'data:image/jpeg;base64,aGVsbG8=' } },
+    ]);
   });
   it('prefers the Router trace ID, and keeps provider and cost', async () => {
     const transport = vi.fn<typeof fetch>(async () => Response.json({

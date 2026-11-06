@@ -4,6 +4,7 @@ import type { Deps } from '../lib/deps.js';
 import type { OutboxEventType } from '../lib/outbox.js';
 import { syncRallyListing } from '../services/arkiv-sync.js';
 import { syncDispute, syncPolicy, syncRewardEntry } from '../services/chain-sync.js';
+import { assessProof } from '../services/proofs.js';
 import { applyVerifiedVouch } from '../services/feedback.js';
 import { evaluateForUser, evaluateRally } from '../services/matching.js';
 
@@ -42,6 +43,7 @@ export const handlers: Record<OutboxEventType, OutboxHandler> = {
   },
   'arkiv.sync': (deps, payload) =>
     syncRallyListing(deps, parsePayload(rallyPayload, payload).rallyId),
+  'proof.assess': (deps, payload) => assessProof(deps, parsePayload(z.object({ proofId: z.uuid() }), payload).proofId),
   'vouch.verified': (deps, payload) =>
     applyVerifiedVouch(deps, parsePayload(vouchPayload, payload).feedbackId),
   'reward.chain_sync': (deps, payload) =>

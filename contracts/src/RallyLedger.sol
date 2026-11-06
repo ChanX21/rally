@@ -21,7 +21,8 @@ contract RallyLedger is AccessControl, Pausable {
         LateCancel,
         NoShow,
         ComplaintUpheld,
-        FalseComplaint
+        FalseComplaint,
+        RallyCompleted
     }
 
     enum Category {
@@ -37,7 +38,7 @@ contract RallyLedger is AccessControl, Pausable {
         False
     }
 
-    uint256 public constant ACTION_COUNT = 8;
+    uint256 public constant ACTION_COUNT = 9;
     /// @notice No single action can move a balance further than this, whatever the admin publishes.
     int32 public constant MAX_AMOUNT = 100;
 
@@ -170,8 +171,8 @@ contract RallyLedger is AccessControl, Pausable {
         if (version != latestPolicy + 1) revert WrongPolicyVersion(latestPolicy + 1, version);
         for (uint256 i = 0; i < ACTION_COUNT; i++) {
             int32 amount = amounts[i];
-            // The first three actions earn, and the rest are penalties.
-            bool valid = i <= uint256(Action.Vouched)
+            // The original three earning actions and the appended completion action earn.
+            bool valid = (i <= uint256(Action.Vouched) || i == uint256(Action.RallyCompleted))
                 ? amount >= 0 && amount <= MAX_AMOUNT
                 : amount <= 0 && amount >= -MAX_AMOUNT;
             if (!valid) revert AmountOutOfRange(Action(i), amount);

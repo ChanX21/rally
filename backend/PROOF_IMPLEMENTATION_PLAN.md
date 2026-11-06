@@ -1,6 +1,10 @@
 # Rally completion and photo rewards — revised plan
 
-Status: plan only. Updated to the user's latest rules; no implementation or deployment authorized here.
+Status: implemented locally after the user's instruction. Public contract deployment remains
+unauthorized and has not occurred. See ARCHITECTURE.md for final behavior and deployment settings.
+Implementation uses bounded private Postgres image storage instead of a new bucket, defaults to
+10 points for every frozen participant without legacy per-person caps, and keeps new chain writes
+disabled until an updated nine-action contract is configured. The following records the original plan.
 
 ## The agreed behavior
 
@@ -147,6 +151,10 @@ positive reward paths must be checked for bypasses. Existing backend and contrac
 
 ## Work performed so far
 
-Only this plan has been revised. The previously merged baseline passed type-check, lint, build,
-363 backend tests and 46 local contract tests. Those checks do not mean this proposed flow exists.
-No new photo calls, migration, reward change, chain write or deployment was performed for this revision.
+The user subsequently authorized implementation. The backend now passes 379 tests, the contract
+suite passes 48 local tests, and frontend type-check/lint/build pass. One opt-in full-flow test
+with real 0G accepted a public photo and awarded 10 points to both synthetic group members; see
+`evidence/proof-full-flow-live-2026-11-06.json`. A local Anvil test verified real contract/gateway
+completion writes, nine-action policy publication and duplicate protection; see
+`evidence/arc-proof-local-2026-11-06.json`. No public contract was deployed and no production database
+was migrated by these checks. The local preview can use the new migration independently.

@@ -86,12 +86,13 @@ export async function submitFeedback(
     if (rally.status !== 'met' && rally.status !== 'completed') {
       throw new AppError(409, 'INVALID_STATE', 'Feedback opens after the host has checked in');
     }
-    if (!me.checkedInAt) {
+    if (!rally.proofFlow && !me.checkedInAt) {
       throw new AppError(403, 'NOT_PRESENT', 'Only people marked present can leave feedback');
     }
 
+    const proofRoster = rally.proofFlow ? rally.completionMemberIds : null;
     const present = new Set(
-      members.filter((member) => member.checkedInAt !== null).map((member) => member.userId),
+      members.filter((member) => proofRoster ? proofRoster.includes(member.userId) : member.checkedInAt !== null).map((member) => member.userId),
     );
     const recipients = [
       ...input.vouches.map((vouch) => vouch.recipientId),
@@ -117,7 +118,7 @@ export async function submitFeedback(
       })
       .onConflictDoNothing();
 
-    if (rally.status === 'met' && input.happened) {
+    if (!rally.proofFlow && rally.status === 'met' && input.happened) {
       rally = await transition(tx, rally, 'completed', { completedAt: new Date() });
       await rewardHostCompleted(tx, rally, present);
     }
@@ -208,6 +209,7 @@ export async function applyVerifiedVouch(deps: Deps, feedbackId: string): Promis
       });
     }
 
+    if (rally.proofFlow) return;
     const key = `vouch:${vouch.id}`;
     const [fromGiver] = await tx
       .select({ total: sql<number>`coalesce(sum(${rewardLedger.delta}), 0)::int` })

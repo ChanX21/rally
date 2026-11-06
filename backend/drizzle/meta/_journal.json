@@ -50,6 +50,13 @@
       "when": 1793929331486,
       "tag": "0006_rally_rewards",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793933300815,
+      "tag": "0007_dark_nick_fury",
+      "breakpoints": true
     }
   ]
 }

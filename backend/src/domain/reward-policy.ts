@@ -8,11 +8,12 @@ export const REWARD_ACTIONS = [
   'NoShow',
   'ComplaintUpheld',
   'FalseComplaint',
+  'RallyCompleted',
 ] as const;
 export type RewardAction = (typeof REWARD_ACTIONS)[number];
 export type PolicyAmounts = Record<RewardAction, number>;
 
-export const EARNING_ACTIONS: readonly RewardAction[] = ['OnTime', 'HostCompleted', 'Vouched'];
+export const EARNING_ACTIONS: readonly RewardAction[] = ['OnTime', 'HostCompleted', 'Vouched', 'RallyCompleted'];
 
 export const DEFAULT_POLICY_VERSION = 1;
 /** Must match the amounts in contracts/script/DeployLedger.s.sol, which publish version 1. */
@@ -25,6 +26,7 @@ export const DEFAULT_AMOUNTS: PolicyAmounts = {
   NoShow: -20,
   ComplaintUpheld: -15,
   FalseComplaint: -10,
+  RallyCompleted: 10,
 };
 
 /** Must match MAX_AMOUNT in the contract, so anything saved here can also be published there. */
@@ -45,6 +47,7 @@ export function policyError(amounts: PolicyAmounts): string | null {
   for (const action of REWARD_ACTIONS) {
     const amount = amounts[action];
     const earning = EARNING_ACTIONS.includes(action);
+    if (action === 'RallyCompleted' && amount < 1) return 'RallyCompleted must be a whole number from 1 to 100';
     const valid = earning
       ? amount >= 0 && amount <= MAX_POLICY_AMOUNT
       : amount <= 0 && amount >= -MAX_POLICY_AMOUNT;

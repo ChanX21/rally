@@ -626,3 +626,52 @@ This is bounded template personalization, not arbitrary AI-written interviews. T
 ## Image evidence feasibility (diagnostic only)
 
 `npm run ai:vision:probe` tests public sample photos against 0G, using the existing adapter with a diagnostic transport that injects image content parts. The production adapter and Formation Engine still send text only; photo uploads, image assessment, auto-completion and proof-gated rewards are not implemented. The live catalog lists the current `qwen3.7-flash` as text-only, and an image request returned HTTP 400. `gemini-2.5-flash-lite` passed seven public-photo checks; the suite reported 1,532 USD micro ($0.001532). Qwen2.5-VL had frequent malformed JSON responses in this probe. See `evidence/VISION_PROBE_2026-11-06.md` for the requests, failures, costs and limits. These tests establish transport and basic image assessment only: they do not verify attendance, photo freshness, account identities, resistance to fraud or private/attested execution.
+
+
+## Automatic completion and optional group-photo rewards
+
+For newly created Rallies, `PROOFS_ENABLED=true` (default) stores `proof_flow=true`. Existing rows
+migrate to false, preserving historical feedback, points and old dispute behavior. A formed new
+Rally completes at `meetTime + durationMin + 15 minutes`, independently of host check-in or feedback.
+The scheduler checks completion before expiry and never expires a formed proof-flow Rally instead.
+The completed member roster is frozen under the Rally lock. New joins, cancellations and withdrawals
+stop at the meeting cutoff. Completion does not set arrival or physical-presence timestamps.
+
+A completed group member can submit 1–3 JPEG/PNG photos and an optional note within 48 hours. The
+endpoint requires a stable idempotency key, validates actual bytes, rejects animation/oversized
+images, limits decoding to 20 megapixels, strips metadata and resizes to 1024 pixels. At most three
+submissions per Rally, two inference attempts per submission. Duplicate request keys never bill twice.
+Images are private, RLS-protected JSON data in `rally_proofs`, bounded to at most 1 MB normalized per
+photo; this pilot storage avoids new bucket credentials. Photos and notes are deleted after 30 days,
+while private hashes and decision metadata remain. Move image bytes to private object storage when
+volume justifies it. Neither photos nor raw image hashes enter Arkiv or public chain data.
+
+`proof.assess` runs asynchronously through the existing FormationRunner, typed 0G image transport,
+`ZERO_G_VISION_MODEL` (default Gemini 2.5 Flash-Lite) and `model_runs`. It sends redacted activity/note
+context and image parts, not names, wallets, member IDs or signed asset URLs. AI returns bounded
+observations; deterministic rules require assessable, matching, visibly grouped, non-duplicate
+evidence. Unclear evidence requests clearer photos; outages retry once and become `unavailable`,
+never approval. Per-proof leases bound duplicate calls and expired leases are recovered by the
+scheduler. Per-image advisory locks serialize accepted-image reuse checks across different groups.
+
+One accepted submission atomically awards every frozen member `RallyCompleted` (default 10) using
+one unique Rally/user key. The amount and immutable policy version are pinned at submission.
+Completion rewards deliberately do not apply legacy per-person daily/counterparty caps: the group
+receives the same amount in full. Existing legacy reward actions retain their caps. No individual
+photo, vouch or second participant confirmation is required. No rewards are awarded on automatic
+completion alone. Vouches add profile evidence but not points in this flow. New-flow check-in and
+complaint paths are disabled, and silence cannot create an absence penalty. The penalty scheduler
+applies only negative pending entries. Existing history and previously earned points are preserved.
+
+The source contract appends action 8 to its old eight actions. It is **not deployed** by this change.
+`ARC_COMPLETION_REWARDS_ENABLED=false` keeps new completion entries safely pending on-chain while
+points work in the app. Legacy chain entries continue syncing. After an authorized new deployment,
+configure its ledger/token addresses and corresponding policies before enabling the flag. The
+worker rechecks applied state and accepted proof; evidence commitments are salted per recipient.
+Contract history is immutable; no cash payout or generic reversal is introduced. See contracts/README.md.
+
+`test/proof-live.test.ts` is skipped by default. `RUN_LIVE_PROOF=true npm test -- --run
+test/proof-live.test.ts` uses a public NASA photo, synthetic group and throwaway database with real
+0G. It proved acceptance and 10 points for both members with one inference and no duplicate payout;
+evidence is in `evidence/proof-full-flow-live-2026-11-06.json`. This does not establish photo freshness,
+identities or fraud resistance; downloaded/staged/modified photos remain a known limitation.

@@ -17,8 +17,8 @@ contract RallyLedgerTest is Test {
     address internal bob = makeAddr("bob");
     uint256 internal nextKey = 1;
 
-    function amounts() internal pure returns (int32[8] memory) {
-        return [int32(10), 5, 25, -5, -10, -20, -15, -10];
+    function amounts() internal pure returns (int32[9] memory) {
+        return [int32(10), 5, 25, -5, -10, -20, -15, -10, 10];
     }
 
     function setUp() public {
@@ -119,7 +119,7 @@ contract RallyLedgerTest is Test {
     }
 
     function test_NewPolicyKeepsOldVersionsValid() public {
-        int32[8] memory next = amounts();
+        int32[9] memory next = amounts();
         next[0] = 15;
         vm.startPrank(operator);
         ledger.publishPolicy(2, next);
@@ -143,13 +143,13 @@ contract RallyLedgerTest is Test {
     }
 
     function test_RevertWhen_PolicyOutOfRange() public {
-        int32[8] memory tooHigh = amounts();
+        int32[9] memory tooHigh = amounts();
         tooHigh[0] = 101;
-        int32[8] memory earningNegative = amounts();
+        int32[9] memory earningNegative = amounts();
         earningNegative[1] = -1;
-        int32[8] memory penaltyPositive = amounts();
+        int32[9] memory penaltyPositive = amounts();
         penaltyPositive[5] = 1;
-        int32[8] memory penaltyTooBig = amounts();
+        int32[9] memory penaltyTooBig = amounts();
         penaltyTooBig[7] = -101;
 
         vm.startPrank(operator);
@@ -265,11 +265,26 @@ contract RallyLedgerTest is Test {
     }
 
     /// Whatever the order, net always equals the sum of changes, and balance and debt never overlap.
+    function test_CompletionRewardKeepsExistingActionNumbers() public {
+        assertEq(uint256(RallyLedger.Action.FalseComplaint), 7);
+        assertEq(uint256(RallyLedger.Action.RallyCompleted), 8);
+        apply_(alice, RallyLedger.Action.RallyCompleted, 10);
+        assertEq(ledger.netOf(alice), 10);
+    }
+
+    function test_CompletionPolicyCannotBeNegative() public {
+        int32[9] memory next = amounts();
+        next[8] = -1;
+        vm.prank(operator);
+        vm.expectRevert(abi.encodeWithSelector(RallyLedger.AmountOutOfRange.selector, RallyLedger.Action.RallyCompleted, int32(-1)));
+        ledger.publishPolicy(2, next);
+    }
+
     function testFuzz_NetEqualsSumOfDeltas(uint8[32] calldata picks) public {
-        int32[8] memory table = amounts();
+        int32[9] memory table = amounts();
         int256 expected;
         for (uint256 i = 0; i < picks.length; i++) {
-            uint256 index = picks[i] % 8;
+            uint256 index = picks[i] % 9;
             apply_(alice, RallyLedger.Action(index), table[index]);
             expected += table[index];
             assertEq(ledger.netOf(alice), expected);
