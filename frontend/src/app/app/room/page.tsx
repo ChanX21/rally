@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { RallyProof } from "@/components/RallyProof";
+import { Dropdown } from "@/components/Dropdown";
 import { type DisputeCategory, errorCode, errorMessage } from "@/lib/api";
 import { capitalize, displayTime, initials, zoneLabel } from "@/lib/format";
 import { useSession } from "@/lib/session";
@@ -325,19 +326,23 @@ export default function RoomScreen() {
           )}
           {room && !room.proofFlow && reporting && (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
-              <select aria-label="Who is this about?" value={reportWho} onChange={(e) => setReportWho(e.target.value)} style={fieldStyle}>
-                <option value="">Who is this about?</option>
-                {others.map((m) => (
-                  <option key={m.userId} value={m.userId}>
-                    {m.displayName ?? "Rally member"}
-                  </option>
-                ))}
-              </select>
-              <select aria-label="What kind of problem?" value={reportKind} onChange={(e) => setReportKind(e.target.value as DisputeCategory)} style={fieldStyle}>
-                <option value="misconduct">Their behaviour</option>
-                <option value="false_checkin">Check-in was wrong</option>
-                <option value="other">Something else</option>
-              </select>
+              <Dropdown
+                ariaLabel="Who is this about?"
+                placeholder="Who is this about?"
+                value={reportWho}
+                options={others.map((m) => ({ value: m.userId, label: m.displayName ?? "Rally member" }))}
+                onChange={setReportWho}
+              />
+              <Dropdown
+                ariaLabel="What kind of problem?"
+                value={reportKind}
+                options={[
+                  { value: "misconduct", label: "Their behaviour" },
+                  { value: "false_checkin", label: "Check-in was wrong" },
+                  { value: "other", label: "Something else" },
+                ]}
+                onChange={(v) => setReportKind(v as DisputeCategory)}
+              />
               <textarea
                 aria-label="What happened?"
                 placeholder="What happened? Only Rally's team reads this."

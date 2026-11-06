@@ -58,6 +58,9 @@ export default function HomeScreen() {
         .mono { font-family: ${MONO}; font-size: 11px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: #766B65; }
         .hero { margin: 0; font-family: ${SERIF}; font-weight: 400; font-size: 36px; line-height: 1.05; letter-spacing: -.015em; }
         .em { font-style: italic; color: #315FE8; }
+        .btn-create { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 56px; border-radius: 999px; border: 0; background: #315FE8; font-family: inherit; font-size: 16px; font-weight: 600; text-decoration: none; color: #FFF5EF; box-sizing: border-box; transition: background .12s ease-out, transform .1s ease-out; }
+        .btn-create:hover { background: #2A52CC; color: #FFF5EF; }
+        .btn-create:active { transform: scale(.98); }
         .btn-browse { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 56px; border-radius: 999px; border: 1px solid #1C1917; background: #FFFAF7; font-family: inherit; font-size: 16px; font-weight: 600; text-decoration: none; color: #1C1917; box-sizing: border-box; transition: background .12s ease-out, color .12s ease-out; }
         .btn-browse:hover { background: #1C1917; color: #FFF5EF; }
         .breathe { animation: breathe 3.2s ease-in-out infinite; }
@@ -116,7 +119,7 @@ export default function HomeScreen() {
             Rally is <span className="em">looking</span>
           </h1>
           <p style={{ margin: "12px 0 0", maxWidth: "300px", fontSize: "15px", lineHeight: 1.5, color: "#766B65" }}>
-            We match you into plans nearby that fit. When one does, it lands in your inbox — you always choose.
+            We match you into plans nearby that fit, or you can create your own rally.
           </p>
         </div>
 
@@ -142,6 +145,12 @@ export default function HomeScreen() {
               No match yet. We only look again when someone new joins or plans change — we&apos;ll notify you.
             </p>
           )}
+          <a className="btn-create" href="/app/about-you?start=interests">
+            Create your own rally
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </a>
           <a className="btn-browse" href="/app/discover">
             Browse live plans
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

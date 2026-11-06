@@ -7,6 +7,7 @@ import { errorCode, errorMessage } from "@/lib/api";
 import { displayTime, initials } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
+import { RallyProof } from "@/components/RallyProof";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -230,6 +231,13 @@ export default function FeedbackScreen() {
                 </div>
                 <p style={{ margin: 0, fontSize: "12px", color: "#766B65" }}>They only find out if they pick you too.</p>
               </div>
+
+              {room.proofFlow && rallyId && (
+                <div className="sec">
+                  <div className="mono" style={{ marginBottom: "8px" }}>Add rally photos · optional</div>
+                  <RallyProof key={rallyId} rallyId={rallyId} />
+                </div>
+              )}
             </div>
           )}
         </div>

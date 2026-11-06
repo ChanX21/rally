@@ -1,9 +1,11 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, type CompleteOnboardingInput, type OnboardingQuestion } from "@/lib/api";
 import { PreferenceInput } from "@/components/PreferenceInput";
+import { Dropdown } from "@/components/Dropdown";
 import { useSession } from "@/lib/session";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
@@ -14,15 +16,32 @@ const SANS = "var(--font-inter), system-ui, sans-serif";
 const SERIF = "var(--font-serif), Georgia, serif";
 const MONO = "var(--font-mono), monospace";
 
-type InterestId = "build" | "coffee" | "workshops" | "gaming" | "food" | "explore";
+type InterestId =
+  | "build" | "coffee" | "workshops" | "gaming" | "food" | "explore"
+  | "music" | "photography" | "arts" | "football" | "gym" | "nature"
+  | "fashion" | "travel" | "finance" | "technology" | "books" | "animals";
 
-const CATALOG: Array<{ id: InterestId; label: string; hint: string }> = [
-  { id: "build", label: "Build", hint: "Hack on something" },
-  { id: "coffee", label: "Coffee", hint: "Short breaks" },
-  { id: "workshops", label: "Workshop", hint: "Learn together" },
-  { id: "gaming", label: "Gaming", hint: "Play between sprints" },
-  { id: "food", label: "Food", hint: "Snack and meal runs" },
-  { id: "explore", label: "Explore", hint: "See the venue and city" },
+// The first six are wired to the backend catalog; the rest are display-only for
+// now and will be wired to backend categories (and their questions) later.
+const CATALOG: Array<{ id: InterestId; label: string }> = [
+  { id: "build", label: "Build" },
+  { id: "coffee", label: "Coffee" },
+  { id: "workshops", label: "Workshop" },
+  { id: "gaming", label: "Gaming" },
+  { id: "food", label: "Food" },
+  { id: "explore", label: "Explore" },
+  { id: "music", label: "Music" },
+  { id: "photography", label: "Photography" },
+  { id: "arts", label: "Arts" },
+  { id: "football", label: "Football" },
+  { id: "gym", label: "Gym" },
+  { id: "nature", label: "Nature" },
+  { id: "fashion", label: "Fashion" },
+  { id: "travel", label: "Travel" },
+  { id: "finance", label: "Finance" },
+  { id: "technology", label: "Technology" },
+  { id: "books", label: "Books" },
+  { id: "animals", label: "Animals" },
 ];
 
 const ICONS: Record<InterestId, React.ReactNode> = {
@@ -62,6 +81,69 @@ const ICONS: Record<InterestId, React.ReactNode> = {
       <path d="M15.5 8.5l-2 5-5 2 2-5z" />
     </>
   ),
+  music: (
+    <>
+      <path d="M9 17V5l10-2v12" />
+      <circle cx="6.5" cy="17.5" r="2.5" />
+      <circle cx="16.5" cy="15.5" r="2.5" />
+    </>
+  ),
+  photography: (
+    <>
+      <rect x="3" y="7" width="18" height="13" rx="2" />
+      <path d="M8 7l1.5-2.5h5L16 7" />
+      <circle cx="12" cy="13.5" r="3.5" />
+    </>
+  ),
+  arts: (
+    <>
+      <path d="M12 3a9 9 0 1 0 1 18c1 0 1.5-.8 1.5-1.8 0-1.3.9-1.7 1.7-1.7H18a3 3 0 0 0 3-3c0-5-4-8.5-9-8.5z" />
+      <circle cx="8.5" cy="11" r="1" />
+      <circle cx="12" cy="8.5" r="1" />
+      <circle cx="15.5" cy="11" r="1" />
+    </>
+  ),
+  football: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5l4.3 3.1-1.6 5h-5.4l-1.6-5z" />
+    </>
+  ),
+  gym: <path d="M6.5 7v10M3.5 9v6M17.5 7v10M20.5 9v6M6.5 12h11" />,
+  nature: (
+    <>
+      <path d="M4 20c0-9 7-15 16-15 0 9-7 15-16 15z" />
+      <path d="M4 20c3-4 7-7 12-9" />
+    </>
+  ),
+  fashion: <path d="M8 3.5l4 2 4-2 4.5 4-3 2.5V20H6.5V10L3.5 7.5z" />,
+  travel: (
+    <>
+      <path d="M21 3L3 10.5l6.5 2.5L12 20l3-6z" />
+      <path d="M9.5 13L21 3" />
+    </>
+  ),
+  finance: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M14.5 9.3c-.5-1-1.5-1.5-2.7-1.5-1.6 0-2.8.9-2.8 2.1 0 1.1 1 1.7 2.8 2.1 1.8.4 2.8 1 2.8 2.1 0 1.2-1.2 2.1-2.8 2.1-1.3 0-2.3-.6-2.8-1.6M12 6v12" />
+    </>
+  ),
+  technology: <path d="M9.5 18h5M10.5 21h3M12 3a6 6 0 0 1 3.8 10.6c-.5.5-.8 1-.8 1.9H9c0-.9-.3-1.4-.8-1.9A6 6 0 0 1 12 3z" />,
+  books: (
+    <>
+      <path d="M4 5.5A2 2 0 0 1 6 4h13v15H6a2 2 0 0 0-2 2z" />
+      <path d="M19 19H6" />
+    </>
+  ),
+  animals: (
+    <>
+      <circle cx="7" cy="11" r="1.6" />
+      <circle cx="12" cy="8.5" r="1.6" />
+      <circle cx="17" cy="11" r="1.6" />
+      <path d="M12 13c-2.5 0-4.5 1.8-4.5 3.8 0 1.2 1 1.9 2.2 1.9.9 0 1.5-.4 2.3-.4s1.4.4 2.3.4c1.2 0 2.2-.7 2.2-1.9 0-2-2-3.8-4.5-3.8z" />
+    </>
+  ),
 };
 
 // The backend catalog uses "workshop" (singular); the rest match this screen's ids.
@@ -72,6 +154,19 @@ const INTEREST_TO_BACKEND: Record<InterestId, string> = {
   gaming: "gaming",
   food: "food",
   explore: "explore",
+  // Placeholder mappings — these are not real backend categories yet.
+  music: "music",
+  photography: "photography",
+  arts: "arts",
+  football: "football",
+  gym: "gym",
+  nature: "nature",
+  fashion: "fashion",
+  travel: "travel",
+  finance: "finance",
+  technology: "technology",
+  books: "books",
+  animals: "animals",
 };
 
 type Step = "name" | "interests" | "questions";
@@ -85,7 +180,9 @@ export default function AboutYouScreen() {
   // three interests from a fixed catalog, then at most three 0G-chosen questions from fixed templates.
   // Matching is opt-in; nobody is added without accepting.
   const { api, setMe } = useSession();
-  const [step, setStep] = useState<Step>("name");
+  // "Create your own rally" deep-links straight to the interests step (skipping name).
+  const startAtInterests = useSearchParams().get("start") === "interests";
+  const [step, setStep] = useState<Step>(startAtInterests ? "interests" : "name");
   const [name, setName] = useState("");
   const [picked, setPicked] = useState<InterestId[]>([]);
 
@@ -206,9 +303,15 @@ export default function AboutYouScreen() {
         .h1 { margin: 0; font-family: ${SERIF}; font-weight: 400; font-size: 30px; line-height: 1.08; letter-spacing: -.01em; }
         .em { font-style: italic; color: #315FE8; }
         .card { background: #FFFAF7; border: 1px solid #D9C8BE; border-radius: 16px; }
-        .tile { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 10px; min-height: 100px; padding: 12px 14px 14px; border-radius: 16px; border: 1px solid #D9C8BE; background: #FFFAF7; font-family: inherit; text-align: left; color: #1C1917; cursor: pointer; box-sizing: border-box; transition: border-color .12s ease-out, background .12s ease-out, opacity .12s ease-out; }
-        .tile:hover { border-color: #1C1917; }
-        .tile:focus-visible, .chip:focus-visible { outline: 2px solid #315FE8; outline-offset: 2px; }
+        .chip { display: inline-flex; align-items: center; gap: 9px; padding: 12px 18px; border-radius: 999px; border: 0; background: #EFE7E1; color: #1C1917; font-family: inherit; font-size: 15px; font-weight: 600; cursor: pointer; box-sizing: border-box; transition: background .14s ease-out, color .14s ease-out, transform .1s ease-out, opacity .14s ease-out; }
+        .chip:hover { background: #E7DDD6; }
+        .chip:active { transform: scale(.96); }
+        .chip[aria-pressed="true"] { background: #315FE8; color: #FFF5EF; }
+        .chip[aria-pressed="true"]:hover { background: #2A52CC; }
+        .chip:focus-visible { outline: 2px solid #315FE8; outline-offset: 2px; }
+        .appear { animation: appearUp .4s cubic-bezier(.22,1,.36,1) both; }
+        @keyframes appearUp { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+        @media (prefers-reduced-motion: reduce) { .appear { animation: none; } }
         .chip { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #D9C8BE; background: #FFFAF7; font-family: inherit; font-size: 14px; font-weight: 500; color: #1C1917; cursor: pointer; box-sizing: border-box; transition: border-color .12s ease-out, background .12s ease-out; }
         .chip:hover { border-color: #1C1917; }
         .btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 56px; border: 0; border-radius: 999px; font-family: inherit; font-size: 16px; font-weight: 600; text-decoration: none; box-sizing: border-box; cursor: pointer; transition: transform .12s ease-out, background .12s ease-out; }
@@ -306,60 +409,33 @@ export default function AboutYouScreen() {
                 Rally uses these to suggest plans and people. You can change them any time.
               </p>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
-              {CATALOG.map((t) => {
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", justifyContent: "center", overflowY: "auto", alignContent: "flex-start" }}>
+              {CATALOG.map((t, i) => {
                 const on = picked.includes(t.id);
                 const dim = full && !on;
                 return (
                   <button
                     key={t.id}
-                    className="tile"
+                    className="chip appear"
                     type="button"
                     aria-pressed={on}
                     onClick={() => togglePick(t.id)}
-                    style={on ? { border: "1.5px solid #315FE8", background: "#E5ECFF" } : dim ? { opacity: 0.5 } : undefined}
+                    style={{ animationDelay: `${i * 40}ms`, ...(dim ? { opacity: 0.45 } : {}) }}
                   >
-                    <span style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", width: "100%" }}>
-                      <span aria-hidden="true" style={{ position: "relative", width: "32px", height: "32px", flexShrink: 0 }}>
-                        <svg
-                          width="28"
-                          height="28"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="#1C1917"
-                          strokeWidth="1.7"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          aria-hidden="true"
-                          style={{ position: "absolute", left: 0, top: 0 }}
-                        >
-                          {ICONS[t.id]}
-                        </svg>
-                      </span>
-                      <span
-                        style={{
-                          width: "22px",
-                          height: "22px",
-                          borderRadius: "50%",
-                          boxSizing: "border-box",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          background: on ? "#315FE8" : undefined,
-                          border: on ? undefined : "1.5px solid #D9C8BE",
-                        }}
-                      >
-                        {on && (
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFF5EF" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M20 6L9 17l-5-5" />
-                          </svg>
-                        )}
-                      </span>
-                    </span>
-                    <span style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                      <span style={{ fontSize: "15px", fontWeight: 600 }}>{t.label}</span>
-                      <span style={{ fontSize: "12px", color: "#766B65" }}>{t.hint}</span>
-                    </span>
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      {ICONS[t.id]}
+                    </svg>
+                    {t.label}
                   </button>
                 );
               })}
@@ -400,8 +476,8 @@ export default function AboutYouScreen() {
             )}
 
             {qStatus === "ready" &&
-              questions.map((q) => (
-                <label key={q.id} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              questions.map((q, i) => (
+                <label key={q.id} className="appear" style={{ animationDelay: `${i * 110}ms`, display: "flex", flexDirection: "column", gap: "8px" }}>
                   <span style={{ fontSize: "16px", fontWeight: 600 }}>{q.text}</span>
                   {q.options ? (
                     <PreferenceInput className="qfield" value={answers[q.id] ?? ""} options={q.options} onChange={(value) => setAnswer(q.id, value)} />
@@ -421,9 +497,12 @@ export default function AboutYouScreen() {
             {qStatus === "ready" && optIn && (
               <label style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <span>Available for the next</span>
-                <select className="qfield" value={availableHours} onChange={(e) => setAvailableHours(Number(e.target.value))}>
-                  {[1, 2, 4, 8, 12, 24].map((hours) => <option key={hours} value={hours}>{hours} hours</option>)}
-                </select>
+                <Dropdown
+                  ariaLabel="Available for the next"
+                  value={String(availableHours)}
+                  options={[1, 2, 4, 8, 12, 24].map((hours) => ({ value: String(hours), label: `${hours} hours` }))}
+                  onChange={(v) => setAvailableHours(Number(v))}
+                />
                 <span style={{ fontSize: 13, color: "#766B65" }}>Change or pause this anytime in Profile.</span>
               </label>
             )}
