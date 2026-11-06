@@ -77,6 +77,10 @@ joining always goes through matching and consent.
 
 ## Architecture
 
+<p align="center">
+  <img src="docs/images/architecture.png" alt="Rally architecture: the app and Privy connect to the Formation Engine, 0G inference, Arkiv discovery, real-world activities, feedback, and Arc rewards" width="100%" />
+</p>
+
 | Layer | Technology | Responsibility |
 | --- | --- | --- |
 | Web | Next.js 16, React 19, TypeScript, Tailwind CSS | Onboarding, creation, discovery, invitations, rally points, photos, and profiles |
