@@ -634,7 +634,7 @@ Suggested options remain available alongside custom input. Profile supports addi
 
 For newly created Rallies, `PROOFS_ENABLED=true` (default) stores `proof_flow=true`. Existing rows
 migrate to false, preserving historical feedback, points and old dispute behavior. A formed new
-Rally completes at `meetTime + durationMin + 15 minutes`, independently of host check-in or feedback.
+Rally completes at `meetTime + durationMin + 1 minute`, independently of host check-in or feedback.
 The scheduler checks completion before expiry and never expires a formed proof-flow Rally instead.
 The completed member roster is frozen under the Rally lock. New joins, cancellations and withdrawals
 stop at the meeting cutoff. Completion does not set arrival or physical-presence timestamps.

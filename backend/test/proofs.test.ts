@@ -26,6 +26,16 @@ async function completed() {
 }
 const headers = (key = 'proof-test-key') => ({ 'idempotency-key': key });
 
+it('waits one minute after the planned end before automatically completing', async () => {
+  const { host, rally } = await formedGroup(h);
+  await setMeetAt(h, rally.id, -(rally.durationMin + 0.5));
+  expect(await completeDueRallies(h.app.deps)).toBe(0);
+  expect((await host.get(`/rallies/${rally.id}/room`)).status).toBe('formed');
+  await setMeetAt(h, rally.id, -(rally.durationMin + 1.5));
+  expect(await completeDueRallies(h.app.deps)).toBe(1);
+  expect((await host.get(`/rallies/${rally.id}/room`)).status).toBe('completed');
+});
+
 it('automatically completes without attendance, photos or rewards, and wins over expiry', async () => {
   const { host, member, rally } = await formedGroup(h);
   await setMeetAt(h, rally.id, -90);

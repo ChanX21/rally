@@ -6,16 +6,18 @@ import { notify } from '../lib/notify.js';
 import { lockRally } from '../repositories/rallies.js';
 import { scheduleArkivSync, transition } from './rally-lifecycle.js';
 
+const COMPLETION_GRACE_MIN = 1;
+
 export async function completeDueRallies(deps: Deps): Promise<number> {
   const due = await deps.db.select({ id: rallies.id }).from(rallies).where(and(
     eq(rallies.proofFlow, true), inArray(rallies.status, ['formed', 'met']),
-    sql`coalesce(${rallies.meetAt}, ${rallies.windowStart}) + make_interval(mins => ${rallies.durationMin} + 15) <= now()`,
+    sql`coalesce(${rallies.meetAt}, ${rallies.windowStart}) + make_interval(mins => ${rallies.durationMin} + ${COMPLETION_GRACE_MIN}) <= now()`,
   )).limit(100);
   let completed = 0;
   for (const { id } of due) await deps.db.transaction(async (tx) => {
     const rally = await lockRally(tx, id);
     if (!rally?.proofFlow || !['formed', 'met'].includes(rally.status)
-      || meetTime(rally).getTime() + (rally.durationMin + 15) * 60000 > Date.now()) return;
+      || meetTime(rally).getTime() + (rally.durationMin + COMPLETION_GRACE_MIN) * 60000 > Date.now()) return;
     const members = await tx.select({ userId: claims.userId }).from(claims).where(and(eq(claims.rallyId, id), eq(claims.status, 'active')));
     const roster = [...new Set(members.map((m) => m.userId))];
     const ended = await transition(tx, rally, 'completed', { completedAt: new Date(), completionMemberIds: roster });

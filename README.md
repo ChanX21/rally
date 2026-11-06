@@ -65,7 +65,7 @@ joining always goes through matching and consent.
   represents a real open Rally and takes a turn showing its own AI-generated invitation.
 - **A shared rally point:** meeting details and the confirmed group become available after formation.
 - **Automatic completion:** formed photo-flow Rallies finish at the meeting time plus duration plus
-  a 15-minute grace period. The completion scheduler normally checks every 30 seconds.
+  a 1-minute grace period. The completion scheduler normally checks every 30 seconds.
 - **Optional group photo rewards:** one accepted submission earns 10 RALLY per confirmed member
   under the default policy. Photos can be submitted for 48 hours after completion.
 - **Visible AI receipts:** real 0G provider request IDs appear near the bottom of the relevant screens,

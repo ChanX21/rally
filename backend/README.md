@@ -134,7 +134,7 @@ isolated AI tests; `npm run ai:smoke` and `npm run ai:demo` check funded 0G acce
 
 ## Group photo rewards
 
-New Rallies automatically complete after their planned activity plus 15 minutes. Optional vouches
+New Rallies automatically complete after their planned activity plus 1 minute. Optional vouches
 are saved without points. One accepted photo submission earns 10 RALLY for every confirmed member.
 Use `PROOFS_ENABLED=false` to create Rallies with the legacy flow; existing Rallies retain their policy.
 Configure `ZERO_G_VISION_MODEL=gemini-2.5-flash-lite` alongside the existing 0G API key. The outbox and
