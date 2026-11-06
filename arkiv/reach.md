@@ -15,6 +15,9 @@ Because it needs no login, it also works from a QR code on a poster or table.
 
 What we can show today:
 
+- **18 accounts have signed in.** Privy showed 18 total users on 7 November 2026 at 12:10 am IST, and its
+  activity chart rose from 4 on 5 November to 18 on 6 November. This may include the team's own accounts,
+  and it counts sign-ins, not Rallies or groups formed.
 - **The board is live.** On 6 November 2026, at about 18:15 UTC, it had
   [9 listings](how-you-use-arkiv.md#numbers), across coffee, arts, photography, workshops and building.
   Public data cannot show who made them, so some may be the team's own.
@@ -24,9 +27,6 @@ What we can show today:
 
 What we cannot claim yet: repeat use, retention, or that anyone outside the team has built on the
 public data. This was a small informal test, not a study.
-
-<!-- TODO(team): add real counts before submitting: people who signed in, Rallies created, groups
-formed, and how many strangers tried it. Read these from production. Do not estimate. -->
 
 ## Can they try it today?
 
@@ -47,11 +47,13 @@ venue zones and categories.
 
 ## Will we keep building after Mumbai?
 
-<!-- TODO(team): this needs a decision from the team, not a guess. State plainly whether you will keep
-building, who will, and what happens next. Replace this comment before submitting.
+Yes. We plan to take Rally to more places and make it the best product in its category, with privacy as
+the focus.
 
-Facts that may help:
-- ARKIV_EVENT and ARKIV_APP are configuration, so a new event does not need a schema change.
-- The event name is a queryable field, so several events can share one network.
-- Venue zones are a fixed list in backend/src/domain/catalog.ts and would need changing per venue.
--->
+Arkiv fits that plan, because public listings can carry a plan's coarse details while people, groups and
+meeting points stay off the public record. Parts of this are ready for a second event, and parts are not:
+
+- `ARKIV_APP` and `ARKIV_EVENT` are configuration, so a new event needs no schema change.
+- `event` is a queryable field, so several events can share one network and schema.
+- Venue zones need changing for each venue: `EVENT_ZONES` on the backend, the list in
+  `frontend/src/lib/format.ts`, and the illustrative map.

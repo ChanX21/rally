@@ -397,11 +397,9 @@ on **Supabase**. See the [backend deployment guide](backend/README.md#render-dep
 groups from a shortlist the server provides, writes map dialogue, and assesses group photos. Rules
 decide seats and membership. Provider request IDs appear in the app.
 
-**In development:** Claude Code was used for implementation, debugging, contract deployment,
-and writing documentation, including the `arkiv/` documents. Its work was reviewed and directed by the
-team, and live numbers in those documents were read from the network rather than generated.
-
-<!-- TODO(team): each teammate should confirm or add the AI tools they used, and what for. -->
+**In development:** Codex and Claude Code were our main tools, used for implementation, debugging and
+documentation. Claude Code also helped deploy the contracts and draft the `arkiv/` documents. Live
+numbers in those documents were read from the network or the team's dashboards, not generated.
 
 ## License
 
