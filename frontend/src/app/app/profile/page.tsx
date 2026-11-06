@@ -308,7 +308,7 @@ export default function ProfileScreen() {
                     </span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", fontSize: "13px", color: "#766B65" }}>
-                    <span>{entry.state === "held" ? "Being reviewed" : new Date(entry.createdAt).toLocaleDateString()}</span>
+                    <span>{entry.state === "held" ? "Being reviewed" : new Date(entry.createdAt).toLocaleDateString()}{entry.action === "RallyCompleted" && !entry.chainTxHash ? " · saved in app" : ""}</span>
                     {entry.state === "pending" && entry.action === "NoShow" && entry.rallyId && (
                       <button
                         type="button"

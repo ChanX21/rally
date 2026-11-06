@@ -95,12 +95,13 @@ export function fromLocalInput(value: string): string | null {
 export const ACTIVE_RALLY_STATUSES = ["draft", "open", "waiting", "proposed", "ready", "formed", "met"];
 
 export function rallyPath(status: string, id: string): string {
-  if (status === "formed") return `/app/room?id=${id}`;
+  if (status === "formed" || status === "completed") return `/app/room?id=${id}`;
   if (status === "met") return `/app/feedback?id=${id}`;
   return `/app/finding-people?rally=${id}`;
 }
 
 const REWARD_LABELS: Record<string, string> = {
+  RallyCompleted: "Group photo reward",
   OnTime: "On time",
   HostCompleted: "Hosted a Rally",
   Vouched: "Someone vouched for you",
@@ -128,6 +129,8 @@ export function notificationPath(type: string, data: Record<string, string>): st
       return matchId ? `/app/match-found?id=${matchId}` : "/app/match-found";
     case "rally.seat_open":
       return "/app/match-found";
+    case "rally.completed":
+    case "proof.needs_clearer_photos":
     case "rally.formed":
       return rallyId ? `/app/room?id=${rallyId}` : "/app/home";
     case "rally.met":

@@ -208,6 +208,8 @@ export type RallyStatus =
   | "expired";
 
 export type Rally = {
+  proofFlow: boolean;
+  completedAt: string | null;
   id: string;
   opaqueId: string;
   creatorId: string;
@@ -272,6 +274,8 @@ export type Member = {
 };
 
 export type Room = {
+  proofFlow: boolean;
+  completedAt: string | null;
   rallyId: string;
   status: RallyStatus;
   goal: string;
@@ -282,6 +286,17 @@ export type Room = {
   meetingPoint: string | null;
   meetingBrief: string | null;
   members: Member[];
+};
+
+export type RallyProof = {
+  id: string | null;
+  state: "not_submitted" | "processing" | "accepted" | "needs_clearer_photos" | "unavailable";
+  reason: string | null;
+  canSubmit: boolean;
+  rewardAmount: number;
+  rewardedCount: number;
+  submissionsLeft: number;
+  closesAt: string;
 };
 
 export type FeedbackInput = {
@@ -514,6 +529,9 @@ export function createApiClient(getToken: TokenSource) {
     publishRally: (id: string) => call<Rally>(`/rallies/${id}/publish`, { method: "POST" }),
     cancelRally: (id: string) => call<Rally>(`/rallies/${id}/cancel`, { method: "POST" }),
     withdrawFromRally: (id: string) => call<Rally>(`/rallies/${id}/withdraw`, { method: "POST" }),
+    getProof: (id: string) => call<RallyProof>(`/rallies/${id}/proof`),
+    submitProof: (id: string, input: { images: string[]; note: string }, key: string) =>
+      call<RallyProof>(`/rallies/${id}/proof`, { method: "POST", body: input, headers: { "Idempotency-Key": key }, timeoutMs: AI_TIMEOUT_MS }),
     getRoom: (id: string) => call<Room>(`/rallies/${id}/room`),
     markArrived: (id: string) =>
       call<{ arrivedAt: string; meetAt: string }>(`/rallies/${id}/arrive`, { method: "POST" }),

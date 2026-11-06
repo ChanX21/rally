@@ -49,7 +49,7 @@ export default function FeedbackScreen() {
   // Vouches and encores can only name people the host marked present.
   const load = useCallback(() => api.getRoom(rallyId ?? ""), [api, rallyId]);
   const { data: room, error, loaded } = usePolled(rallyId ? load : null);
-  const others = room?.members.filter((m) => m.userId !== me?.user.id && m.checkedIn) ?? [];
+  const others = room?.members.filter((m) => m.userId !== me?.user.id && (room?.proofFlow || m.checkedIn)) ?? [];
 
   const met = happened === "yes";
 

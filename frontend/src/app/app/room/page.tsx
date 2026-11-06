@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
+import { RallyProof } from "@/components/RallyProof";
 import { type DisputeCategory, errorCode, errorMessage } from "@/lib/api";
 import { capitalize, displayTime, initials, zoneLabel } from "@/lib/format";
 import { useSession } from "@/lib/session";
@@ -212,10 +213,10 @@ export default function RoomScreen() {
             <>
               <div>
                 <div className="mono" style={{ color: "#1C1917" }}>
-                  {met ? "Checked in" : formed ? "Room formed" : capitalize(room.status)}
+                  {room.proofFlow && met ? "Completed automatically" : met ? "Checked in" : formed ? "Room formed" : capitalize(room.status)}
                 </div>
                 <h1 className="hero" style={{ marginTop: "12px" }}>
-                  Your Rally <span className="em">{met ? "happened" : "is on"}</span>
+                  Your Rally <span className="em">{room.proofFlow && met ? "has ended" : met ? "happened" : "is on"}</span>
                 </h1>
               </div>
 
@@ -237,11 +238,11 @@ export default function RoomScreen() {
               </div>
 
               <div>
-                <div className="mono">{isHost && formed ? "Your crew · tick who's here" : "Your crew"}</div>
+                <div className="mono">{isHost && formed && !room.proofFlow ? "Your crew · tick who's here" : "Your crew"}</div>
                 <div className="card" style={{ marginTop: "8px" }}>
                   {room.members.map((m) => {
                     const mine = m.userId === myId;
-                    const tickable = isHost && formed && !mine;
+                    const tickable = isHost && formed && !room.proofFlow && !mine;
                     const row = (
                       <>
                         <span className={`av${mine ? " you" : ""}`}>{mine ? "You" : initials(m.displayName)}</span>
@@ -276,6 +277,8 @@ export default function RoomScreen() {
                 </div>
               </div>
 
+              {room.proofFlow && room.status === "completed" && <RallyProof key={room.rallyId} rallyId={room.rallyId} />}
+
               {room.meetingBrief && (
                 <div style={{ padding: "16px", borderRadius: "16px", background: "#F8DDD3" }}>
                   <div className="mono" style={{ color: "#1C1917" }}>
@@ -294,31 +297,33 @@ export default function RoomScreen() {
               {actionError}
             </p>
           )}
-          {room && formed && !iArrived && (
+          {room && formed && !room.proofFlow && !iArrived && (
             <button className="btn btn-p" type="button" disabled={busy} onClick={() => void arrive()}>
               I&apos;m here
             </button>
           )}
-          {room && isHost && formed && (
+          {room && isHost && formed && !room.proofFlow && (
             <button className="btn btn-p" type="button" disabled={busy || presentIds.length === 0} onClick={() => void checkIn()}>
               {presentIds.length === 0 ? "Tick who's here to check in" : `Check in ${presentIds.length + 1} people`}
             </button>
           )}
           {room && met && (
             <a className="btn btn-p" href={`/app/feedback?id=${room.rallyId}`}>
-              We&apos;re done · how did it go?
+              {room.proofFlow ? "Leave an optional vouch" : "We’re done · how did it go?"}
             </a>
           )}
           {room && (
             <p style={{ margin: "4px 0 0", fontSize: "13px", lineHeight: 1.4, color: "#766B65", textAlign: "center" }}>
-              {met
+              {room.proofFlow
+                ? met ? "Photos and vouches are optional. Your Rally is already completed." : "Your Rally completes automatically after the activity. No check-in is needed."
+                : met
                 ? "Check-in is confirmed by the host, not proof of attendance."
                 : isHost
                 ? "Anyone you don't tick is marked as a no-show."
                 : "The host checks everyone in at the meeting point."}
             </p>
           )}
-          {room && reporting && (
+          {room && !room.proofFlow && reporting && (
             <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
               <select aria-label="Who is this about?" value={reportWho} onChange={(e) => setReportWho(e.target.value)} style={fieldStyle}>
                 <option value="">Who is this about?</option>
@@ -352,7 +357,7 @@ export default function RoomScreen() {
               Report sent. The person won&apos;t see who sent it.
             </p>
           )}
-          {room && others.length > 0 && !reporting && (
+          {room && !room.proofFlow && others.length > 0 && !reporting && (
             <div className="sub">
               <button type="button" onClick={() => setReporting(true)}>
                 Report a problem

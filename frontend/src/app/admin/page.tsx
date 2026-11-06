@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react";
 import { type AdminDispute, API_BASE, type RewardPolicy } from "@/lib/api";
 
-const ACTIONS = ["OnTime", "HostCompleted", "Vouched", "Late", "LateCancel", "NoShow", "ComplaintUpheld", "FalseComplaint"];
+const ACTIONS = ["OnTime", "HostCompleted", "Vouched", "Late", "LateCancel", "NoShow", "ComplaintUpheld", "FalseComplaint", "RallyCompleted"];
 const OUTCOMES = ["upheld", "dismissed", "false"] as const;
 
 const cell = { padding: "8px", border: "1px solid #D9C8BE", borderRadius: "8px", fontFamily: "inherit", fontSize: "14px", background: "#FFFAF7", color: "#1C1917" } as const;

@@ -35,7 +35,8 @@ export default function HomeScreen() {
     ]);
     const now = Date.now();
     const match = matches.matches.find((m) => m.status === "pending" && new Date(m.holdUntil).getTime() > now);
-    const rally = rallies.items.find((r) => ACTIVE_RALLY_STATUSES.includes(r.status));
+    const rally = rallies.items.find((r) => ACTIVE_RALLY_STATUSES.includes(r.status))
+      ?? rallies.items.find((r) => r.proofFlow && r.status === "completed" && r.completedAt && now - new Date(r.completedAt).getTime() < 48 * 3600000);
     const waiting = matches.waiting[0];
     const banner = match
       ? { kicker: "Needs your answer", title: `You have been matched: ${match.rally.goal}`, href: `/app/match-found?id=${match.id}` }
