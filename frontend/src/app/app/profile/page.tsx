@@ -35,6 +35,8 @@ export default function ProfileScreen() {
   const { data: rewards, refresh: refreshRewards } = usePolled(useCallback(() => api.getRewards(), [api]), 30_000);
   const { data: refreshedMe } = usePolled(useCallback(() => api.getMe(), [api]), 15_000);
   const { wallets } = useWallets();
+  // A Rally-created wallet has no app to show tokens in, so only an external one can add RALLY.
+  const externalWallet = wallets.find((wallet) => wallet.walletClientType !== "privy");
   const [walletNote, setWalletNote] = useState<string | null>(null);
   const history = rewards?.entries.slice(0, 5) ?? [];
 
@@ -51,7 +53,7 @@ export default function ProfileScreen() {
   // Optional. RALLY only shows in a wallet once it knows about Arc and the token.
   const addToWallet = async () => {
     const chain = rewards?.chain;
-    const wallet = wallets[0];
+    const wallet = externalWallet;
     if (!chain || !wallet) return;
     setWalletNote(null);
     try {
@@ -394,7 +396,7 @@ export default function ProfileScreen() {
                   <a href={`${rewards.chain.explorerUrl}/address/${rewards.chain.address}`} target="_blank" rel="noreferrer" style={{ color: "#315FE8" }}>
                     Verified on Arc
                   </a>
-                  {wallets[0] && (
+                  {externalWallet && (
                     <button
                       type="button"
                       onClick={() => void addToWallet()}

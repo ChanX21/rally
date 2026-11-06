@@ -102,7 +102,7 @@ export default function ConnectWalletScreen() {
               </svg>
               <span>
                 <strong style={{ fontWeight: 600 }}>Private.</strong>{" "}
-                <span style={{ color: "#766B65" }}>Your wallet is never shown to other people.</span>
+                <span style={{ color: "#766B65" }}>Your wallet and Google account are never shown to other people.</span>
               </span>
             </div>
             <div style={{ display: "flex", gap: "12px", fontSize: "14px", lineHeight: 1.45 }}>
