@@ -49,7 +49,7 @@ Prepared statements are disabled because the transaction pooler does not support
 | --- | --- |
 | `npm run dev` | Start with reload and readable logs |
 | `npm run build` | Compile to `dist/` |
-| `npm start` | Run the compiled server |
+| `npm start` | Apply pending migrations, then run the compiled server |
 | `npm run typecheck` | Type-check source, tests and scripts |
 | `npm run lint` | Run ESLint |
 | `npm test` | Run tests (see below) |
@@ -61,6 +61,15 @@ Prepared statements are disabled because the transaction pooler does not support
 | `npm run arkiv:smoke` | Check Arkiv on the real network; add `-- --write` with a funded key |
 | `npm run smoke:privy` | Real Privy credential check |
 | `npm run smoke:journey` | Whole flow on live 0G and Arkiv, throwaway database, simulated login |
+
+## Render deployment
+
+Use `backend` as the service root, `npm ci && npm run build` as the build command, and
+`npm start` as the start command. Keep `drizzle/` alongside `dist/`. The `prestart` lifecycle
+runs `db:migrate:prod` against `DATABASE_MIGRATION_URL` (or `DATABASE_URL`) before serving requests;
+a failed migration prevents startup. Starting `node dist/index.js` directly skips this step.
+For multiple instances or concurrent deployments, run migrations once in a serialized deployment
+step before starting the servers.
 
 ## Tests
 
