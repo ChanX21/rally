@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { preferenceText, preferenceNotes, preferencesFromNotes, matchingProgressLabels } from "./format.ts";
+import { CATEGORIES, preferenceText, preferenceNotes, preferencesFromNotes, matchingProgressLabels } from "./format.ts";
+import { CATEGORIES as BACKEND_CATEGORIES } from "../../../backend/src/domain/catalog.ts";
+
+test("frontend activity choices stay in sync with the backend and display new preferences", () => {
+  assert.deepEqual(CATEGORIES.map((category) => category.id).sort(), [...BACKEND_CATEGORIES].sort());
+  assert.equal(preferenceNotes({ custom_music: "Live Jazz", custom_books: "Science Fiction" }), "Music: Live Jazz\nBooks: Science Fiction");
+});
 
 test("preferences show readable labels and preserve custom wording", () => {
   assert.equal(preferenceText("gaming_game", "chess"), "Gaming: Chess");

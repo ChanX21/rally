@@ -269,7 +269,7 @@ describe('AI composition', () => {
       outcome: 'ok',
       provider: '0xprovider',
       model: 'fake-model',
-      promptVersion: 'formation-v9',
+      promptVersion: 'formation-v10',
       totalTokens: 15,
       cost: '100 usd_micro',
     });

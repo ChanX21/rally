@@ -87,7 +87,7 @@ There is no catalog endpoint yet, so hardcode these.
 
 | | Values |
 | --- | --- |
-| Categories | `build`, `coffee`, `workshop`, `gaming`, `food`, `explore`, `networking`, `wellness`, `support` |
+| Categories | `build`, `coffee`, `workshop`, `gaming`, `food`, `explore`, `music`, `photography`, `arts`, `football`, `gym`, `nature`, `fashion`, `travel`, `finance`, `technology`, `books`, `animals`, `networking`, `wellness`, `support` |
 | Zones (configurable on the server) | `venue-floor-1`, `venue-floor-2`, `venue-nearby` |
 | Vibes | `quiet`, `chatty`, `any` |
 | Offered roles | `participant`, `buddy`, `builder`, `reviewer`, `mentor`. The creator is `host` |
@@ -544,6 +544,11 @@ through intent review, waiting-intent activation and publication. These are soft
 not guarantees of every free-text requirement. Changing a custom preference cancels pending invites
 in that category; old cancelled invites cannot be accepted. Closing an invite does not revoke an
 already accepted seat.
+
+The twelve added interests (music through animals in the catalog above) have free-text onboarding
+questions whose IDs are `custom_<category>`. Submit the returned question ID and answer unchanged;
+the backend saves it in the same preference field and rejects answers for unselected interests.
+Their custom preferences also work in activity questions, profile notes and matching.
 
 
 ### AI-generated venue map speech

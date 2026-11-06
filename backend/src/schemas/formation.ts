@@ -12,7 +12,7 @@ export const mapDialogueText = z.string().trim().min(1).max(80).refine((text) =>
   !/[\r\n<>@[\]]/.test(text) && redactPii(text) === text, 'dialogue must be a single public-safe line');
 export const mapDialogueResult = z.strictObject({ schemaVersion: z.literal(1), dialogue: mapDialogueText });
 const question = z.strictObject({ id, purpose: z.string().min(1).max(200), options: z.array(z.object({ value: z.string(), label: z.string() })).max(10).optional() });
-const questions = z.array(question).max(20).refine((v) => new Set(v.map((q) => q.id)).size === v.length);
+const questions = z.array(question).max(32).refine((v) => new Set(v.map((q) => q.id)).size === v.length);
 export const onboardingInput = z.strictObject({
   ...base, interests: ids.length(3), questions, alreadyAnsweredIds: ids,
   remainingQuestions: z.number().int().min(0).max(3),

@@ -21,8 +21,7 @@ type InterestId =
   | "music" | "photography" | "arts" | "football" | "gym" | "nature"
   | "fashion" | "travel" | "finance" | "technology" | "books" | "animals";
 
-// The first six are wired to the backend catalog; the rest are display-only for
-// now and will be wired to backend categories (and their questions) later.
+// Public interest choices; IDs map to the shared backend activity catalog below.
 const CATALOG: Array<{ id: InterestId; label: string }> = [
   { id: "build", label: "Build" },
   { id: "coffee", label: "Coffee" },
@@ -154,7 +153,6 @@ const INTEREST_TO_BACKEND: Record<InterestId, string> = {
   gaming: "gaming",
   food: "food",
   explore: "explore",
-  // Placeholder mappings — these are not real backend categories yet.
   music: "music",
   photography: "photography",
   arts: "arts",

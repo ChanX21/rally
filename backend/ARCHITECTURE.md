@@ -740,6 +740,17 @@ overfill the Rally. First valid acceptances win. Filling the last place for a ro
 pending invitations, notifies those users and queues them to check other Rallies. The invitation
 screen refreshes every ten seconds and clearly says that an invitation does not reserve a place.
 
+The interest catalog also supports music, photography, arts, football, gym, nature, fashion, travel,
+finance, technology, books and animals as distinct categories. Onboarding and profile updates accept
+their IDs; each has an interest-specific free-text question saved under `custom_<category>` with
+the existing 120-character limit. These preferences feed private parsing and composition, while
+public discovery carries only the category. Profile and creation dropdowns use the same frontend
+IDs. Fallback classification recognizes these activities, including football before generic gaming
+and photography before a generic walk. Existing wellness/support privacy rules remain in place.
+No database migration is needed because category columns are text. The bounded AI question catalog
+now permits 32 entries to accommodate the expanded activity questions; the three-question user
+budget remains unchanged.
+
 
 ### AI-generated venue map dialogue
 

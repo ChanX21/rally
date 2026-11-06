@@ -33,11 +33,26 @@ function template(key: PreferenceKey): QuestionTemplate {
   return { id: key, text: texts[key]!, purpose: texts[key]!,
     options: PREFERENCE_CHOICES[key].map((value) => ({ value, label: value === 'any' ? 'No preference' : value.replaceAll('_', ' ') })) };
 }
-export const PERSONAL_QUESTIONS = Object.values(categoryKey).map(template);
+const customQuestions: Partial<Record<Category, string>> = {
+  music: 'What kind of music would you like to listen to or play with others?',
+  photography: 'What would you like to photograph together?',
+  arts: 'What kind of art or creative activity would you like to do?',
+  football: 'Would you like to play football or watch a match?',
+  gym: 'What kind of gym session would you like company for?',
+  nature: 'What would you like to do outdoors—birdwatching, a trail walk, or something else?',
+  fashion: 'What fashion activity interests you—styling, thrifting, or browsing together?',
+  travel: 'What kind of trip or outing would you like to plan with others?',
+  finance: 'What finance topic would you like to discuss or learn about?',
+  technology: 'Which technology topic would you like to explore with others?',
+  books: 'What would you like to read or discuss with others?',
+  animals: 'What animal-related activity would you enjoy with others?',
+};
+export const PERSONAL_QUESTIONS: QuestionTemplate[] = [...Object.values(categoryKey).map(template),
+  ...Object.entries(customQuestions).map(([category, text]) => ({ id: `custom_${category}`, text, purpose: text }))];
 export function onboardingCatalog(interests: readonly string[]) {
   const personal = interests.flatMap((category) => {
     const key = categoryKey[category as Category];
-    return key ? [template(key)] : [];
+    return PERSONAL_QUESTIONS.filter((question) => question.id === (key ?? `custom_${category}`));
   });
   return personal.length >= 3 ? personal : [...personal, ...ONBOARDING_QUESTIONS];
 }
@@ -46,7 +61,7 @@ const activityTexts: Record<string, string> = {
   workshop_topic: 'Which topic is this workshop Rally about?', food_style: 'For this food run, sit down together or grab takeaway?',
   coffee_energy: 'Should this coffee Rally be quiet or chatty?', explore_range: 'Are we exploring the venue or the nearby area?',
 };
-export const activityCatalog = [...ACTIVITY_QUESTIONS, ...PERSONAL_QUESTIONS.map((q) => ({ ...q, text: activityTexts[q.id]!, purpose: activityTexts[q.id]! }))];
+export const activityCatalog = [...ACTIVITY_QUESTIONS, ...PERSONAL_QUESTIONS.map((q) => ({ ...q, text: activityTexts[q.id] ?? q.text, purpose: activityTexts[q.id] ?? q.purpose }))];
 
 const activityWording: Record<Category, { name: string; duration: string; distance: string }> = {
   coffee: { name: 'coffee break', duration: 'A quick coffee or time to sit and chat—about how many minutes?', distance: 'Stay at the venue or walk to a nearby café?' },
@@ -55,6 +70,18 @@ const activityWording: Record<Category, { name: string; duration: string; distan
   build: { name: 'build session', duration: 'How many minutes would you like to spend building together?', distance: 'Work at the venue or meet somewhere nearby?' },
   workshop: { name: 'workshop meetup', duration: 'How many minutes should we set aside for this workshop meetup?', distance: 'Meet at the workshop venue or somewhere nearby?' },
   explore: { name: 'outing', duration: 'A short wander or a longer outing—about how many minutes?', distance: 'Explore the venue or head into the nearby area?' },
+  music: { name: 'music meetup', duration: 'How many minutes would you like to spend listening or playing together?', distance: 'Meet at the venue or find a nearby music spot?' },
+  photography: { name: 'photo outing', duration: 'How many minutes would you like to spend taking photos together?', distance: 'Take photos at the venue or explore somewhere nearby?' },
+  arts: { name: 'creative session', duration: 'How many minutes would you like to spend making or enjoying art together?', distance: 'Create at the venue or find a nearby art spot?' },
+  football: { name: 'football meetup', duration: 'How many minutes would you like to spend playing or watching football?', distance: 'Meet at the venue or head to a nearby pitch or viewing spot?' },
+  gym: { name: 'gym session', duration: 'About how many minutes would you like to spend at the gym together?', distance: 'Use the venue facilities or meet at a nearby gym?' },
+  nature: { name: 'nature outing', duration: 'How many minutes would you like to spend outdoors together?', distance: 'Stay around the venue or explore a nearby outdoor area?' },
+  fashion: { name: 'fashion meetup', duration: 'About how many minutes would you like for this fashion meetup?', distance: 'Meet at the venue or browse somewhere nearby?' },
+  travel: { name: 'travel meetup', duration: 'How many minutes would you like to set aside for this meetup or outing?', distance: 'Meet at the venue or head somewhere nearby?' },
+  finance: { name: 'finance discussion', duration: 'How many minutes would you like to spend discussing this topic?', distance: 'Talk at the venue or find somewhere nearby?' },
+  technology: { name: 'technology meetup', duration: 'How many minutes would you like to spend exploring this technology together?', distance: 'Meet at the venue or find a nearby spot?' },
+  books: { name: 'book meetup', duration: 'How many minutes would you like to spend reading or discussing books?', distance: 'Read at the venue or find a nearby reading spot?' },
+  animals: { name: 'animal-related meetup', duration: 'How many minutes would you like to set aside for this activity?', distance: 'Meet at the venue or head to a nearby suitable spot?' },
   networking: { name: 'networking meetup', duration: 'Quick introductions or longer conversations—about how many minutes?', distance: 'Meet people at the venue or head somewhere nearby?' },
   wellness: { name: 'wellness activity', duration: 'How many minutes would you like to set aside for this wellness activity?', distance: 'Stay at the venue or find a nearby spot for this activity?' },
   support: { name: 'support meetup', duration: 'How much time would feel comfortable for this meetup, in minutes?', distance: 'Meet at the venue or somewhere nearby?' },
@@ -83,7 +110,7 @@ export function validPreferenceAnswer(answer: string): boolean {
 }
 export function preferencesFromAnswers(answers: { questionId: string; answer: string }[]): Preferences {
   return Object.fromEntries(answers.flatMap(({ questionId, answer }) => {
-    const value = answer.trim().toLowerCase();
+    const value = isCustomPreference(questionId) ? answer.trim() : answer.trim().toLowerCase();
     const category = Object.entries(categoryKey).find(([, key]) => key === questionId)?.[0];
     return preferenceSchema.safeParse({ [questionId]: value }).success
       ? [[questionId, value]] : category && validPreferenceAnswer(answer) ? [[`custom_${category}`, answer.trim()]] : [];
