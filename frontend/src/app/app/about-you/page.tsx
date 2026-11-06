@@ -183,11 +183,11 @@ export default function AboutYouScreen() {
     : onInterests
     ? `${picked.length} of 3 picked`
     : qStatus === "loading"
-    ? "0G AI is choosing your questions…"
+    ? "Rally intelligence is choosing your questions…"
     : qStatus === "error"
-    ? "Couldn't reach 0G AI"
+    ? "Couldn't reach Rally intelligence"
     : qSource === "ai"
-    ? "Questions chosen by 0G AI"
+    ? "Questions chosen by Rally intelligence"
     : qSource === "fallback"
     ? "Using standard questions"
     : "A bit more about you";
@@ -195,7 +195,7 @@ export default function AboutYouScreen() {
   return (
     <div
       className={`${inter.variable} ${serif.variable} ${mono.variable}`}
-      style={{ background: "#FFF5EF", minHeight: "100vh", display: "flex", justifyContent: "center", padding: "24px 0" }}
+      style={{ background: "#FFF5EF", height: "100dvh", display: "flex", justifyContent: "center", padding: "0" }}
     >
       <style>{`
         a { color: #1C1917; }
@@ -236,8 +236,8 @@ export default function AboutYouScreen() {
 
       <div
         style={{
-          width: "390px",
-          height: "844px",
+          width: "100%", maxWidth: "430px",
+          height: "100%",
           boxSizing: "border-box",
           background: "#FFF5EF",
           color: "#1C1917",
@@ -375,7 +375,7 @@ export default function AboutYouScreen() {
               </h1>
               <p style={{ margin: "8px 0 0", fontSize: "15px", lineHeight: 1.45, color: "#766B65" }}>
                 {qStatus === "loading"
-                  ? "0G is reading your interests to ask the right things. This takes a few seconds."
+                  ? "Rally intelligence is reading your interests to ask the right things. This takes a few seconds."
                   : "A few questions based on what you picked. Skip any you like."}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "13px", lineHeight: 1.4, color: "#766B65" }}>

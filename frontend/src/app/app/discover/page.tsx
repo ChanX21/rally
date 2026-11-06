@@ -1,12 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, getPreview, type PreviewActivity } from "@/lib/api";
-import { bucketLabel, capitalize, categoryPhrase, zoneLabel } from "@/lib/format";
-import { afterSignInPath, startPlan } from "@/lib/plan";
-import { useSession } from "@/lib/session";
+import { bucketLabel, capitalize, categoryPhrase } from "@/lib/format";
+import VenueMap from "@/components/VenueMap";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -16,16 +14,9 @@ const SANS = "var(--font-inter), system-ui, sans-serif";
 const SERIF = "var(--font-serif), Georgia, serif";
 const MONO = "var(--font-mono), monospace";
 
-// Sentences a card can start a plan from. Never an opaqueId: nothing here is joinable.
-function planText(activity: PreviewActivity): string {
-  return `${categoryPhrase(activity.category)}, ${zoneLabel(activity.zone).toLowerCase()}, ${bucketLabel(activity.startBucket)}`;
-}
-
 export default function DiscoverScreen() {
   // Cards stay vague on purpose: activity in plain words, coarse zone, hour bucket, counts. No names.
-  // Tapping a card opens why + a CTA that prefills the plan; it never joins anything.
-  const { status, me } = useSession();
-  const router = useRouter();
+  // Tapping a card opens why; it never joins anything — joining only happens through matching.
   const [open, setOpen] = useState(-1);
   const [activities, setActivities] = useState<PreviewActivity[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -39,7 +30,7 @@ export default function DiscoverScreen() {
       setActivities((prev) => (next ? [...prev, ...page.activities] : page.activities));
       setCursor(page.nextCursor);
       // Arkiv being down is not an error: show the notice and carry on.
-      setNotice(page.available ? null : page.notice ?? "The live board is resting. You can still start a plan.");
+      setNotice(page.available ? null : page.notice ?? "The live board is resting. We'll match you when it's back.");
     } catch (err) {
       setNotice(errorMessage(err));
     } finally {
@@ -52,15 +43,13 @@ export default function DiscoverScreen() {
     void loadPage();
   }, [loadPage]);
 
-  const startFrom = (activity: PreviewActivity) => {
-    startPlan(planText(activity));
-    router.push(status === "ready" && me ? afterSignInPath(me.user.onboarded) : "/app/connect-wallet");
-  };
+  // One dot on the map per rally that still has room.
+  const openCount = activities.filter((a) => a.status !== "full").length;
 
   return (
     <div
       className={`${inter.variable} ${serif.variable} ${mono.variable}`}
-      style={{ background: "#FFF5EF", minHeight: "100vh", display: "flex", justifyContent: "center", padding: "24px 0" }}
+      style={{ background: "#FFF5EF", height: "100dvh", display: "flex", justifyContent: "center", padding: "0" }}
     >
       <style>{`
         a { color: #1C1917; }
@@ -86,8 +75,8 @@ export default function DiscoverScreen() {
 
       <div
         style={{
-          width: "390px",
-          height: "844px",
+          width: "100%", maxWidth: "430px",
+          height: "100%",
           boxSizing: "border-box",
           background: "#FFF5EF",
           color: "#1C1917",
@@ -120,22 +109,6 @@ export default function DiscoverScreen() {
             </svg>
             <span style={{ fontWeight: 600, fontSize: "16px", letterSpacing: "-0.01em" }}>Rally</span>
           </div>
-          <span
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              height: "28px",
-              padding: "0 12px",
-              border: "1px solid #D9C8BE",
-              borderRadius: "999px",
-            }}
-          >
-            <span className="pulse" style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#F06445" }} />
-            <span className="mono" style={{ color: "#1C1917" }}>
-              Live
-            </span>
-          </span>
         </div>
 
         {/* Title */}
@@ -164,7 +137,7 @@ export default function DiscoverScreen() {
           )}
           {!loading && !notice && activities.length === 0 && (
             <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.45, color: "#766B65" }}>
-              Nothing is live yet. Be the first to start a plan.
+              Nothing is live yet. We&apos;ll match you in as soon as something fits.
             </p>
           )}
           {activities.map((c, i) => {
@@ -180,7 +153,7 @@ export default function DiscoverScreen() {
                   <span style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>
                     <span style={{ fontFamily: SERIF, fontSize: "19px", lineHeight: 1.15 }}>{categoryPhrase(c.category)}</span>
                     <span style={{ fontSize: "13px", color: "#766B65" }}>
-                      {zoneLabel(c.zone)} · <span style={{ fontFamily: MONO, color: "#1C1917" }}>{bucketLabel(c.startBucket)}</span>
+                      <span style={{ fontFamily: MONO, color: "#1C1917" }}>{bucketLabel(c.startBucket)}</span>
                     </span>
                   </span>
                   <span style={{ display: "flex", flexDirection: "column", gap: "4px", flexShrink: 0 }}>
@@ -204,9 +177,9 @@ export default function DiscoverScreen() {
                     <p style={{ margin: 0, fontSize: "14px", lineHeight: 1.45 }}>
                       {capitalize(c.neededRole)} wanted. Happens with {c.minGroupSize} or more people.
                     </p>
-                    <button className="btn btn-o" type="button" onClick={() => startFrom(c)} style={{ border: 0, fontFamily: "inherit", cursor: "pointer" }}>
-                      Start my plan from this
-                    </button>
+                    <p style={{ margin: 0, fontSize: "13px", lineHeight: 1.45, color: "#766B65" }}>
+                      You&apos;ll be invited here if you&apos;re a fit — nothing to join by hand.
+                    </p>
                   </div>
                 )}
               </div>
@@ -222,6 +195,14 @@ export default function DiscoverScreen() {
               {loading ? "Loading…" : "Show more"}
             </button>
           )}
+        </div>
+
+        {/* Venue map — one dot per open rally */}
+        <div style={{ padding: "12px 0 0", flexShrink: 0 }}>
+          <div className="mono" style={{ marginBottom: "8px", padding: "0 24px" }}>
+            Around the venue · {openCount} open
+          </div>
+          <VenueMap count={openCount} />
         </div>
 
         {/* CTA */}

@@ -1,6 +1,6 @@
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import RallyOrb from "@/components/RallyOrb";
-import WalletButtons, { PendingPlan } from "@/components/WalletButtons";
+import WalletButtons from "@/components/WalletButtons";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
 const serif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: "normal", variable: "--font-serif" });
@@ -14,7 +14,7 @@ export default function ConnectWalletScreen() {
   return (
     <div
       className={`${inter.variable} ${serif.variable} ${mono.variable}`}
-      style={{ background: "#FFF5EF", minHeight: "100vh", display: "flex", justifyContent: "center", padding: "24px 0" }}
+      style={{ background: "#FFF5EF", height: "100dvh", display: "flex", justifyContent: "center", padding: "0" }}
     >
       <style>{`
         a { color: #1C1917; }
@@ -37,8 +37,8 @@ export default function ConnectWalletScreen() {
 
       <div
         style={{
-          width: "390px",
-          height: "844px",
+          width: "100%", maxWidth: "430px",
+          height: "100%",
           boxSizing: "border-box",
           background: "#FFF5EF",
           color: "#1C1917",
@@ -87,8 +87,6 @@ export default function ConnectWalletScreen() {
               </svg>
             </a>
           </div>
-
-          <PendingPlan fontFamily={SERIF} />
 
           <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
             <WalletButtons />

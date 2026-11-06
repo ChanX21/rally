@@ -1,8 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useSyncExternalStore } from "react";
-import { afterSignInPath, readPlan } from "@/lib/plan";
+import { useEffect } from "react";
+import { afterSignInPath } from "@/lib/plan";
 import { useSession } from "@/lib/session";
 
 const Chevron = () => (
@@ -10,22 +10,6 @@ const Chevron = () => (
     <path d="M9 6l6 6-6 6" />
   </svg>
 );
-
-const noSubscribe = () => () => {};
-
-// The plan typed before signing in. Empty on the server, read from sessionStorage on the client.
-export function PendingPlan({ fontFamily }: { fontFamily: string }) {
-  const text = useSyncExternalStore(noSubscribe, () => readPlan()?.text ?? null, () => null);
-  if (!text) return null;
-  return (
-    <div style={{ padding: "16px", borderRadius: "16px", background: "#F8DDD3" }}>
-      <div className="mono" style={{ color: "#1C1917" }}>
-        Your plan
-      </div>
-      <div style={{ marginTop: "8px", fontFamily, fontSize: "20px", lineHeight: 1.2 }}>&quot;{text}&quot;</div>
-    </div>
-  );
-}
 
 export default function WalletButtons() {
   const { status, me, error, loginError, connectWallet, loginWithGoogle, retry } = useSession();

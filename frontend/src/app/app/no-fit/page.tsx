@@ -4,9 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import RallyOrb from "@/components/RallyOrb";
-import { errorMessage, getPreview } from "@/lib/api";
-import { bucketLabel, categoryPhrase, displayTime, zoneLabel } from "@/lib/format";
-import { startPlan } from "@/lib/plan";
+import { errorMessage } from "@/lib/api";
+import { displayTime } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
 
@@ -44,18 +43,11 @@ export default function NoFitScreen() {
   }, [api, rallyId, intentId]);
   const { data, error, loaded } = usePolled(load, 15_000);
 
-  const { data: preview } = usePolled(useCallback(() => getPreview({ limit: 2 }), []));
-
   useEffect(() => {
     if (!data?.movedOn) return;
     // Things changed since this screen opened, so it no longer applies.
     router.replace(rallyId ? `/app/finding-people?rally=${rallyId}` : "/app/home");
   }, [data, rallyId, router]);
-
-  const pickAlternative = (text: string) => {
-    startPlan(text);
-    router.push("/app/check-plan");
-  };
 
   const stopLooking = async () => {
     setBusy(true);
@@ -79,12 +71,10 @@ export default function NoFitScreen() {
     }
   };
 
-  const alternatives = preview?.activities.filter((a) => a.status !== "full") ?? [];
-
   return (
     <div
       className={`${inter.variable} ${serif.variable} ${mono.variable}`}
-      style={{ background: "#FFF5EF", minHeight: "100vh", display: "flex", justifyContent: "center", padding: "24px 0" }}
+      style={{ background: "#FFF5EF", height: "100dvh", display: "flex", justifyContent: "center", padding: "0" }}
     >
       <style>{`
         a { color: #1C1917; }
@@ -108,8 +98,8 @@ export default function NoFitScreen() {
 
       <div
         style={{
-          width: "390px",
-          height: "844px",
+          width: "100%", maxWidth: "430px",
+          height: "100%",
           boxSizing: "border-box",
           background: "#FFF5EF",
           color: "#1C1917",
@@ -168,34 +158,6 @@ export default function NoFitScreen() {
             </div>
           )}
 
-          {alternatives.length > 0 && (
-            <div>
-              <div className="mono">Or try a plan that&apos;s already live</div>
-              <div style={{ marginTop: "8px", borderBottom: "1px solid #D9C8BE" }}>
-                {alternatives.map((alt) => (
-                  <button
-                    key={alt.opaqueId}
-                    className="alt"
-                    type="button"
-                    onClick={() => pickAlternative(`${categoryPhrase(alt.category)}, ${zoneLabel(alt.zone).toLowerCase()}, ${bucketLabel(alt.startBucket)}`)}
-                  >
-                    <span>
-                      <span style={{ display: "block", fontSize: "15px", fontWeight: 600 }}>{categoryPhrase(alt.category)}</span>
-                      <span style={{ display: "block", marginTop: "2px", fontSize: "13px", color: "#766B65" }}>
-                        {zoneLabel(alt.zone)} · <span style={{ fontFamily: MONO }}>{bucketLabel(alt.startBucket)}</span>
-                      </span>
-                    </span>
-                    <span style={{ display: "flex", alignItems: "center", gap: "4px", fontSize: "14px", fontWeight: 600, color: "#315FE8", flexShrink: 0 }}>
-                      Use plan
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M5 12h14M13 6l6 6-6 6" />
-                      </svg>
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           {actionError && (
             <p role="alert" style={{ margin: 0, fontSize: "14px", color: "#EC562E" }}>
               {actionError}
@@ -204,8 +166,8 @@ export default function NoFitScreen() {
         </div>
 
         <div className="foot">
-          <a className="btn btn-p" href="/app/home">
-            Start a different plan
+          <a className="btn btn-p" href="/app/discover">
+            Browse live plans
           </a>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
             <button
