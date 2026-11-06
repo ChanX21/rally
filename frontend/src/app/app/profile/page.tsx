@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useWallets } from "@privy-io/react-auth";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, type ProfileUpdate } from "@/lib/api";
-import { CATEGORIES, categoryLabel, preferenceNotes, preferencesFromNotes, rewardLabel, signedPoints, toLocalInput, fromLocalInput } from "@/lib/format";
+import { ACTIVE_RALLY_STATUSES, CATEGORIES, capitalize, categoryLabel, displayTime, preferenceNotes, preferencesFromNotes, rallyPath, rewardLabel, signedPoints, toLocalInput, fromLocalInput } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
 
@@ -33,7 +33,11 @@ export default function ProfileScreen() {
   const [saveNote, setSaveNote] = useState<string | null>(null);
 
   const { data: rewards, refresh: refreshRewards } = usePolled(useCallback(() => api.getRewards(), [api]), 30_000);
+  const { data: rallyList } = usePolled(useCallback(() => api.listRallies({ limit: 50 }), [api]), 30_000);
   const { data: refreshedMe } = usePolled(useCallback(() => api.getMe(), [api]), 15_000);
+  const allRallies = rallyList?.items ?? [];
+  const upcomingRallies = allRallies.filter((rally) => ACTIVE_RALLY_STATUSES.includes(rally.status));
+  const pastRallies = allRallies.filter((rally) => ["completed", "cancelled", "expired"].includes(rally.status));
   const { wallets } = useWallets();
   // A Rally-created wallet has no app to show tokens in, so only an external one can add RALLY.
   const externalWallet = wallets.find((wallet) => wallet.walletClientType !== "privy");
@@ -147,6 +151,22 @@ export default function ProfileScreen() {
     await logout();
     router.replace("/app/discover");
   };
+
+  const chipStyle = (status: string): { background: string; color: string } =>
+    status === "completed" ? { background: "#DFF3E6", color: "#1C7A3E" }
+      : status === "cancelled" || status === "expired" ? { background: "#EFE7E2", color: "#766B65" }
+      : { background: "#E5ECFF", color: "#315FE8" };
+
+  const rallyRow = (rally: (typeof allRallies)[number]) => (
+    <a key={rally.id} href={rallyPath(rally.status, rally.id)} className="card"
+      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "12px 14px", textDecoration: "none", color: "#1C1917" }}>
+      <span style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+        <span style={{ fontSize: 15, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rally.goal || categoryLabel(rally.category)}</span>
+        <span style={{ fontSize: 13, color: "#766B65" }}>{displayTime(rally.completedAt ?? rally.meetAt ?? rally.windowStart)}</span>
+      </span>
+      <span className="tag" style={{ ...chipStyle(rally.status), height: 26, fontSize: 12, flexShrink: 0 }}>{capitalize(rally.status)}</span>
+    </a>
+  );
 
   return (
     <div
@@ -287,10 +307,10 @@ export default function ProfileScreen() {
               }}>Save</button>
             </div>
             <p id="preference-help" style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: "#766B65" }}>Tell Rally what you enjoy and who you&apos;d like to meet. Write naturally, add a line, or change anything here.</p>
-            <textarea id="matching-preferences" aria-describedby="preference-help preference-length" disabled={saving || !profile} rows={8} maxLength={4000}
+            <textarea id="matching-preferences" aria-describedby="preference-help preference-length" disabled={saving || !profile} rows={4} maxLength={4000}
               value={notes} onChange={(event) => setPreferenceDraft({ text: event.target.value, version: preferenceDraft?.version ?? profile!.version })}
               placeholder={"I like building at hackathons and playing Valorant.\nI'd love to try candle-making workshops.\nFor food, I prefer sitting down together."}
-              style={{ width: "100%", minHeight: 220, boxSizing: "border-box", resize: "vertical", padding: 14, border: "1px solid #D9C8BE", borderRadius: 16, background: "#FFFAF7", color: "#1C1917", font: "inherit", fontSize: 15, lineHeight: 1.6 }} />
+              style={{ width: "100%", minHeight: 104, boxSizing: "border-box", resize: "vertical", padding: 12, border: "1px solid #E7D9CF", borderRadius: 12, background: "#FFFAF7", color: "#1C1917", font: "inherit", fontSize: 14, lineHeight: 1.55 }} />
             <span id="preference-length" style={{ fontSize: 12, color: "#766B65" }}>{notes.length}/4000 · Saved changes restart matching when you&apos;re open to invites.</span>
             {preferenceDraft && <button type="button" className="pick tag" disabled={saving} onClick={() => setPreferenceDraft(null)}>Cancel edits</button>}
             {profile && <span style={{ fontSize: 12, color: "#766B65" }}>Profile last updated {new Date(profile.lastUpdatedAt).toLocaleString()}</span>}
@@ -347,17 +367,36 @@ export default function ProfileScreen() {
             {availabilityDraft ? <>
               <label className="availability-field">Available from<input disabled={saving} type="datetime-local" value={availabilityDraft.start} onChange={(e) => setAvailabilityDraft({ ...availabilityDraft, start: e.target.value })} /></label>
               <label className="availability-field">Available until<input disabled={saving} type="datetime-local" value={availabilityDraft.end} onChange={(e) => setAvailabilityDraft({ ...availabilityDraft, end: e.target.value })} /></label>
-              <button className="pick tag" type="button" disabled={saving} onClick={async () => {
-                const start = fromLocalInput(availabilityDraft.start), end = fromLocalInput(availabilityDraft.end);
-                if (!start || !end || new Date(end) <= new Date(start) || new Date(end) <= new Date()) {
-                  setError("Choose an availability window ending in the future."); return;
-                }
-                if (await save({ availableFrom: start, availableTo: end })) setAvailabilityDraft(null);
-              }}>Save availability</button>
-              <button className="pick tag" type="button" disabled={saving} onClick={() => setAvailabilityDraft(null)}>Cancel</button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" disabled={saving} onClick={async () => {
+                  const start = fromLocalInput(availabilityDraft.start), end = fromLocalInput(availabilityDraft.end);
+                  if (!start || !end || new Date(end) <= new Date(start) || new Date(end) <= new Date()) {
+                    setError("Choose an availability window ending in the future."); return;
+                  }
+                  if (await save({ availableFrom: start, availableTo: end })) setAvailabilityDraft(null);
+                }} style={{ height: 36, padding: "0 16px", borderRadius: 999, border: 0, background: "#315FE8", color: "#FFF5EF", fontFamily: "inherit", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Save availability</button>
+                <button type="button" disabled={saving} onClick={() => setAvailabilityDraft(null)} style={{ height: 36, padding: "0 16px", borderRadius: 999, border: "1px solid #315FE8", background: "transparent", color: "#315FE8", fontFamily: "inherit", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+              </div>
             </> : <span style={{ fontSize: 14, color: "#766B65" }}>
               {profile?.availableTo ? `${new Date(profile.availableTo) > new Date() ? "Available until" : "Availability ended"} ${new Date(profile.availableTo).toLocaleString()}` : "Set when you are free to receive invites."}
             </span>}
+          </section>
+
+          <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <span className="mono">Your Rallies</span>
+            {!allRallies.length && <span style={{ fontSize: 14, color: "#766B65" }}>No Rallies yet. Create one or turn on matching to get started.</span>}
+            {upcomingRallies.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#766B65" }}>Upcoming</span>
+                {upcomingRallies.map(rallyRow)}
+              </div>
+            )}
+            {pastRallies.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#766B65" }}>Past</span>
+                {pastRallies.map(rallyRow)}
+              </div>
+            )}
           </section>
 
           {rewards && (
