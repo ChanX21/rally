@@ -65,7 +65,7 @@ export default function RallyLoader({ context }: { context: keyof typeof CONTEXT
       <div className="rally-loader" aria-hidden="true">
         <ThinkingOrb state={orb} size={20} color="#315FE8" theme="light" aria-hidden="true" />
         <span className="rally-loader-text">
-          {/* Invisible copies hold the pill at its widest message so it doesn't jump. */}
+          {/* Invisible copies hold the loader at its widest message so it doesn't jump. */}
           {messages.map((message) => (
             <span key={message} className="rally-loader-sizer">{message}</span>
           ))}
