@@ -1,0 +1,75 @@
+{
+  "at": "2026-11-06T16:38:30.078Z",
+  "scope": "Real 0G, synthetic carrom plans; no user data, database changes or publishing",
+  "cases": [
+    {
+      "label": "missing_details",
+      "text": "make a rally of carrom boords 17 mins from now",
+      "result": {
+        "schemaVersion": 1,
+        "status": "needs_answers",
+        "questionIds": [
+          "duration",
+          "distance"
+        ],
+        "questionTexts": {
+          "duration": "About how many minutes would you like to play Carrom?",
+          "distance": "Should this Carrom rally be at the venue or in the nearby area?"
+        },
+        "intent": {
+          "categoryId": "gaming",
+          "goal": "make a rally of carrom boords 17 mins from now",
+          "startAt": "2026-11-06T16:55:30.080Z",
+          "vibe": "any"
+        }
+      },
+      "trace": {
+        "requestId": "carrom_missing_details",
+        "task": "intent",
+        "promptVersion": "formation-v12",
+        "schemaVersion": 1,
+        "latencyMs": 25575,
+        "result": "valid",
+        "model": "qwen3.7-flash",
+        "providerRequestId": "2b37787a-ee19-4832-80e0-657fa7616c6a",
+        "tokens": 4536,
+        "provider": "0x000000003f486c7198d6203568a98d02b91f8044",
+        "cost": "368 usd_micro"
+      }
+    },
+    {
+      "label": "complete_plan",
+      "text": "Play carrom 17 mins from now, for 30 minutes, at venue-floor-1, just two of us",
+      "result": {
+        "schemaVersion": 1,
+        "status": "ready",
+        "intent": {
+          "categoryId": "gaming",
+          "goal": "Play carrom",
+          "startAt": "2026-11-06T16:53:46.654Z",
+          "durationMin": 30,
+          "groupMin": 2,
+          "groupMax": 2,
+          "preferences": {
+            "custom_gaming": "carrom"
+          },
+          "zoneId": "venue-floor-1",
+          "vibe": "any"
+        }
+      },
+      "trace": {
+        "requestId": "carrom_complete_plan",
+        "task": "intent",
+        "promptVersion": "formation-v12",
+        "schemaVersion": 1,
+        "latencyMs": 23565,
+        "result": "valid",
+        "model": "qwen3.7-flash",
+        "providerRequestId": "4c6d6b3a-d564-4a42-b697-dfde0e2a613b",
+        "tokens": 4120,
+        "provider": "0x000000003f486c7198d6203568a98d02b91f8044",
+        "cost": "318 usd_micro"
+      }
+    }
+  ]
+}

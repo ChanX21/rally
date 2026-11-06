@@ -268,7 +268,7 @@ describe('AI composition', () => {
       outcome: 'ok',
       provider: '0xprovider',
       model: 'fake-model',
-      promptVersion: 'formation-v11',
+      promptVersion: 'formation-v12',
       totalTokens: 15,
       cost: '100 usd_micro',
     });
@@ -492,7 +492,7 @@ describe('intent parsing', () => {
     expect(first.intent.questions).toEqual([
       { id: 'start_time', text: 'What date and time should your food meetup start?' },
     ]);
-    expect(first.intent.category).toBeNull();
+    expect(first.intent.category).toBe('food');
     expect(first.intent.windowStart).toBeNull();
 
     h.ai.respond = ready;

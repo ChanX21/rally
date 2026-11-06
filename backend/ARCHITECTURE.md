@@ -829,3 +829,13 @@ answered step and rechecks earlier answers before submission, including start ti
 passed. Invalid numeric API answers return 422 without consuming the reparse budget. A failed
 answer request opens editable details with the typed answers preserved, rather than repeatedly
 retrying a potentially consumed parse. Manual review and publication remain subject to validation.
+
+
+Activity clarification responses can include a partial `intent`. Known category, relative start,
+preferences and other explicit facts are saved even while questions remain, then passed back as
+redacted `knownIntent` on the one reparse. Explicit “in N minutes/hours” and “N minutes/hours from
+now” starts are resolved once and retained; “for N minutes” remains a duration. Questions for
+already-extracted fields are removed server-side. A complete plan with no remaining questions
+returns ready directly; an incomplete plan with no useful questions goes to editable review.
+Unspecified vibe defaults to any, while unknown durations and locations are not invented. See
+`evidence/clarification-live-2026-11-06.json` for real 0G Carrom examples with provider request IDs.

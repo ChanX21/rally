@@ -9,8 +9,9 @@ import {
   MAX_GROUP,
   MAX_QUESTIONS, ROLES
 } from '../domain/catalog.js';
-import { parseIntentFallback, redactPii } from '../domain/intent-fallback.js';
+import { parseIntentFallback, explicitStart, redactPii } from '../domain/intent-fallback.js';
 import { activityQuestions, preferencesFromAnswers, relevantPreferences, matchingPreferences, safePreferences, PERSONAL_QUESTIONS, validPreferenceAnswer, mergePreferences } from '../domain/questions.js';
+import { intentSchema, type KnownIntent } from '../schemas/formation.js';
 import { latestProfile } from '../repositories/users.js';
 import type { Deps } from '../lib/deps.js';
 import { AppError, notFound } from '../lib/errors.js';
@@ -33,6 +34,7 @@ interface ParseCall {
   timeZone: string;
   answers: { questionId: string; answer: string }[];
   attempt: 0 | 1;
+  existing?: Intent;
 }
 
 function eventEnd(deps: Deps, now: Date): string {
@@ -52,9 +54,25 @@ async function runParse(deps: Deps, call: ParseCall) {
   const questions = activityQuestions(fallbackFields.category, call.text);
   const profile = await latestProfile(deps.db, call.userId);
   const answered = new Set(call.answers.map((answer) => answer.questionId));
+  const knownIntent: KnownIntent = call.existing ? {
+    categoryId: call.existing.category ?? undefined, goal: call.existing.goal ?? undefined,
+    startAt: call.existing.windowStart?.toISOString(), durationMin: call.existing.durationMin ?? undefined,
+    groupMin: call.existing.groupMin ?? undefined, groupMax: call.existing.groupMax ?? undefined,
+    zoneId: call.existing.zone ?? undefined, vibe: (call.existing.vibe ?? undefined) as KnownIntent['vibe'],
+    preferences: call.existing.preferences,
+  } : { goal: fallbackFields.goal, ...(fallbackFields.category ? { categoryId: fallbackFields.category } : {}) };
+  knownIntent.vibe ??= 'any';
+  if (answered.has('start_time')) delete knownIntent.startAt;
+  else if (!knownIntent.startAt) {
+    const explicit = explicitStart(call.text, now);
+    if (explicit && explicit > now && explicit.toISOString() < eventEnd(deps, now)) knownIntent.startAt = explicit.toISOString();
+  }
   const { result, modelRunId, requestId } = await deps.formation((engine, runId) =>
     engine.parseActivity({
       requestId: runId,
+      knownIntent: { ...knownIntent,
+        goal: knownIntent.goal ? redactPii(knownIntent.goal) : undefined,
+        preferences: knownIntent.preferences ? Object.fromEntries(Object.entries(knownIntent.preferences).map(([key, value]) => [key, redactPii(value)])) : undefined },
       text: redactPii(call.text),
       answers: call.answers.map((answer) => ({ ...answer, answer: redactPii(answer.answer) })),
       questions: questions.map(({ id, purpose, options }) => ({ id, purpose, options })),
@@ -74,7 +92,7 @@ async function runParse(deps: Deps, call: ParseCall) {
   const meta = { modelRunId, aiRequestId: requestId };
 
   if (result.status === 'ready') {
-    const { intent } = result;
+    const intent = { ...result.intent, ...(knownIntent.startAt ? { startAt: knownIntent.startAt } : {}) };
     const start = new Date(intent.startAt);
     return {
       ...meta,
@@ -82,7 +100,7 @@ async function runParse(deps: Deps, call: ParseCall) {
       source: 'ai' as const,
       questions: [],
       fields: {
-        preferences: relevantPreferences(intent.categoryId, mergePreferences(profile?.preferences ?? {}, intent.preferences ?? {}, preferencesFromAnswers(call.answers))),
+        preferences: relevantPreferences(intent.categoryId, mergePreferences(profile?.preferences ?? {}, knownIntent.preferences ?? {}, intent.preferences ?? {}, preferencesFromAnswers(call.answers))),
         category: intent.categoryId,
         goal: intent.goal,
         windowStart: start,
@@ -97,17 +115,36 @@ async function runParse(deps: Deps, call: ParseCall) {
   }
 
   const fallback = { ...fallbackFields,
-    preferences: relevantPreferences(fallbackFields.category ?? '', mergePreferences(safePreferences(profile?.preferences ?? {}), preferencesFromAnswers(call.answers))) };
+    preferences: relevantPreferences(fallbackFields.category ?? '', mergePreferences(safePreferences(profile?.preferences ?? {}), knownIntent.preferences ?? {}, preferencesFromAnswers(call.answers))) };
   if (result.status === 'needs_answers') {
+    const known = { ...knownIntent, ...result.intent, ...(knownIntent.startAt ? { startAt: knownIntent.startAt } : {}) };
+    const preferences = relevantPreferences(known.categoryId ?? '', mergePreferences(profile?.preferences ?? {}, known.preferences ?? {}, preferencesFromAnswers(call.answers)));
+    const explicitPreferences = known.preferences ?? {};
+    const game = explicitPreferences.custom_gaming || (explicitPreferences.gaming_game !== 'any' ? explicitPreferences.gaming_game : undefined);
+    const supplied: Record<string, boolean> = {
+      start_time: !!known.startAt, duration: known.durationMin !== undefined, distance: !!known.zoneId,
+      group_size: known.groupMin !== undefined && known.groupMax !== undefined,
+      group_fit: known.vibe !== undefined, gaming_game: !!game,
+      build_role: !!explicitPreferences.build_role || !!explicitPreferences.custom_build,
+      workshop_topic: !!explicitPreferences.workshop_topic || !!explicitPreferences.custom_workshop,
+    };
+    const pending = questions.filter((q) => result.questionIds.includes(q.id) && !supplied[q.id]);
+    const full = intentSchema.safeParse({ vibe: 'any', ...known });
+    const complete = !pending.length && full.success && Date.parse(full.data.startAt) > now.getTime()
+      && Date.parse(full.data.startAt) + full.data.durationMin * 60_000 <= Date.parse(eventEnd(deps, now));
+    const data = complete && full.success ? full.data : known;
     return {
       ...meta,
-      status: 'needs_answers' as const,
+      status: complete ? 'ready' as const : pending.length ? 'needs_answers' as const : 'needs_review' as const,
       source: 'ai' as const,
-      questions: questions.filter((q) => result.questionIds.includes(q.id)).map(
-        ({ id, text, options }) => ({ id, text: redactPii(result.questionTexts?.[id] ?? text), options }),
-      ),
-      // Nothing is confirmed yet, so the model's silence is not filled in with a guess.
-      fields: { goal: fallback.goal },
+      questions: pending.map(({ id, text, options }) => ({ id, text: redactPii(result.questionTexts?.[id] ?? text), options })),
+      fields: {
+        goal: data.goal ?? fallback.goal, category: data.categoryId, preferences,
+        windowStart: data.startAt ? new Date(data.startAt) : undefined,
+        windowEnd: data.startAt && data.durationMin ? new Date(Date.parse(data.startAt) + data.durationMin * 60000) : undefined,
+        durationMin: data.durationMin, groupMin: data.groupMin, groupMax: data.groupMax,
+        zone: data.zoneId, vibe: data.vibe,
+      },
     };
   }
 
@@ -207,6 +244,7 @@ export async function answerIntent(
     timeZone: existing.timeZone ?? deps.env.EVENT_TIME_ZONE,
     answers,
     attempt: 1,
+    existing,
   });
   const [intent] = await deps.db
     .update(intents)
