@@ -121,10 +121,12 @@ export async function assessProof(deps: Deps, proofId: string): Promise<void> {
     and exists (select 1 from jsonb_array_elements(p.images) i where i->>'hash' in (${sql.join(proof.images.map((i) => sql`${i.hash}`), sql`, `)})) limit 1`);
   if (duplicate.length) { await decide(deps, proof, false, null, { duplicateAcrossRallies: true }); return; }
   const { result, modelRunId } = await deps.formation((engine, requestId) => engine.assessProof({ requestId,
-    category: rally.category, goal: redactPii(rally.goal).slice(0, 160), note: redactPii(proof.note), images: proof.images.map((i) => i.data) }), rally.id);
+    category: rally.category, attempt: proof.attempts, goal: redactPii(rally.goal).slice(0, 160), note: redactPii(proof.note), images: proof.images.map((i) => i.data) }), rally.id);
   if ('status' in result) {
     await deps.db.update(rallyProofs).set({ state: proof.attempts >= 2 ? 'unavailable' : 'processing', leaseUntil: null, modelRunId,
-      reason: 'Photo checking is temporarily unavailable. Your Rally remains completed.' })
+      reason: result.status === 'invalid_output'
+        ? 'We could not read the AI photo-check result. No decision was made about your photos. Your Rally remains completed.'
+        : 'Photo checking is temporarily unavailable. Your Rally remains completed.' })
       .where(and(eq(rallyProofs.id, proof.id), eq(rallyProofs.state, 'processing'), eq(rallyProofs.attempts, proof.attempts)));
     if (proof.attempts < 2) throw new Error('Photo assessment temporarily unavailable');
     return;

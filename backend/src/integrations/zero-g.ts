@@ -75,8 +75,8 @@ export function createZeroG(env: InferenceEnv, transport: typeof fetch = fetch):
       if (!choice.message.content?.trim()) throw new InferenceError('invalid_output', { ...diagnostics, reason: 'empty_content' });
       // Some providers fence otherwise valid JSON; remove only a complete JSON fence.
       const content = choice.message.content.trim();
-      const fence = /^```(?:json)?\s*\n([\s\S]*?)\n```$/i.exec(content);
-      return { text: fence?.[1] ?? content, model: env.ZERO_G_MODEL, ...metadata };
+      const fence = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(content);
+      return { text: fence?.[1]?.trim() ?? content, model: env.ZERO_G_MODEL, ...metadata };
     } catch (error) {
       if (error instanceof InferenceError) throw error;
       if (signal.aborted) throw new InferenceError('timeout');

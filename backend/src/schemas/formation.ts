@@ -78,6 +78,7 @@ export type CompositionResult = z.infer<typeof compositionResult>;
 
 export const proofInput = z.strictObject({
   requestId: id, category: id, goal: z.string().min(1).max(160), note: z.string().max(300),
+  attempt: z.number().int().min(1).max(2).default(1),
   images: z.array(z.string().startsWith('data:image/jpeg;base64,').max(1_400_000)).min(1).max(3),
 });
 export const proofAssessment = z.strictObject({

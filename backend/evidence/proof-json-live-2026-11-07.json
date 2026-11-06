@@ -1,0 +1,43 @@
+{
+  "scope": "Public fixtures only; no production photos, notes, proof decisions or rewards accessed",
+  "promptVersion": "formation-v13",
+  "checks": [
+    {
+      "result": "valid",
+      "model": "gemini-2.5-flash-lite",
+      "providerRequestId": "941be65d-150b-4dae-b2b7-32af7dc12a19",
+      "latencyMs": 13940,
+      "tokens": 2202,
+      "fixture": "group_meal",
+      "passed": true,
+      "assessment": {
+        "schemaVersion": 1,
+        "activityMatch": "matched",
+        "assessable": true,
+        "groupEvidence": true,
+        "visiblePeople": 3,
+        "duplicateImages": false,
+        "reason": "Three people are visibly eating from bowls together at a table, indicating a group meal."
+      }
+    },
+    {
+      "result": "valid",
+      "model": "gemini-2.5-flash-lite",
+      "providerRequestId": "4a77d813-7cbd-4d78-a50f-d904aaaed01e",
+      "latencyMs": 1588,
+      "tokens": 1715,
+      "fixture": "cat",
+      "passed": true,
+      "assessment": {
+        "schemaVersion": 1,
+        "activityMatch": "uncertain",
+        "assessable": true,
+        "groupEvidence": false,
+        "visiblePeople": 0,
+        "duplicateImages": false,
+        "reason": "The image shows a cat and does not depict coffee or people together."
+      }
+    }
+  ],
+  "validationDnsOrder": "ipv4first"
+}

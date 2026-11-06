@@ -103,6 +103,36 @@ it('one proof rewards the whole group exactly once under concurrent submission/w
   expect(h.ai.calls.filter((c) => c.system.includes('Assess only'))).toHaveLength(1);
 });
 
+it('reassesses photos after malformed JSON with a stricter second attempt and never rewards invalid output', async () => {
+  const { host, member, rally } = await completed();
+  const attempts: number[] = [];
+  h.ai.respond = ({ system, input }) => {
+    const { attempt } = input as { attempt: number };
+    attempts.push(attempt);
+    if (attempt === 1) return '{invalid-json';
+    expect(system).toContain('previous attempt did not yield a usable assessment');
+    return assessment;
+  };
+  const proof = await host.post(`/rallies/${rally.id}/proof`, { images: [await photo()] }, headers());
+  await expect(assessProof(h.app.deps, proof.id)).rejects.toThrow('temporarily unavailable');
+  expect((await member.get('/me/rewards')).balance).toBe(0);
+  await assessProof(h.app.deps, proof.id);
+  await assessProof(h.app.deps, proof.id);
+  expect(attempts).toEqual([1, 2]);
+  expect((await host.get(`/rallies/${rally.id}/proof`)).state).toBe('accepted');
+  expect((await member.get('/me/rewards')).balance).toBe(10);
+});
+
+it('keeps an unreadable photo assessment distinct from rejecting the photo and awards nothing', async () => {
+  const { host, member, rally } = await completed();
+  h.ai.respond = () => '{invalid-json';
+  const proof = await host.post(`/rallies/${rally.id}/proof`, { images: [await photo()] }, headers());
+  await expect(assessProof(h.app.deps, proof.id)).rejects.toThrow('temporarily unavailable');
+  await assessProof(h.app.deps, proof.id);
+  expect(await host.get(`/rallies/${rally.id}/proof`)).toMatchObject({ state: 'unavailable', reason: expect.stringContaining('No decision was made') });
+  expect((await member.get('/me/rewards')).balance).toBe(0);
+});
+
 it('rejects unrelated/unclear evidence without awarding points and allows a bounded new submission', async () => {
   const { host, rally } = await completed();
   h.ai.respond = () => ({ ...assessment, activityMatch: 'mismatched' });

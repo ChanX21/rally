@@ -62,6 +62,14 @@ describe('0G Router adapter', () => {
     expect((await createZeroG(env(), async () => reply('```json\n{"ok":true}\n```'))('', {})).text).toBe('{"ok":true}');
     expect((await createZeroG(env(), async () => reply('Here is JSON: ```json\n{}\n```'))('', {})).text).toContain('Here is JSON');
   });
+  it.each(['```json{"ok":true}```', '```json\n{"ok":true}```', '``` {"ok":true} ```', '```JSON\r\n{"ok":true}\r\n```'])('accepts valid JSON in a complete fence with optional newlines: %s', async (content) => {
+    const result = await createZeroG(env(), async () => reply(content))('', {});
+    expect(JSON.parse(result.text)).toEqual({ ok: true });
+  });
+  it.each(['Here is JSON: ```json{} ```', '```json{} ``` extra', '```json{"ok":true,}```', '```json{} {} ```'])('keeps malformed or ambiguous content invalid: %s', async (content) => {
+    const result = await createZeroG(env(), async () => reply(content))('', {});
+    expect(() => JSON.parse(result.text)).toThrow();
+  });
   it('is unavailable when credentials are absent', async () => {
     await expect(createZeroG(parseEnv({ DATABASE_URL: 'postgres://localhost/rally' }))('', {})).rejects.toMatchObject({ code: 'unavailable' });
   });

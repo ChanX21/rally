@@ -752,6 +752,12 @@ No database migration is needed because category columns are text. The bounded A
 now permits 32 entries to accommodate the expanded activity questions; the three-question user
 budget remains unchanged.
 
+Photo assessment requests compact JSON with a short reason. The second of the existing two attempts
+includes a format reminder and reassesses the original images; it does not reuse or invent a prior
+assessment. Complete JSON code fences are unwrapped even when the provider omits their newlines.
+Surrounding prose, broken JSON, multiple objects and schema-invalid values still fail closed without
+rewards. An unreadable assessment is reported separately from an unavailable provider.
+
 Rally creation uses the existing parse/reparse APIs, asks for missing required details and then shows
 a compact summary with an explicit Create Rally action. The complete form is behind Edit details.
 Fallback timestamps are suggestions, so the client requires an actual start time rather than silently
