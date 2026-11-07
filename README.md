@@ -393,6 +393,7 @@ on **Supabase**. See the [backend deployment guide](backend/README.md#render-dep
 | --- | --- | --- |
 | @chanchaldelson | [@chanchaldelson](https://t.me/chanchaldelson) | [@chanchaldelson](https://x.com/chanchaldelson) |
 | Harshed Abdulla | [@abdnix](https://t.me/abdnix) | [@harshedabdulla](https://x.com/harshedabdulla) |
+| Divyanshi Yadav | [@magician4525](https://t.me/magician4525) | [@Divyanshi760](https://x.com/Divyanshi760) |
 
 ## Further Reading
 
