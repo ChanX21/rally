@@ -48,9 +48,9 @@ already expired:
 ExpirationTime.atDate(rally.expiresAt, { atLeast: ExpirationTime.fromHours(1) })
 ```
 
-Example from the live network: the listing with `startBucket` `2026-11-07T00` expires at block
-`0x4c84b` (313419). At block 301561, with 2-second blocks, that was 6 hours 35 minutes away, or about
-`00:50 UTC` on 7 November.
+Example from the live network: the listing with `startBucket` `2026-11-07T11` expires at block
+`0x51925` (334117). At block 315955, with 2-second blocks, that was about 10 hours away, or about
+`12:20 UTC` on 7 November.
 
 | Event in Rally | Arkiv operation |
 | --- | --- |
@@ -119,3 +119,6 @@ const { entities } = await client
 ```
 
 Results change as activities open and close. A count of zero means nothing is live at that moment.
+
+To see the same data in a browser, open [the reader](https://www.therally.xyz/reader.html). It runs this query directly from
+the page, with no Rally backend involved.

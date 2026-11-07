@@ -1,68 +1,67 @@
 # How Rally uses Arkiv
 
-Every Rally that is open to the public gets one listing on Arkiv. The public Discover screen,
-<https://www.therally.xyz/app/discover>, is built from a query for those listings. The field list,
+Arkiv matches what Rally's public board needs. A listing is public and small, it changes while a plan
+comes together, and it stops mattering once the plan has passed. Arkiv entities can be read by anyone,
+updated in place and expire by themselves, so the data model maps across directly.
+
+Every Rally that is open to the public gets one listing. The public Discover screen,
+<https://www.therally.xyz/app/discover>, is built from a query for those listings, and
+[the reader](https://www.therally.xyz/reader.html) shows the same data straight from Arkiv. The field list,
 expiry rules and runnable queries are in [`schema.md`](schema.md).
+
+## Why Arkiv fits
+
+| What a Rally needs | Arkiv feature | What people see |
+| --- | --- | --- |
+| Old plans must disappear | Automatic expiry, set to the end of the plan's time window | A plan whose time has passed leaves the board, even if our worker is down |
+| Details change after publishing | `patchEntity` on the existing listing | The same listing shows the current seats, status, time slot and area, with no duplicates |
+| The time window moves later | `extendEntity` | The listing stays up until the new end time |
+| Plans finish early or get cancelled | `deleteEntity` | The Rally leaves the board at once |
+| Listings must be trustworthy | An owner the network enforces | Listings written by any other wallet never appear |
+| People ask "any coffee on my floor?" | Indexed `category` and `zone` attributes | Discover's two filters go straight into the Arkiv query |
+| Long boards must page cleanly | `$key` cursors with `ORDER BY` | "Show more" loads the next page without repeats |
+| The board should be open | Public queries, with no account | Anyone can browse before signing in |
+
+### Example: a plan changes
+
+Rally's update API lets a host move a published coffee from 5pm to 6pm until people have been invited.
+Rally patches `startBucket` on the existing listing, and extends its expiry if the window now ends later.
+Anyone reading Arkiv sees the new time under the same entity key, with nothing to clean up.
+
+The same happens as people join. When someone accepts, `openSeats` and `status` are patched, so a listing
+goes from `filling` to `full` without being republished.
 
 ## The read and write paths
 
 ```text
 Write  Host approves plan -> PostgreSQL commit -> outbox job -> relayer writes to Arkiv
 Read   Discover -> GET /activities/preview -> Arkiv query -> checked against PostgreSQL -> cards and map
+Direct The reader -> Arkiv query, with no Rally backend involved
 ```
 
-Writes happen after the database commit, so a slow or failed chain write never blocks someone joining.
-A retry reads current PostgreSQL state and converges instead of replaying an old snapshot. A reconciler
-repairs any listing that drifts.
+Writes happen after the database commit, so a slow chain write never blocks someone joining. A retry reads
+current PostgreSQL state and converges instead of replaying an old snapshot, and a reconciler repairs any
+listing that drifts.
 
-## Do the filters fit what the app does?
+## How each filter is used
 
-| Query part | Why it is there | Fit |
-| --- | --- | --- |
-| `$owner` | Anyone can write under our schema name, so this is what makes a listing trustworthy | Strong: a test confirms another writer's listing never appears |
-| `app`, `event` | A board for one event must show that event only | Strong: smoke tests write to a separate event and stay out of the live board |
-| `$key` with `ORDER BY` | Key cursors do not repeat or skip rows during writes the way offsets can | Strong: this drives Discover's "show more" |
-| `opaqueId` | After a crash between a chain write and our commit, a retry finds the listing and adopts it, rather than publishing a duplicate | Strong |
-| `category`, `zone` | People ask "any coffee on my floor?" | Strong: Discover's two dropdowns send these straight into the Arkiv query |
-| `startBucket` | Browsing by hour | Partial: `GET /activities/preview` accepts it, but Discover has no time control yet |
-| `neededRole`, `openSeats`, `status` | Let another app ask for "open plans needing a builder" | Unused by Rally: nothing in the product queries these |
+| Query part | Why it is there |
+| --- | --- |
+| `$owner` | Makes a listing trustworthy. A test confirms another writer's listing never appears |
+| `app`, `event` | Keeps a board to one event. Smoke tests write to a separate event and stay out of the live board |
+| `$key` with `ORDER BY` | Drives "show more" with stable pages during writes |
+| `opaqueId` | After a crash between a chain write and our commit, a retry finds the listing and adopts it |
+| `category`, `zone` | Drive Discover's activity and area filters |
 
-## Who can edit, and does that fit?
+`startBucket`, `neededRole`, `openSeats` and `status` are indexed too, so another app can ask for "open plans
+needing a builder" using the same public data.
 
-One relayer owns every listing. This fits a public board where a person's wallet must not be tied to
-their plans, because a per-user owner would publish exactly that link on a permanent chain history. It
-also means people do not need gas or a wallet prompt to publish.
+## Who can edit
 
-The cost is that readers trust a single writer. Rally can write a wrong listing, and a listing cannot
-be edited by the person who made the plan except through Rally.
+One relayer owns every listing. This suits a public board, because a person's wallet is never tied to their
+plans on a permanent chain history. People also need no gas or wallet prompt to publish.
 
-## Does the expiry fit?
-
-A listing expires when its activity's time window ends. Plans last hours or days, and a stale plan
-is worse than none, so the data lifetime matches how long the data is useful.
-
-The one hour minimum is a safeguard for late syncs. Completed and cancelled Rallies are deleted rather
-than left to expire, so they leave the board at once.
-
-## Does each feature change something users see?
-
-| Arkiv feature | What users see | Honest limit |
-| --- | --- | --- |
-| Create | A new card and map dot appear on Discover | |
-| Query with owner and event filters | The contents of the public board, without signing in | |
-| `category` attribute | The card's headline, such as a coffee phrase, and the activity filter | The map's speech bubble is separate AI text from PostgreSQL |
-| `startBucket` attribute | The time label on the card | |
-| `neededRole`, `minGroupSize` attributes | "Participant wanted. Happens with 3 or more people." on an open card | |
-| Key pagination | "Show more" loads the next page | Needs more than 20 live listings to appear |
-| Delete | A finished or cancelled Rally leaves the board | Rally also hides these using PostgreSQL |
-| Expiry | A plan whose time has passed leaves the board, even if our worker is down | Rally's preview hides it from PostgreSQL first, so inside the app the difference is invisible. It matters to direct Arkiv readers |
-| Patch of `status`, `openSeats` | Direct Arkiv readers see current state | Rally's own cards take these from PostgreSQL, not from the listing |
-| `zone` attribute | The area on each card, such as "Venue, floor 1", and the area filter | Map dot positions are still illustrative, and do not use it |
-
-One gap remains: `neededRole`, `openSeats` and `status` are indexed for other readers, and Rally never
-filters on them.
-
-## Failure behaviour
+## Reliability
 
 | Situation | What users see |
 | --- | --- |
@@ -77,17 +76,18 @@ with a funded key to create, read, patch, extend and delete a test entity.
 
 ## Numbers
 
-Read from the live network on 6 November 2026, at about 18:15 UTC:
+Read from the live network, with times in UTC:
 
-| Measure | Value |
-| --- | --- |
-| Live listings owned by the relayer | 9 |
-| Rally's public API returned | 9, all 9 found on Arkiv |
-| Listing status | 5 `open`, 4 `filling` |
-| Other wallets found under our schema name | 0 in the first 100 rows |
-| Transactions sent by the relayer | 135 |
-| Relayer balance | 9.986 tGLM |
-| Single query latency, with a key | 246 to 591 ms |
-| Cost per listing or count query | 10 quota units, from the `Arkiv-Cost` header |
+| Measure | 7 November 2026, about 02:15 | 6 November 2026, about 18:15 |
+| --- | --- | --- |
+| Live listings owned by the relayer | 5 | 9 |
+| Rally's public API returned | 5, all 5 found on Arkiv | 9, all 9 found on Arkiv |
+| Listing status | 5 `open` | 5 `open`, 4 `filling` |
+| Other wallets found under our schema name | 0 | 0 in the first 100 rows |
+| Transactions sent by the relayer | 155 | 135 |
+| Relayer balance | 9.984 tGLM | 9.986 tGLM |
+| Single query latency, with a key | 516 to 1,765 ms | 246 to 591 ms |
+| Cost per listing or count query | 10 quota units, from the `Arkiv-Cost` header | Same |
 
-The transaction count includes smoke tests and is not a count of Rallies.
+The listing count moves as plans end and new ones open. The transaction count includes smoke tests and is
+not a count of Rallies. Latency comes from a handful of queries on one connection, not a load test.

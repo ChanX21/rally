@@ -1,5 +1,7 @@
 # Why Arkiv
 
+Entered in **Build on Arkiv (from scratch)** at ETHGlobal Mumbai 2026.
+
 Rally needs two kinds of data that want opposite things. Who is going, and where they will meet, must
 stay private. The fact that someone at the event wants a coffee at 7pm should be public, easy to read
 and gone once it no longer matters. Arkiv holds only the second kind.
@@ -7,8 +9,8 @@ and gone once it no longer matters. Arkiv holds only the second kind.
 ## If we swapped Arkiv for Postgres, what would users lose?
 
 **Reading the board without trusting or asking Rally.** Today anyone can run
-[one query](schema.md#queries-you-can-run) and see what is open at the event, with no Rally account,
-API key from us, or permission. With Postgres, the board exists only through our API, on our terms, for
+[one query](schema.md#queries-you-can-run) or open [the reader](https://www.therally.xyz/reader.html) and see what is open at
+the event, with no Rally account, API key from us, or permission. With Postgres, the board exists only through our API, on our terms, for
 as long as we keep it running.
 
 **Proof of who published a listing.** Each listing carries an owner address that the network enforces.
@@ -29,8 +31,13 @@ Inside Rally's own app, a swap would look almost the same. The Discover screen r
 backend and checks every listing against PostgreSQL, so a person using only the app gets no direct
 benefit from the checks above, and Arkiv being down costs them only the board.
 
-The advantage is real for anyone reading Arkiv directly, and for us as the operator. No third-party
-reader exists yet. That is the gap between what this design allows and what has happened so far.
+The advantage is real for anyone reading Arkiv directly, and for us as the operator.
+[The reader](https://www.therally.xyz/reader.html) shows it: one static page with no dependencies that reads the live board
+straight from the Arkiv RPC, using only the public wallet address and schema name. A browser test confirmed
+that it asks no other host for data, so it does not need Rally's backend to be up.
+
+We wrote that reader ourselves, so it proves what is possible and not that others have adopted it. No
+independent third party has built on the board yet.
 
 ## What we kept off Arkiv, and why
 

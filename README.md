@@ -153,8 +153,9 @@ RALLY points are not a cash payout. `RewardClaim` is not part of the active appl
 
 ## Data on Arkiv
 
-Rally publishes one public, expiring listing for each Rally open to discovery. The
-[Discover screen](https://www.therally.xyz/app/discover) reads those listings on the Rabdi testnet.
+Entered in **Build on Arkiv (from scratch)**. Rally publishes one public, expiring listing for each Rally
+open to discovery. The [Discover screen](https://www.therally.xyz/app/discover) reads those listings on the
+Rabdi testnet.
 
 **Wallet that wrote the entities:**
 [`0x0881ABfDB5FAE83F6d35FFc0A0C862f1BAD873a1`](https://rabdi.explorer.arkiv.network/address/0x0881ABfDB5FAE83F6d35FFc0A0C862f1BAD873a1)
@@ -180,13 +181,16 @@ EOF
 A key is optional, but the keyless endpoint has a small shared budget. If you get a `429`, create a
 free key at [hub.arkiv.network/access-keys](https://hub.arkiv.network/access-keys).
 
+**To read the board in a browser,** open [the Arkiv reader](https://www.therally.xyz/reader.html). The page reads the Arkiv RPC
+directly, with no Rally backend involved.
+
 | Document | Answers |
 | --- | --- |
 | [Schema](arkiv/schema.md) | Entities, queried fields, owners, expiry |
 | [How we use Arkiv](arkiv/how-you-use-arkiv.md) | Whether filters, ownership and expiry fit, and what users see from each feature |
 | [Why Arkiv](arkiv/why-arkiv.md) | What users would lose with Postgres alone, and what stays off Arkiv |
 | [Reach](arkiv/reach.md) | Who Rally is for, and how to try it today |
-| [Feedback](arkiv/friction.md) | What got in our way, with reproduction steps |
+| [Feedback](arkiv/friction.md) | What worked well, and what we would fix first, with reproduction steps |
 
 ## Repository
 
@@ -412,7 +416,7 @@ groups from a shortlist the server provides, writes map dialogue, and assesses g
 decide seats and membership. Provider request IDs appear in the app.
 
 **In development:** Codex and Claude Code were our main tools, used for implementation, debugging and
-documentation. Claude Code also helped deploy the contracts and draft the `arkiv/` documents. Live
+documentation. Claude Code also helped deploy the contracts and draft the `arkiv/` documents and reader. Live
 numbers in those documents were read from the network or the team's dashboards, not generated.
 
 ## License

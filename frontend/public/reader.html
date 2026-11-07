@@ -1,0 +1,141 @@
+<!doctype html>
+<!--
+  Reads Rally's public board straight from Arkiv. No build step, no dependencies, no Rally backend.
+  This file also works when saved and opened locally: all it needs is public data.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rally Board Reader</title>
+<style>
+  :root { color-scheme: light dark; --blue: #315fe8; --coral: #f06445; --line: #8884; --muted: #777; }
+  * { box-sizing: border-box; }
+  body { margin: 0 auto; max-width: 720px; padding: 24px 16px 48px; font: 16px/1.5 system-ui, sans-serif; }
+  h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.2; }
+  a { color: var(--blue); }
+  .eyebrow { margin: 0 0 8px; color: var(--coral); font-size: 14px; font-weight: 700; }
+  p { margin: 0 0 12px; }
+  code { font-size: 13px; overflow-wrap: anywhere; }
+  label, .muted { color: var(--muted); font-size: 14px; }
+  form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
+  input, button { font: inherit; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; }
+  input { flex: 1 1 200px; min-width: 0; }
+  button { cursor: pointer; border-color: var(--blue); background: var(--blue); color: #fff; }
+  ul { list-style: none; margin: 16px 0; padding: 0; }
+  li { padding: 12px 0; border-top: 1px solid var(--line); }
+  li strong { text-transform: capitalize; }
+  #error { color: #d33; }
+</style>
+</head>
+<body>
+<p class="eyebrow">Live from Arkiv</p>
+<h1>Rally's public board</h1>
+<p class="muted">This page reads Arkiv directly, so nothing here passes through Rally's backend. Anyone could build the same page from public data alone, and we wrote this one to show it.</p>
+
+<form id="form">
+  <label for="key">Arkiv access key, optional</label>
+  <input id="key" type="password" autocomplete="off" placeholder="Only needed if the free budget runs out">
+  <button>Read the board</button>
+</form>
+
+<p id="summary" role="status">Reading from Arkiv…</p>
+<p id="error" role="alert" hidden></p>
+<ul id="list"></ul>
+
+<p class="muted">Query sent to Arkiv:<br><code id="query"></code></p>
+<p class="muted">
+  <a id="owner" rel="noopener">Check the publishing wallet</a> ·
+  <a href="https://github.com/ChanX21/rally/blob/main/frontend/public/reader.html" rel="noopener">Page source</a> ·
+  <a href="https://www.therally.xyz" rel="noopener">Open Rally</a>
+</p>
+
+<script>
+  const RPC = 'https://rpc.rabdi.db-chain.testnet.arkiv.network';
+  const OWNER = '0x0881ABfDB5FAE83F6d35FFc0A0C862f1BAD873a1';
+  const SECONDS_PER_BLOCK = 2;
+  const QUERY = "arkiv.schema = str('rally-mumbai.activity.v1') AND app = str('rally-mumbai') " +
+    `AND event = str('ethglobal-mumbai-2026') AND $owner = addr(${OWNER})`;
+
+  const $ = (id) => document.getElementById(id);
+  $('query').textContent = QUERY;
+  $('owner').href = `https://rabdi.explorer.arkiv.network/address/${OWNER}`;
+
+  const ZONES = { 'venue-floor-1': 'Venue, floor 1', 'venue-floor-2': 'Venue, floor 2', 'venue-nearby': 'Near the venue' };
+  const startLabel = (bucket) => {
+    const date = new Date(`${bucket}:00:00Z`);
+    if (Number.isNaN(date.getTime())) return bucket;
+    return date.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+  };
+
+  async function readBoard(key) {
+    const response = await fetch(key ? `${RPC}/${encodeURIComponent(key)}` : RPC, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'arkiv_query',
+        params: [QUERY, { select: { key: true, attributes: true, owner: true, expiresAt: true }, limit: '0x64' }],
+      }),
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok || body?.error) {
+      throw new Error(body?.error?.message ?? body?.message ?? `Arkiv answered with HTTP ${response.status}.`);
+    }
+    return body.result;
+  }
+
+  const expiryLabel = (listing, currentBlock) => {
+    const hours = (parseInt(listing.expiresAt, 16) - parseInt(currentBlock, 16)) * SECONDS_PER_BLOCK / 3600;
+    return hours < 1 ? 'expires within the hour' : `expires in about ${Math.round(hours)} h`;
+  };
+
+  function show({ data, blockNumber }) {
+    // The query already filters by owner. Checking again here means a reader never has to trust the node's filter.
+    const listings = data
+      .filter((row) => row.owner?.toLowerCase() === OWNER.toLowerCase())
+      .map((row) => ({ ...row, ...Object.fromEntries(row.attributes.map(({ name, value }) => [name, value])) }));
+
+    const noun = listings.length === 1 ? 'listing' : 'listings';
+    const more = listings.length === 100 ? ' (first page of 100)' : '';
+    $('summary').textContent = `${listings.length} live ${noun}${more}, at Arkiv block ${parseInt(blockNumber, 16)}.`;
+
+    // textContent throughout: listings are data from a public network, never markup.
+    $('list').replaceChildren(...listings.map((listing) => {
+      const item = document.createElement('li');
+      const title = document.createElement('strong');
+      title.textContent = listing.category;
+      const details = document.createElement('div');
+      details.className = 'muted';
+      details.textContent = [
+        ZONES[listing.zone] ?? listing.zone,
+        `around ${startLabel(listing.startBucket)}`,
+        listing.status,
+        `${listing.openSeats} open, happens with ${listing.minGroupSize} or more`,
+        expiryLabel(listing, blockNumber),
+      ].join(' · ');
+      item.append(title, details);
+      return item;
+    }));
+  }
+
+  async function load() {
+    $('error').hidden = true;
+    $('summary').textContent = 'Reading from Arkiv…';
+    try {
+      show(await readBoard($('key').value.trim()));
+    } catch (error) {
+      $('summary').textContent = 'Could not read the board.';
+      $('error').textContent = error instanceof TypeError
+        ? 'Arkiv did not answer. The free budget may have run out on this network, so try again later or add an access key from hub.arkiv.network.'
+        : error.message;
+      $('error').hidden = false;
+    }
+  }
+
+  $('form').addEventListener('submit', (event) => { event.preventDefault(); load(); });
+  load();
+</script>
+</body>
+</html>
