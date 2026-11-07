@@ -392,6 +392,7 @@ on **Supabase**. See the [backend deployment guide](backend/README.md#render-dep
 | Member | Telegram | X |
 | --- | --- | --- |
 | @chanchaldelson | [@chanchaldelson](https://t.me/chanchaldelson) | [@chanchaldelson](https://x.com/chanchaldelson) |
+| Harshed Abdulla | [@abdnix](https://t.me/abdnix) | [@harshedabdulla](https://x.com/harshedabdulla) |
 
 ## Further Reading
 
