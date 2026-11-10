@@ -32,7 +32,7 @@ function SelectField({ options, value, onChange, disabled }: {
 }
 
 function AreaInput({ value, onChange, disabled }: { value: string; onChange: (value: string) => void; disabled?: boolean }) {
-  return <input disabled={disabled} maxLength={120} autoComplete="off" placeholder="Type a place, like Pavilion 2" value={zoneLabel(value)}
+  return <input disabled={disabled} maxLength={120} autoComplete="off" placeholder="Place or location, e.g. Mumbai Airport T1" value={value ? zoneLabel(value) : ""}
     onChange={(event) => {
       const text = event.target.value;
       const fixed = ZONES.find((zone) => zone.label.toLowerCase() === text.trim().toLowerCase());
@@ -40,12 +40,10 @@ function AreaInput({ value, onChange, disabled }: { value: string; onChange: (va
     }} />;
 }
 
-function AreaOptions({ value, onChange, disabled }: { value: string; onChange: (value: string) => void; disabled?: boolean }) {
+function AreaOptions({ value }: { value: string }) {
   return <>
-    <div className="samples" role="group" aria-label="Suggested areas">
-      {ZONES.map((zone) => <button key={zone.id} type="button" className="sample area-option" aria-pressed={value === zone.id} disabled={disabled} onClick={() => onChange(zone.id)}>{zone.label}</button>)}
-    </div>
-    {value.trim() && !isFixedArea(value) && <p className="field-hint">Only your group sees this place. Invites say &ldquo;{zoneLabel(TYPED_AREA_ZONE)}&rdquo; until then.</p>}
+    {value.trim() && <a className="field-hint" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(zoneLabel(value))}`} target="_blank" rel="noopener noreferrer">View location on map ↗</a>}
+    <p className="field-hint">The exact meeting place is shared only with your group.</p>
   </>;
 }
 
@@ -75,6 +73,8 @@ export default function CreateRallyScreen() {
   };
   const accept = (result: ParsedIntent, currentAnswers: Record<string, string> = {}) => {
     const next = draftFromIntent(result.intent, currentAnswers);
+    if (result.location && !currentAnswers.distance) next.zone = result.location;
+    else if (draft?.zone && !isFixedArea(draft.zone) && parsed?.intent.id === result.intent.id && !currentAnswers.distance) next.zone = draft.zone;
     if (result.aiRequestId) setReceipts((previous) => [...previous, { task: "intent", requestId: result.aiRequestId!, outcome: result.status === "needs_review" ? "fallback" : "ok" }]);
     setParsed(result);
     setQuestionIndex(0);
@@ -93,6 +93,7 @@ export default function CreateRallyScreen() {
     if (!parsed || !answers[questionId]?.trim()) return null;
     const fields: Partial<Record<string, RallyDetail>> = { start_time: "start", duration: "durationMin", group_size: "capacity", distance: "zone", group_fit: "vibe" };
     const field = fields[questionId];
+    if (questionId === "start_time") return null; // Natural language is resolved by the reparse.
     return field ? rallyDraftIssues(draftFromIntent(parsed.intent, answers))[field] ?? null : null;
   };
   const editAnsweredDetails = () => {
@@ -112,7 +113,7 @@ export default function CreateRallyScreen() {
       const value = (answers[question.id] ?? "").trim();
       // The AI only gets the coarse area. The typed place is reapplied from `answers` in the draft.
       if (question.id === "distance" && value && !isFixedArea(value)) return { questionId: question.id, answer: TYPED_AREA_ZONE };
-      return { questionId: question.id, answer: question.id === "start_time" && value ? fromLocalInput(value) ?? value : value };
+      return { questionId: question.id, answer: value };
     })
       .filter((item) => item.answer);
     if (!filled.length) { if (draft) review(draft); return; }
@@ -229,7 +230,7 @@ export default function CreateRallyScreen() {
             <p className="step">Question {questionIndex + 1} of {questions.length}</p>
             <label>
             <span>{question.text}</span>
-            {question.id === "start_time" ? <input type="datetime-local" disabled={!!busy} value={answers[question.id] ?? ""} onChange={(event) => setAnswers((previous) => ({ ...previous, [question.id]: event.target.value }))} />
+            {question.id === "start_time" ? <input type="text" maxLength={120} placeholder="e.g. 12 November at 3:05 PM, or tomorrow evening" disabled={!!busy} value={answers[question.id] ?? ""} onChange={(event) => setAnswers((previous) => ({ ...previous, [question.id]: event.target.value }))} />
               : question.id === "distance" ? <AreaInput disabled={!!busy} value={answers[question.id] ?? ""} onChange={(value) => setAnswers((previous) => ({ ...previous, [question.id]: value }))} />
               : question.id === "group_fit" ? <SelectField disabled={!!busy} value={answers[question.id] ?? ""} options={VIBES.map((vibe) => ({ value: vibe.id, label: vibe.label }))} onChange={(value) => setAnswers((previous) => ({ ...previous, [question.id]: value }))} />
               : ["duration", "group_size"].includes(question.id) ? <input type="number" disabled={!!busy} min={question.id === "duration" ? 5 : 2} max={question.id === "duration" ? 480 : 12} value={answers[question.id] ?? ""} onChange={(event) => setAnswers((previous) => ({ ...previous, [question.id]: event.target.value }))} />
@@ -238,7 +239,7 @@ export default function CreateRallyScreen() {
               : <input disabled={!!busy} maxLength={120} value={answers[question.id] ?? ""} placeholder="Your answer"
                 onChange={(event) => setAnswers((previous) => ({ ...previous, [question.id]: event.target.value }))} />}
             </label>
-            {question.id === "distance" && <AreaOptions disabled={!!busy} value={answers[question.id] ?? ""} onChange={(value) => setAnswers((previous) => ({ ...previous, [question.id]: value }))} />}
+            {question.id === "distance" && <AreaOptions value={answers[question.id] ?? ""} />}
           </div>)}
           <p>Only the details that help us form your Rally.</p>
         </>}
@@ -273,7 +274,7 @@ export default function CreateRallyScreen() {
             {(showField("groupMin") || showField("capacity")) && <p>Group sizes include you.</p>}
             {showField("zone") && <div className="area-field">
               <label>Where would you like to meet?<AreaInput value={draft.zone} disabled={!!busy} onChange={(value) => set("zone", value)} /></label>
-              <AreaOptions value={draft.zone} disabled={!!busy} onChange={(value) => set("zone", value)} />
+              <AreaOptions value={draft.zone} />
             </div>}
             {showField("vibe") && <label>Group atmosphere<SelectField value={draft.vibe} options={VIBES.map((vibe) => ({ value:vibe.id, label:vibe.label }))} disabled={!!busy} onChange={(value) => set("vibe", value)} /></label>}
             {stage === "edit" && <PreferenceEditor categories={[draft.category]} preferences={draft.preferences} disabled={!!busy}

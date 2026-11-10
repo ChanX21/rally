@@ -1,3 +1,4 @@
+import { redactPii } from '../domain/intent-fallback.js';
 import { inArray } from 'drizzle-orm';
 
 import { rallies } from '../db/schema/index.js';
@@ -54,6 +55,7 @@ export async function previewActivities(deps: Deps, query: PreviewQuery) {
             openSeats: rallies.openSeats,
             visibility: rallies.visibility,
             goal: rallies.goal,
+            meetingPoint: rallies.meetingPoint,
             category: rallies.category,
             expiresAt: rallies.expiresAt,
           })
@@ -73,6 +75,7 @@ export async function previewActivities(deps: Deps, query: PreviewQuery) {
     return [
       {
         opaqueId: listing.opaqueId,
+        title: redactPii(rally.meetingPoint ? rally.goal.split(rally.meetingPoint).join('') : rally.goal).trim().slice(0, 80) || listing.category,
         dialogue: dialogues.get(rally.id)?.dialogue ?? null,
         aiRequestId: dialogues.get(rally.id)?.aiRequestId ?? null,
         category: listing.category,

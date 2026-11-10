@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { CATEGORIES, preferenceText, preferenceNotes, preferencesFromNotes, matchingProgressLabels, clockCountdown, durationLabel, scheduleTime } from "./format.ts";
+import { meetingTimeFromInput, fromLocalInput, toLocalInput, CATEGORIES, preferenceText, preferenceNotes, preferencesFromNotes, matchingProgressLabels, clockCountdown, durationLabel, scheduleTime } from "./format.ts";
 import { CATEGORIES as BACKEND_CATEGORIES } from "../../../backend/src/domain/catalog.ts";
 
 test("frontend activity choices stay in sync with the backend and display new preferences", () => {
@@ -51,4 +51,19 @@ test("schedule time adds the date only for other days", () => {
   const now = new Date(2026, 10, 6, 12, 0).getTime();
   assert.doesNotMatch(scheduleTime(new Date(2026, 10, 6, 20, 0).getTime(), now), /Nov/);
   assert.match(scheduleTime(new Date(2026, 10, 8, 20, 0).getTime(), now), /Nov.*20:00/);
+});
+
+
+test("the meeting date/time input round-trips a future rally across local timezone conversion", () => {
+  const future = "2026-11-12T09:35:00.000Z";
+  assert.equal(fromLocalInput(toLocalInput(future)), future);
+  assert.match(toLocalInput(future), /^2026-11-12T/);
+});
+
+
+test("the default meeting time retains seconds so it stays inside the future window", () => {
+  const start = "2026-11-12T09:35:47.123Z";
+  assert.equal(meetingTimeFromInput("", start), start);
+  assert.equal(meetingTimeFromInput(toLocalInput(start), start), start);
+  assert.equal(meetingTimeFromInput(toLocalInput("2026-11-12T10:00:00Z"), start), "2026-11-12T10:00:00.000Z");
 });

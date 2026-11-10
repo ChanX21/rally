@@ -19,7 +19,7 @@ export function draftFromIntent(intent: Intent, answers: Record<string, string> 
     preferences: intent.preferences ?? {},
   };
   // These answers come from typed controls, so a failed reparse must not erase them.
-  if (answers.start_time) draft.start = answers.start_time;
+  if (answers.start_time && /^\d{4}-\d{2}-\d{2}T/.test(answers.start_time)) draft.start = toLocalInput(fromLocalInput(answers.start_time));
   if (answers.duration) draft.durationMin = answers.duration;
   if (answers.distance) draft.zone = answers.distance;
   if (answers.group_fit) draft.vibe = answers.group_fit;

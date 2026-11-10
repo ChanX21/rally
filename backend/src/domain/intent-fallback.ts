@@ -9,7 +9,7 @@ const KEYWORDS: readonly [Category, RegExp][] = [
   ['gym', /\b(gym|workout|weightlifting|weights|fitness training)\b/i],
   ['nature', /\b(nature|hike|hiking|birdwatching|trail walk|outdoors)\b/i],
   ['fashion', /\b(fashion|styling|thrifting|clothes|outfits)\b/i],
-  ['travel', /\b(travel|trip|backpacking|itinerary)\b/i],
+  ['travel', /\b(travel|trip|backpacking|itinerary|flight|airport|flying|fly)\b/i],
   ['finance', /\b(finance|budgeting|investing|investment|personal finance)\b/i],
   ['technology', /\b(technology|tech|artificial intelligence|robotics|gadgets)\b/i],
   ['books', /\b(books|reading|book club|book discussion|novels?|literature)\b/i],

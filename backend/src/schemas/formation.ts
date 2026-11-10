@@ -23,6 +23,7 @@ export const intentSchema = z.strictObject({
   durationMin: z.number().int().min(5).max(480),
   groupMin: z.number().int().min(2).max(20).default(2), groupMax: z.number().int().min(2).max(20).default(2),
   preferences: preferenceSchema.optional(),
+  location: z.string().trim().min(1).max(120).optional(),
   zoneId: id, vibe: z.enum(['quiet', 'chatty', 'any']),
 }).refine((v) => v.groupMin <= v.groupMax);
 export const knownIntentSchema = z.strictObject({ ...intentSchema.shape,

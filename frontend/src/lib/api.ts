@@ -180,6 +180,7 @@ export type Intent = {
 };
 
 export type ParsedIntent = {
+  location?: string | null;
   intent: Intent;
   status: "ready" | "needs_answers" | "needs_review";
   needsReview: boolean;
@@ -350,6 +351,7 @@ export type Matches = { matches: Match[]; waiting: WaitingIntent[] };
 export type AiRequest = { task: string; requestId: string; outcome?: string; createdAt?: string };
 
 export type PreviewActivity = {
+  title: string;
   opaqueId: string;
   dialogue: string | null;
   aiRequestId: string | null;

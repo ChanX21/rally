@@ -101,7 +101,7 @@ export function displayTime(iso: string): string {
 export function bucketLabel(bucket: string): string {
   const date = new Date(`${bucket}:00:00Z`);
   if (Number.isNaN(date.getTime())) return bucket;
-  return `around ${date.toLocaleTimeString([], { hour: "numeric" })}`;
+  return `around ${date.toLocaleDateString([], { month: "short", day: "numeric" })}, ${date.toLocaleTimeString([], { hour: "numeric" })}`;
 }
 
 export function countdown(msLeft: number): string {
@@ -163,6 +163,11 @@ export function fromLocalInput(value: string): string | null {
   if (!value) return null;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+// Minute-only controls must not round the default below the rally's windowStart seconds.
+export function meetingTimeFromInput(value: string, defaultAt: string): string | null {
+  return !value || value === toLocalInput(defaultAt) ? defaultAt : fromLocalInput(value);
 }
 
 // Rallies that still need the user's attention, for the home screen.

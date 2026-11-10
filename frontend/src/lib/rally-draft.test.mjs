@@ -61,3 +61,10 @@ test("a typed meeting area stays private while the public zone stays coarse", ()
   assert.equal(picked.zone, "venue-floor-1");
   assert.equal("meetingPoint" in picked, false);
 });
+
+
+test("a natural-language answer never overwrites the AI-resolved date with an invalid input", () => {
+  const resolved = { ...intent(), windowStart: "2026-11-12T09:35:00.000Z" };
+  const draft = draftFromIntent(resolved, { start_time: "12 November at 3:05 PM" });
+  assert.equal(new Date(draft.start).toISOString(), resolved.windowStart);
+});

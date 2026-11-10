@@ -101,7 +101,8 @@ describe('end-to-end journey', () => {
     await h.drainOutbox();
     const preview = (await h.app.inject({ url: '/activities/preview?category=food' })).json().data;
     expect(preview.activities).toHaveLength(1);
-    expect(JSON.stringify(preview)).not.toContain(rally.goal);
+    expect(preview.activities[0].title).toBe(rally.goal);
+    expect(JSON.stringify(preview)).not.toContain(rally.meetingPoint);
 
     // Matching proposed Ben, with an AI explanation.
     const { matches } = await ben.get('/matches');

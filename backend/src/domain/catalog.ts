@@ -90,7 +90,7 @@ export const ONBOARDING_QUESTIONS: readonly QuestionTemplate[] = [
 export const ACTIVITY_QUESTIONS: readonly QuestionTemplate[] = [
   { id: 'start_time', text: 'What date and time would work for this plan?', purpose: 'The start date and time' },
   { id: 'duration', text: 'About how many minutes would you like to set aside?', purpose: 'The duration in minutes' },
-  { id: 'distance', text: 'Stay at the venue or head somewhere nearby?', purpose: 'Which event zone it happens in' },
+  { id: 'distance', text: 'What place or location would you like to meet at?', purpose: 'Meeting place or location, unless already supplied' },
   { id: 'group_fit', text: 'Would you prefer a quieter group or plenty of conversation?', purpose: 'The group vibe' },
   { id: 'group_size', text: 'A pair or a bigger group—how many people, including you?', purpose: 'Minimum and maximum group size' },
 ];

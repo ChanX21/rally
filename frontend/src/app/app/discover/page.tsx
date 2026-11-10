@@ -214,7 +214,7 @@ export default function DiscoverScreen() {
                   onClick={() => setOpen(isOpen ? -1 : i)}
                 >
                   <span style={{ display: "flex", flexDirection: "column", gap: "4px", minWidth: 0 }}>
-                    <span style={{ fontFamily: SERIF, fontSize: "19px", lineHeight: 1.15 }}>{categoryPhrase(c.category)}</span>
+                    <span style={{ fontFamily: SERIF, fontSize: "19px", lineHeight: 1.15 }}>{c.title || categoryPhrase(c.category)}</span>
                     <span style={{ fontSize: "13px", color: "#766B65" }}>
                       <span style={{ fontFamily: MONO, color: "#1C1917" }}>{bucketLabel(c.startBucket)}</span>
                       {" · "}{zoneLabel(c.zone)}

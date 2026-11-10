@@ -8,7 +8,7 @@ import { errorCode, errorMessage, type Rally } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { RallyAiRequests } from "@/components/AiRequests";
 import { usePolled } from "@/lib/usePolled";
-import { matchingProgressLabels } from "@/lib/format";
+import { matchingProgressLabels, toLocalInput, meetingTimeFromInput } from "@/lib/format";
 import RallyLoader from "@/components/RallyLoader";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
@@ -60,14 +60,6 @@ function describe(rally: Rally, isCreator: boolean): { title1: string; title2: s
     case "expired":
       return { title1: "This Rally", title2: "has ended", sub: "Its time ran out. Start another whenever you like." };
   }
-}
-
-// A plan is for one day, so a clock time is read on the day its window starts.
-function meetTimeOn(windowStart: string, clock: string): string {
-  const [hours, minutes] = clock.split(":").map(Number);
-  const date = new Date(windowStart);
-  date.setHours(hours ?? 0, minutes ?? 0, 0, 0);
-  return date.toISOString();
 }
 
 export default function FindingPeopleScreen() {
@@ -264,11 +256,13 @@ export default function FindingPeopleScreen() {
                 value={meetingPoint}
                 onChange={(e) => setMeetingPoint(e.target.value)}
               />
-              <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", fontSize: "14px", color: "#766B65" }}>
-                Meeting time (optional)
+              <label style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "14px", color: "#766B65" }}>
+                Meeting date and time
                 <input
-                  type="time"
-                  value={meetClock}
+                  type="datetime-local"
+                  min={toLocalInput(rally.windowStart)}
+                  max={toLocalInput(rally.windowEnd)}
+                  value={meetClock || toLocalInput(rally.meetAt ?? rally.windowStart)}
                   onChange={(e) => setMeetClock(e.target.value)}
                   style={{ height: "44px", padding: "0 12px", borderRadius: "12px", border: "1px solid #D9C8BE", background: "#FFFAF7", fontFamily: "inherit", fontSize: "15px", color: "#1C1917" }}
                 />
@@ -282,7 +276,7 @@ export default function FindingPeopleScreen() {
                     api.updateRally(rally.id, {
                       expectedVersion: rally.version,
                       meetingPoint: meetingPoint.trim(),
-                      ...(meetClock ? { meetAt: meetTimeOn(rally.windowStart, meetClock) } : {}),
+                      meetAt: meetingTimeFromInput(meetClock, rally.meetAt ?? rally.windowStart)!,
                     })
                   )
                 }

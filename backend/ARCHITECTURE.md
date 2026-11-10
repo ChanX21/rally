@@ -845,3 +845,12 @@ already-extracted fields are removed server-side. A complete plan with no remain
 returns ready directly; an incomplete plan with no useful questions goes to editable review.
 Unspecified vibe defaults to any, while unknown durations and locations are not invented. See
 `evidence/clarification-live-2026-11-06.json` for real 0G Carrom examples with provider request IDs.
+
+### Plan clarification and discovery titles
+
+Formation v14 extracts a private `location` into the parse response for the creation form; it is
+saved as the meeting point only on confirmation, never as an Arkiv field. Complete extracted
+intents bypass clarification even if the model redundantly selects questions. Missing duration
+defaults to 45 minutes for review. Start-time answers accept natural language in the saved timezone.
+Public preview titles use the rally goal (up to 80 characters), with direct identifiers and the
+exact saved meeting point removed; sensitive/private rallies remain excluded.

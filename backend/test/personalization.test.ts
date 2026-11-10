@@ -158,7 +158,7 @@ it('shows contextual coffee questions and accepts answers through the existing f
   expect(first.intent.questions.map((q: { id: string; text: string }) => [q.id, q.text])).toEqual([
     ['start_time', 'What time does the 0G workshop finish?'],
     ['duration', 'A quick coffee or time to sit and chat—about how many minutes?'],
-    ['distance', 'Stay at the venue or walk to a nearby café?'],
+    ['distance', 'What place or location would you like to meet at?'],
   ]);
   expect((await user.get('/intents')).items[0].questions).toEqual(first.intent.questions);
   h.ai.respond = () => ({ schemaVersion: 1, status: 'ready', intent: {

@@ -26,3 +26,30 @@ it.each([
   expect(corrected.status).toBe('ready');
   expect(h.ai.callsFor('intent')).toHaveLength(2);
 });
+
+
+it('skips redundant questions for a complete future flight plan and returns its private location', async () => {
+  const host = await h.onboarded('did:answers:flight', { optInMatching: false });
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'needs_answers', questionIds: ['start_time', 'duration', 'distance'],
+    intent: { categoryId: 'travel', goal: 'Flight companion to Delhi', startAt: hoursFromNow(48), durationMin: 45,
+      zoneId: 'venue-nearby', location: 'Mumbai Airport T1', vibe: 'any' } });
+  const parsed = await host.post('/intents/parse', { text: 'Flying to Delhi in two days at 3:05 PM from Mumbai Airport T1' });
+  expect(parsed.status).toBe('ready');
+  expect(parsed.intent.questions).toEqual([]);
+  expect(parsed.location).toBe('Mumbai Airport T1');
+  expect(parsed.intent.goal).toBe('Flight companion to Delhi');
+  expect(parsed.intent.groupMin).toBe(2);
+});
+
+it('accepts a natural-language date answer and preserves the model-resolved future date', async () => {
+  const host = await h.onboarded('did:answers:date', { optInMatching: false });
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'needs_answers', questionIds: ['start_time'] });
+  const parsed = await host.post('/intents/parse', { text: 'Find me a flight companion to Delhi' });
+  const startAt = hoursFromNow(48);
+  h.ai.respond = () => ({ schemaVersion: 1, status: 'ready', intent: { categoryId: 'travel', goal: 'Flight companion to Delhi',
+    startAt, durationMin: 45, zoneId: 'venue-nearby', location: 'Mumbai Airport T1', vibe: 'any' } });
+  const result = await host.post(`/intents/${parsed.intent.id}/answers`, { answers: [{ questionId: 'start_time', answer: 'in two days at 3:05 PM' }] });
+  expect(result.status).toBe('ready');
+  expect(Date.parse(result.intent.windowStart)).toBe(Date.parse(startAt));
+  expect(h.ai.callsFor('intent')[1]?.input).toMatchObject({ answers: [{ questionId: 'start_time', answer: 'in two days at 3:05 PM' }] });
+});

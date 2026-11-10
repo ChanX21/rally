@@ -26,6 +26,7 @@ export interface ParsedIntent {
   status: ParseStatus;
   needsReview: boolean;
   aiRequestId: string | null;
+  location: string | null;
 }
 
 interface ParseCall {
@@ -89,7 +90,7 @@ async function runParse(deps: Deps, call: ParseCall) {
     }),
   );
 
-  const meta = { modelRunId, aiRequestId: requestId };
+  const meta = { modelRunId, aiRequestId: requestId, location: (result.status === 'ready' || result.status === 'needs_answers') ? result.intent?.location ?? null : null };
 
   if (result.status === 'ready') {
     const intent = { ...result.intent, ...(knownIntent.startAt ? { startAt: knownIntent.startAt } : {}) };
@@ -122,7 +123,7 @@ async function runParse(deps: Deps, call: ParseCall) {
     const explicitPreferences = known.preferences ?? {};
     const game = explicitPreferences.custom_gaming || (explicitPreferences.gaming_game !== 'any' ? explicitPreferences.gaming_game : undefined);
     const supplied: Record<string, boolean> = {
-      start_time: !!known.startAt, duration: known.durationMin !== undefined, distance: !!known.zoneId,
+      start_time: !!known.startAt, duration: known.durationMin !== undefined, distance: !!known.zoneId || !!known.location,
       group_size: known.groupMin !== undefined && known.groupMax !== undefined,
       group_fit: known.vibe !== undefined, gaming_game: !!game,
       build_role: !!explicitPreferences.build_role || !!explicitPreferences.custom_build,
@@ -130,14 +131,14 @@ async function runParse(deps: Deps, call: ParseCall) {
     };
     const pending = questions.filter((q) => result.questionIds.includes(q.id) && !supplied[q.id]);
     const full = intentSchema.safeParse({ vibe: 'any', ...known });
-    const complete = !pending.length && full.success && Date.parse(full.data.startAt) > now.getTime()
+    const complete = full.success && Date.parse(full.data.startAt) > now.getTime()
       && Date.parse(full.data.startAt) + full.data.durationMin * 60_000 <= Date.parse(eventEnd(deps, now));
     const data = complete && full.success ? full.data : known;
     return {
       ...meta,
       status: complete ? 'ready' as const : pending.length ? 'needs_answers' as const : 'needs_review' as const,
       source: 'ai' as const,
-      questions: pending.map(({ id, text, options }) => ({ id, text: redactPii(result.questionTexts?.[id] ?? text), options })),
+      questions: complete ? [] : pending.map(({ id, text, options }) => ({ id, text: redactPii(result.questionTexts?.[id] ?? text), options })),
       fields: {
         goal: data.goal ?? fallback.goal, category: data.categoryId, preferences,
         windowStart: data.startAt ? new Date(data.startAt) : undefined,
@@ -158,9 +159,10 @@ async function runParse(deps: Deps, call: ParseCall) {
   };
 }
 
-const present = (intent: Intent, parse: { status: ParseStatus; aiRequestId: string | null }) => ({
+const present = (intent: Intent, parse: { status: ParseStatus; aiRequestId: string | null; location: string | null }) => ({
   intent,
   status: parse.status,
+  location: parse.location,
   needsReview: parse.status === 'needs_review',
   aiRequestId: parse.aiRequestId,
 });

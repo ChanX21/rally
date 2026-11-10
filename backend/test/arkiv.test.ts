@@ -268,13 +268,13 @@ describe('public preview', () => {
   };
 
   it('needs no login and returns confirmed coarse data', async () => {
-    const rally = await published({ category: 'gaming', zone: 'venue-floor-2' });
-    const { available, activities } = await preview('?category=gaming&zone=venue-floor-2');
+    const rally = await published({ category: 'travel', goal: 'Flight companion to Delhi alice@example.com', meetingPoint: 'Mumbai Airport T1', zone: 'venue-floor-2' });
+    const { available, activities } = await preview('?category=travel&zone=venue-floor-2');
     expect(available).toBe(true);
     const card = activities.find((a: Json) => a.opaqueId === rally.opaqueId);
-    expect(card).toMatchObject({ category: 'gaming', zone: 'venue-floor-2', status: 'open' });
+    expect(card).toMatchObject({ category: 'travel', title: 'Flight companion to Delhi [email]', zone: 'venue-floor-2', status: 'open' });
     expect(Object.keys(card).sort()).toEqual(
-      ['aiRequestId', 'category', 'dialogue', 'minGroupSize', 'neededRole', 'opaqueId', 'openSeats', 'startBucket', 'status', 'zone'],
+      ['aiRequestId', 'category', 'dialogue', 'minGroupSize', 'neededRole', 'opaqueId', 'openSeats', 'startBucket', 'status', 'title', 'zone'],
     );
   });
 

@@ -144,6 +144,7 @@ export const intentSchema = z.object({
 });
 
 export const parsedIntentSchema = z.object({
+  location: z.string().nullable(),
   intent: intentSchema,
   status: z.enum(['ready', 'needs_answers', 'needs_review']),
   needsReview: z.boolean(),
@@ -337,6 +338,7 @@ export const previewSchema = z.object({
   activities: z.array(
     z.object({
       opaqueId: z.string(),
+      title: z.string().max(80),
       dialogue: z.string().max(80).nullable(),
       aiRequestId: z.string().nullable(),
       category: z.string(),

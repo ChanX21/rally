@@ -99,7 +99,9 @@ export function activityQuestions(category: Category | null, text: string): Ques
   } : {};
   const afterWorkshop = /\bafter\s+(?:the\s+)?((?:[\p{L}\p{N}-]+\s+){0,4}workshop)\b/iu.exec(text);
   if (afterWorkshop) wording.start_time = `What time does the ${afterWorkshop[1]} finish?`;
-  return activityCatalog.map((q) => ({ ...q, text: wording[q.id] ?? q.text }));
+  return activityCatalog.map((q) => q.id === 'distance'
+    ? { ...q, text: 'What place or location would you like to meet at?', purpose: 'Meeting place or location, unless already supplied' }
+    : { ...q, text: wording[q.id] ?? q.text });
 }
 
 export function safePreferences(input: Record<string, string>): Preferences {
