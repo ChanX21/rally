@@ -859,3 +859,8 @@ Scheduling allows starts up to 60 days ahead (approximately two months). Explici
 clock times are preserved even when inference fails, rather than replaced by fallback suggestions.
 Profile avatar presets are stored as presentation-only `preferences.avatar`; preference allowlists
 exclude that key from AI matching and Arkiv.
+
+Room/participant responses include only the latest profile avatar preset, selected in one batch
+after membership authorization. They never expose another member's preferences. The My rallies
+page combines paginated owned/joined rallies with pending invitations and waiting intents; it does
+not join anyone automatically and leaves the profile history unchanged.

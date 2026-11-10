@@ -271,6 +271,7 @@ export type UpdateRallyInput = {
 };
 
 export type Member = {
+  avatar?: string;
   userId: string;
   displayName: string | null;
   role: string;
@@ -554,7 +555,7 @@ export function createApiClient(getToken: TokenSource) {
     submitFeedback: (id: string, input: FeedbackInput) =>
       call<FeedbackResult>(`/rallies/${id}/feedback`, { method: "POST", body: input }),
 
-    listMatches: () => call<Matches>("/matches"),
+    listMatches: (params: { limit?: number } = {}) => call<Matches>(`/matches${query(params)}`),
     getMatch: (id: string) => call<Match>(`/matches/${id}`),
     respondToMatch: (id: string, response: "accept" | "decline") =>
       call<Match>(`/matches/${id}/respond`, { method: "POST", body: { response } }),

@@ -578,3 +578,20 @@ describe('notifications', () => {
     }
   });
 });
+
+
+it('shows saved crew avatars from the latest profiles without exposing preferences', async () => {
+  const { candidates, creator, rally, matchIds } = await setUp(1, { meetingPoint: 'Lobby' });
+  await creator.request('PATCH', '/me/profile', { preferences: { avatar: 'sun', matching_notes: 'PRIVATE avatar owner notes' } });
+  await candidates[0]!.request('PATCH', '/me/profile', { preferences: { avatar: 'moon' } });
+  await respond(candidates[0]!, matchIds[0]!, 'accept');
+  const room = await candidates[0]!.get(`/rallies/${rally.id}/room`);
+  expect(room.members.find((member: Json) => member.userId === creator.id)?.avatar).toBe('sun');
+  expect(room.members.find((member: Json) => member.userId === candidates[0]!.id)?.avatar).toBe('moon');
+  expect(JSON.stringify(room)).not.toContain('PRIVATE avatar owner notes');
+  await creator.request('PATCH', '/me/profile', { preferences: { avatar: 'spark' } });
+  const updated = await candidates[0]!.get(`/rallies/${rally.id}/room`);
+  expect(updated.members.find((member: Json) => member.userId === creator.id)?.avatar).toBe('spark');
+  const outsider = await h.onboarded(did('outsider-avatar'));
+  expect((await outsider.request('GET', `/rallies/${rally.id}/room`)).statusCode).toBe(404);
+});

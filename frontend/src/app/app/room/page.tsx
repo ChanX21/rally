@@ -7,10 +7,11 @@ import { RallyProof } from "@/components/RallyProof";
 import { RallyTimer } from "@/components/RallyTimer";
 import { Dropdown } from "@/components/Dropdown";
 import { type DisputeCategory, errorCode, errorMessage } from "@/lib/api";
-import { capitalize, displayTime, initials, zoneLabel } from "@/lib/format";
+import { capitalize, displayTime, zoneLabel } from "@/lib/format";
 import { useSession } from "@/lib/session";
 import { RallyAiRequests } from "@/components/AiRequests";
 import { usePolled } from "@/lib/usePolled";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import RallyLoader from "@/components/RallyLoader";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
@@ -249,7 +250,7 @@ export default function RoomScreen() {
                     const tickable = isHost && formed && !room.proofFlow && !mine;
                     const row = (
                       <>
-                        <span className={`av${mine ? " you" : ""}`}>{mine ? "You" : initials(m.displayName)}</span>
+                        <span style={{ flexShrink: 0, display: "flex" }}><ProfileAvatar avatar={m.avatar ?? "orbit"} size={40} /></span>
                         <span style={{ flex: 1, display: "flex", flexDirection: "column" }}>
                           <span style={{ fontSize: "15px", fontWeight: 600 }}>{mine ? "You" : m.displayName ?? "Rally member"}</span>
                           <span style={{ fontSize: "13px", color: "#766B65" }}>

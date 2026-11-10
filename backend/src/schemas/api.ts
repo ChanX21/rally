@@ -241,6 +241,7 @@ export const listRalliesQuery = paginationQuery.extend({ status: rallyStatusSche
 export const listQuery = paginationQuery;
 
 export const participantSchema = z.object({
+  avatar: z.enum(['orbit', 'sun', 'sprout', 'spark', 'wave', 'moon']),
   userId: z.uuid(),
   displayName: z.string().nullable(),
   role: z.string(),

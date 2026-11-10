@@ -8,6 +8,7 @@ import { useSession } from "@/lib/session";
 import { usePolled } from "@/lib/usePolled";
 import RallyLogo from "@/components/RallyLogo";
 import RunningMan from "@/components/RunningMan";
+import { ProfileAvatar } from "@/components/ProfileAvatar";
 import { CREATE_RALLY_PATH } from "@/lib/plan";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
@@ -91,10 +92,10 @@ export default function HomeScreen() {
           <RallyLogo height={32} />
           <div style={{ display: "flex", gap: "8px" }}>
             <a className="ib" href="/app/profile" aria-label="Your profile">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="8.5" r="3.5" />
-                <path d="M5 20a7 7 0 0 1 14 0" />
-              </svg>
+              <ProfileAvatar avatar={me?.profile?.preferences.avatar ?? "orbit"} size={32} />
+            </a>
+            <a className="ib" href="/app/my-rallies" aria-label="My rallies" title="My rallies">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="3"/><path d="M8 3v4m8-4v4M4 11h16m-11 4h2m3 0h2m-7 3h2"/></svg>
             </a>
             <a className="ib" href="/app/inbox" aria-label={unread > 0 ? `Inbox, ${unread} unread` : "Inbox"}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

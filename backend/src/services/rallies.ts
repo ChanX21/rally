@@ -3,7 +3,7 @@ import { randomBytes } from 'node:crypto';
 import { and, desc, eq, exists, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 
 import { relevantPreferences } from '../domain/questions.js';
-import { claims, intents, offers, rallies, rallySlots } from '../db/schema/index.js';
+import { claims, intents, offers, profileVersions, rallies, rallySlots } from '../db/schema/index.js';
 import {
   type Category,
   HOST_ROLE,
@@ -545,9 +545,16 @@ async function requireMember(deps: Deps, userId: string, rallyId: string): Promi
 export async function listParticipants(deps: Deps, userId: string, rallyId: string) {
   await requireMember(deps, userId, rallyId);
   const members = await activeMembers(deps.db, rallyId);
+  const profiles = members.length ? await deps.db.selectDistinctOn([profileVersions.userId], {
+    userId: profileVersions.userId,
+    avatar: sql<string | null>`${profileVersions.preferences}->>'avatar'`,
+  }).from(profileVersions).where(inArray(profileVersions.userId, members.map(member => member.userId)))
+    .orderBy(profileVersions.userId, desc(profileVersions.version)) : [];
+  const avatars = new Map(profiles.map(profile => [profile.userId, profile.avatar]));
   return members.map((member) => ({
     userId: member.userId,
     displayName: member.displayName,
+    avatar: (['orbit', 'sun', 'sprout', 'spark', 'wave', 'moon'] as const).find(avatar => avatar === avatars.get(member.userId)) ?? ('orbit' as const),
     role: member.role,
     checkedIn: member.checkedInAt !== null,
     arrived: member.arrivedAt !== null,
