@@ -7,6 +7,7 @@ import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, type ProfileUpdate } from "@/lib/api";
 import { ACTIVE_RALLY_STATUSES, CATEGORIES, capitalize, categoryLabel, displayTime, preferenceNotes, preferencesFromNotes, rallyPath, rewardLabel, signedPoints, toLocalInput, fromLocalInput } from "@/lib/format";
 import { useSession } from "@/lib/session";
+import { AVATARS, ProfileAvatar } from "@/components/ProfileAvatar";
 import { usePolled } from "@/lib/usePolled";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-inter" });
@@ -233,6 +234,20 @@ export default function ProfileScreen() {
               Shapes who Rally proposes to you. It&apos;s never a public profile.
             </p>
           </div>
+
+          <section className="card" aria-label="Profile avatar" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <ProfileAvatar avatar={profile?.preferences.avatar ?? "orbit"} />
+              <div><span className="mono">Your avatar</span><p style={{ margin: "6px 0 0", fontSize: 14, color: "#766B65" }}>Pick your Rally personality.</p></div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 4 }}>
+              {AVATARS.map(avatar => <button key={avatar} type="button" aria-label={`Choose ${avatar} avatar`} aria-pressed={(profile?.preferences.avatar ?? "orbit") === avatar} disabled={saving || !profile}
+                style={{ padding: 2, borderRadius: 999, border: (profile?.preferences.avatar ?? "orbit") === avatar ? "2px solid #315FE8" : "2px solid transparent", background: "transparent", cursor: "pointer", display: "flex", justifyContent: "center" }}
+                onClick={async () => { if (profile && await save({ preferences: { ...profile.preferences, avatar }, expectedProfileVersion: profile.version })) setSaveNote("Avatar saved."); }}>
+                <ProfileAvatar avatar={avatar} size={40} />
+              </button>)}
+            </div>
+          </section>
 
           <label style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
             <span className="mono">Your name</span>

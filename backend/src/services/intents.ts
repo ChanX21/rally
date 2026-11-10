@@ -27,6 +27,7 @@ export interface ParsedIntent {
   needsReview: boolean;
   aiRequestId: string | null;
   location: string | null;
+  startTimeConfirmed: boolean;
 }
 
 interface ParseCall {
@@ -51,7 +52,7 @@ function eventEnd(deps: Deps, now: Date): string {
  */
 async function runParse(deps: Deps, call: ParseCall) {
   const now = new Date();
-  const fallbackFields = parseIntentFallback(call.text, now);
+  const fallbackFields = parseIntentFallback(call.text, now, call.timeZone);
   const questions = activityQuestions(fallbackFields.category, call.text);
   const profile = await latestProfile(deps.db, call.userId);
   const answered = new Set(call.answers.map((answer) => answer.questionId));
@@ -65,8 +66,12 @@ async function runParse(deps: Deps, call: ParseCall) {
   knownIntent.vibe ??= 'any';
   if (answered.has('start_time')) delete knownIntent.startAt;
   else if (!knownIntent.startAt) {
-    const explicit = explicitStart(call.text, now);
+    const explicit = explicitStart(call.text, now, call.timeZone);
     if (explicit && explicit > now && explicit.toISOString() < eventEnd(deps, now)) knownIntent.startAt = explicit.toISOString();
+  }
+  if (knownIntent.startAt) {
+    fallbackFields.windowStart = new Date(knownIntent.startAt);
+    fallbackFields.windowEnd = new Date(fallbackFields.windowStart.getTime() + fallbackFields.durationMin * 60000);
   }
   const { result, modelRunId, requestId } = await deps.formation((engine, runId) =>
     engine.parseActivity({
@@ -90,7 +95,7 @@ async function runParse(deps: Deps, call: ParseCall) {
     }),
   );
 
-  const meta = { modelRunId, aiRequestId: requestId, location: (result.status === 'ready' || result.status === 'needs_answers') ? result.intent?.location ?? null : null };
+  const meta = { startTimeConfirmed: !!knownIntent.startAt, modelRunId, aiRequestId: requestId, location: (result.status === 'ready' || result.status === 'needs_answers') ? result.intent?.location ?? null : null };
 
   if (result.status === 'ready') {
     const intent = { ...result.intent, ...(knownIntent.startAt ? { startAt: knownIntent.startAt } : {}) };
@@ -159,10 +164,11 @@ async function runParse(deps: Deps, call: ParseCall) {
   };
 }
 
-const present = (intent: Intent, parse: { status: ParseStatus; aiRequestId: string | null; location: string | null }) => ({
+const present = (intent: Intent, parse: { status: ParseStatus; aiRequestId: string | null; location: string | null; startTimeConfirmed: boolean }) => ({
   intent,
   status: parse.status,
   location: parse.location,
+  startTimeConfirmed: parse.startTimeConfirmed,
   needsReview: parse.status === 'needs_review',
   aiRequestId: parse.aiRequestId,
 });

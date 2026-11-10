@@ -68,3 +68,12 @@ test("a natural-language answer never overwrites the AI-resolved date with an in
   const draft = draftFromIntent(resolved, { start_time: "12 November at 3:05 PM" });
   assert.equal(new Date(draft.start).toISOString(), resolved.windowStart);
 });
+
+
+test("rallies can be planned up to 60 days ahead, including next month", () => {
+  const now = Date.now();
+  const valid = draftFromIntent({ ...intent(), windowStart: new Date(now + 45 * 86400000).toISOString() });
+  assert.equal(rallyDraftProblem(valid, now), null);
+  const tooFar = draftFromIntent({ ...intent(), windowStart: new Date(now + 61 * 86400000).toISOString() });
+  assert.match(rallyDraftIssues(tooFar, now).start, /60 days/);
+});

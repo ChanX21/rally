@@ -537,7 +537,7 @@ Blank counts as unset. `.env.example` has a commented copy.
 | `ADMIN_API_TOKEN` | none | Enables `GET /internal/metrics`; 32+ characters |
 | `EVENT_ZONES` | three venue zones | Allowed zones |
 | `EVENT_TIME_ZONE` | `Asia/Kolkata` | Resolves "tonight" when the client sends no zone |
-| `EVENT_END` | 14 days ahead | Activities must end before this |
+| `EVENT_END` | 60 days ahead | Activities must end before this |
 | `OFFER_HOLD_MINUTES` | `30` | How long an offer stays open |
 | `PRIVY_APP_ID`, `PRIVY_APP_SECRET` | none | Required in production. **Secret** |
 | `PRIVY_VERIFICATION_KEY` | none | Verify tokens locally |
@@ -848,9 +848,14 @@ Unspecified vibe defaults to any, while unknown durations and locations are not 
 
 ### Plan clarification and discovery titles
 
-Formation v14 extracts a private `location` into the parse response for the creation form; it is
+Formation v15 extracts a private `location` into the parse response for the creation form; it is
 saved as the meeting point only on confirmation, never as an Arkiv field. Complete extracted
 intents bypass clarification even if the model redundantly selects questions. Missing duration
 defaults to 45 minutes for review. Start-time answers accept natural language in the saved timezone.
 Public preview titles use the rally goal (up to 80 characters), with direct identifiers and the
 exact saved meeting point removed; sensitive/private rallies remain excluded.
+
+Scheduling allows starts up to 60 days ahead (approximately two months). Explicit relative or dated
+clock times are preserved even when inference fails, rather than replaced by fallback suggestions.
+Profile avatar presets are stored as presentation-only `preferences.avatar`; preference allowlists
+exclude that key from AI matching and Arkiv.

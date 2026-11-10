@@ -59,3 +59,41 @@ it.each(['in 17 minutes', '17 mins from now', 'in 17 mins for 30 minutes'])('res
   expect(explicitStart('in 2 hours', now)?.toISOString()).toBe('2026-11-06T12:00:00.000Z');
   expect(parseIntentFallback('carrom boords', now).category).toBe('gaming');
 });
+
+
+it.each([
+  ['Cricekt tomorrow at 3 PM', '2026-11-11T09:30:00.000Z'],
+  ['Cricket on 12th Nov at 3:05 PM', '2026-11-12T09:35:00.000Z'],
+  ['Cricket on 2026-12-12 at 16:00', '2026-12-12T10:30:00.000Z'],
+  ['Cricket today at 12 AM', '2026-11-09T18:30:00.000Z'],
+])('preserves the explicit local cricket start: %s', (text, expected) => {
+  expect(explicitStart(text, new Date('2026-11-10T06:00:00Z'), 'Asia/Kolkata')?.toISOString()).toBe(expected);
+  expect(parseIntentFallback(text, new Date(), 'Asia/Kolkata').category).toBe('gaming');
+});
+
+it('retains a specified cricket date when the AI fails, without a random suggested time', async () => {
+  const host = await h.onboarded('did:cricket:fallback', { optInMatching: false });
+  h.ai.respond = () => { throw new Error('offline'); };
+  const date = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+  const result = await host.post('/intents/parse', { text: `Cricket on ${date} at 3 PM`, timeZone: 'Asia/Kolkata' });
+  expect(result.startTimeConfirmed).toBe(true);
+  expect(result.intent.windowStart).toBe(`${date}T09:30:00.000Z`);
+  expect(result.intent.category).toBe('gaming');
+});
+
+it('does not guess an unspecified date or accept impossible dates', () => {
+  const now = new Date('2026-11-10T06:00:00Z');
+  expect(explicitStart('Cricket at 3 PM', now, 'Asia/Kolkata')).toBeNull();
+  expect(explicitStart('Cricket on 31 February at 3 PM', now, 'Asia/Kolkata')).toBeNull();
+});
+
+
+it('allows creating a rally next month but rejects starts beyond 60 days', async () => {
+  const host = await h.onboarded('did:future:host', { optInMatching: false });
+  const start = new Date(Date.now() + 45 * 86400000);
+  const rally = await h.rally(host, { windowStart: start.toISOString(), windowEnd: new Date(start.getTime() + 3600000).toISOString() });
+  expect(Date.parse(rally.windowStart)).toBe(start.getTime());
+  const tooFar = new Date(Date.now() + 61 * 86400000);
+  const response = await host.request('POST', '/rallies', { goal: 'Cricket', category: 'gaming', zone: 'venue-floor-1', durationMin: 30, groupMin: 2, capacity: 2, windowStart: tooFar.toISOString(), windowEnd: new Date(tooFar.getTime() + 3600000).toISOString(), vibe: 'any', publish: true });
+  expect(response.statusCode).toBe(422);
+});

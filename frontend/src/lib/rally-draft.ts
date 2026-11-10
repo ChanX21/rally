@@ -35,7 +35,7 @@ export function rallyDraftIssues(draft: RallyDraft, now = Date.now()): Partial<R
   if (!CATEGORIES.some((category) => category.id === draft.category)) issues.category = "Choose an activity.";
   const start = fromLocalInput(draft.start);
   if (!start || Date.parse(start) <= now) issues.start = "Choose a start time in the future.";
-  else if (Date.parse(start) > now + 14 * 86_400_000) issues.start = "Choose a start within the next 14 days.";
+  else if (Date.parse(start) > now + 60 * 86_400_000) issues.start = "Choose a start within the next 60 days.";
   const duration = Number(draft.durationMin), min = Number(draft.groupMin), max = Number(draft.capacity);
   if (!Number.isInteger(duration) || duration < 5 || duration > 480) issues.durationMin = "Choose a duration from 5 to 480 minutes.";
   if (!Number.isInteger(min) || min < 2 || min > 12) issues.groupMin = "Choose a minimum of 2–12 people.";

@@ -180,6 +180,7 @@ export type Intent = {
 };
 
 export type ParsedIntent = {
+  startTimeConfirmed?: boolean;
   location?: string | null;
   intent: Intent;
   status: "ready" | "needs_answers" | "needs_review";

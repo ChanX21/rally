@@ -7,7 +7,7 @@ import RallyLoader from "@/components/RallyLoader";
 import RallyOrb from "@/components/RallyOrb";
 import { PreferenceEditor, PreferenceInput } from "@/components/PreferenceInput";
 import { errorMessage, type ParsedIntent } from "@/lib/api";
-import { CATEGORIES, SENSITIVE_CATEGORIES, VIBES, ZONES, categoryLabel, zoneLabel, preferenceText, fromLocalInput, rallyPath } from "@/lib/format";
+import { CATEGORIES, SENSITIVE_CATEGORIES, VIBES, ZONES, categoryLabel, zoneLabel, preferenceText, toLocalInput, fromLocalInput, rallyPath } from "@/lib/format";
 import { AiRequests } from "@/components/AiRequests";
 import type { AiRequest } from "@/lib/api";
 import { clearRallyCreation } from "@/lib/plan";
@@ -73,6 +73,7 @@ export default function CreateRallyScreen() {
   };
   const accept = (result: ParsedIntent, currentAnswers: Record<string, string> = {}) => {
     const next = draftFromIntent(result.intent, currentAnswers);
+    if (result.startTimeConfirmed && result.intent.windowStart && !currentAnswers.start_time) next.start = toLocalInput(result.intent.windowStart);
     if (result.location && !currentAnswers.distance) next.zone = result.location;
     else if (draft?.zone && !isFixedArea(draft.zone) && parsed?.intent.id === result.intent.id && !currentAnswers.distance) next.zone = draft.zone;
     if (result.aiRequestId) setReceipts((previous) => [...previous, { task: "intent", requestId: result.aiRequestId!, outcome: result.status === "needs_review" ? "fallback" : "ok" }]);
@@ -265,7 +266,7 @@ export default function CreateRallyScreen() {
           <div className="fields">
             {showField("goal") && <label>What would you like to call your Rally?<input value={draft.goal} maxLength={160} disabled={!!busy} onChange={(event) => set("goal", event.target.value)} /></label>}
             {showField("category") && <label>What kind of activity is this?<SelectField value={draft.category} options={CATEGORIES.map((category) => ({ value:category.id, label:category.label }))} disabled={!!busy} onChange={(value) => set("category", value)} /></label>}
-            {showField("start") && <label>{draft.category === "workshop" ? "What date and time does the workshop start?" : "When would you like to start?"}<input type="datetime-local" value={draft.start} disabled={!!busy} onChange={(event) => set("start", event.target.value)} /></label>}
+            {showField("start") && <label>{draft.category === "workshop" ? "What date and time does the workshop start?" : "Choose the date and time for your Rally"}<input type="datetime-local" value={draft.start} disabled={!!busy} onChange={(event) => set("start", event.target.value)} /></label>}
             {showField("durationMin") && <label>About how many minutes?<input type="number" min={5} max={480} value={draft.durationMin} disabled={!!busy} onChange={(event) => set("durationMin", event.target.value)} /></label>}
             {(showField("groupMin") || showField("capacity")) && <div className="pair">
               <label>Minimum people<input type="number" min={2} max={12} value={draft.groupMin} disabled={!!busy} onChange={(event) => set("groupMin", event.target.value)} /></label>

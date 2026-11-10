@@ -283,3 +283,16 @@ it('does not let a profile default override a custom waiting intent in SQL filte
   await guest.patch('/me/profile', { preferences: { custom_gaming: 'Casual Minecraft' } });
   expect((await guest.get(`/matches/${match.id}`)).status).toBe('pending');
 });
+
+
+it('saves avatar choices across profile reloads and keeps them out of AI preferences', async () => {
+  const user = await h.onboarded('did:avatar:host', { preferences: { matching_notes: 'I like cricket' } });
+  const current = await user.get('/me');
+  await user.request('PATCH', '/me/profile', { preferences: { ...current.profile.preferences, avatar: 'sun' } });
+  const me = await user.get('/me');
+  expect(me.profile.preferences.avatar).toBe('sun');
+  expect(me.profile.preferences.matching_notes).toBe('I like cricket');
+  expect(relevantPreferences('gaming', me.profile.preferences)).not.toHaveProperty('avatar');
+  const invalid = await user.request('PATCH', '/me/profile', { preferences: { avatar: 'https://example.com/avatar' } });
+  expect(invalid.statusCode).toBe(400);
+});

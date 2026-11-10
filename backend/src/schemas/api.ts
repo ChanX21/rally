@@ -20,9 +20,9 @@ const category = z.enum(CATEGORIES);
 const vibe = z.enum(VIBES);
 const skills = z.array(shortText(30)).max(10);
 const preferences = z.record(shortText(40), shortText(4000)).refine(
-  (value) => Object.keys(value).length <= 10,
+  (value) => Object.keys(value).filter(key => key !== 'avatar').length <= 10,
   'at most 10 preferences',
-).refine((values) => Object.entries(values).every(([key, value]) => key === 'matching_notes' || Object.hasOwn(PREFERENCE_CHOICES, key) || key.startsWith('custom_')
+).refine((values) => !values.avatar || ['orbit', 'sun', 'sprout', 'spark', 'wave', 'moon'].includes(values.avatar), 'choose a Rally avatar').refine((values) => Object.entries(values).every(([key, value]) => key === 'matching_notes' || Object.hasOwn(PREFERENCE_CHOICES, key) || key.startsWith('custom_')
   ? preferenceSchema.safeParse({ [key]: value }).success : value.length <= 120), 'choose a valid preference');
 
 export const idParams = z.object({ id: z.uuid() });
@@ -144,6 +144,7 @@ export const intentSchema = z.object({
 });
 
 export const parsedIntentSchema = z.object({
+  startTimeConfirmed: z.boolean(),
   location: z.string().nullable(),
   intent: intentSchema,
   status: z.enum(['ready', 'needs_answers', 'needs_review']),

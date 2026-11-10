@@ -40,7 +40,7 @@ export const MAX_QUESTIONS = 3;
 export const MIN_GROUP = 2;
 export const MAX_GROUP = 12;
 export const MAX_DURATION_MIN = 480;
-export const MAX_DAYS_AHEAD = 14;
+export const MAX_DAYS_AHEAD = 60;
 // A fresh Rally may need every seat except the host to reach its minimum.
 export const SHORTLIST_SIZE = MAX_GROUP - 1;
 
