@@ -68,9 +68,9 @@ transaction pooler. The configured pool still runs queries concurrently across c
 ## Render deployment
 
 Use `backend` as the service root, `npm ci && npm run build` as the build command, and
-`npm start` as the start command. Keep `drizzle/` alongside `dist/`. The `prestart` lifecycle
-runs `db:migrate:prod` against `DATABASE_MIGRATION_URL` (or `DATABASE_URL`) before serving requests;
-a failed migration prevents startup. Starting `node dist/index.js` directly skips this step.
+`npm start` as the start command. Keep `drizzle/` alongside `dist/`. The server entry point
+applies migrations against `DATABASE_MIGRATION_URL` (or `DATABASE_URL`) before serving requests, including direct `node dist/index.js` startup. A failed migration prevents
+startup. Connection attempts are bounded to ten seconds.
 For multiple instances or concurrent deployments, run migrations once in a serialized deployment
 step before starting the servers.
 

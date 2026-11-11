@@ -1,10 +1,13 @@
 import { buildApp } from './app.js';
+import { runMigrations } from './db/migrate.js';
 import { EnvValidationError, loadEnv } from './config/env.js';
 import { installShutdownHandlers } from './lib/shutdown.js';
 import { startWorkers, type Workers } from './workers/runner.js';
 
 async function main(): Promise<void> {
   const env = loadEnv();
+  // Direct node startup must not serve code against an older database schema.
+  await runMigrations(env.DATABASE_MIGRATION_URL ?? env.DATABASE_URL);
   const app = await buildApp({ env });
 
   // Runs before the database pool closes, so a tick in progress can finish its work.

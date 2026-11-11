@@ -10,7 +10,7 @@ import { loadDotEnv } from '../config/env.js';
 const migrationsFolder = fileURLToPath(new URL('../../drizzle', import.meta.url));
 
 export async function runMigrations(url: string): Promise<void> {
-  const client = postgres(url, { max: 1, prepare: false, onnotice: () => {} });
+  const client = postgres(url, { max: 1, prepare: false, max_pipeline: 1, connect_timeout: 10, onnotice: () => {} });
   try {
     await migrate(drizzle(client), { migrationsFolder });
   } finally {

@@ -621,7 +621,7 @@ Activity clarification uses model-tailored wording for the specific request, wit
 
 Candidate retrieval filters explicitly conflicting activity/profile preferences before the shortlist limit, using waiting-intent preferences in preference to profile defaults. Unknown or `any` values remain eligible; this does not establish skills or guarantee a fit. The engine checks compatibility again, and acceptance reuses current eligibility rules under the user/Rally locks. Preferences never enter public Arkiv records.
 
-`npm start` runs `db:migrate:prod` through its `prestart` lifecycle before serving requests and stops if migration fails. Render must use `npm start`, with `drizzle/` alongside `dist/` and `DATABASE_MIGRATION_URL` configured for the session pooler. Direct `node dist/index.js` startup skips migration; multiple instances or concurrent deployments must use a serialized migration step. Migration `0005_lyrical_moira_mactaggert.sql` adds non-null JSON preference columns to intents/rallies with empty-object defaults and preserves existing rows. Run `npm run ai:personalization` for four live, synthetic 0G checks. Frontend questionnaires render backend option lists; the plan-review screen allows preference edits. Future preference keys/options must be kept in step with its review option list.
+The server entry point applies migrations before building the app or serving requests and stops if migration fails. Render must use `npm start`, with `drizzle/` alongside `dist/` and `DATABASE_MIGRATION_URL` configured for the session pooler. Direct `node dist/index.js` startup also applies migrations; multiple instances or concurrent deployments must use a serialized migration step. Migration `0005_lyrical_moira_mactaggert.sql` adds non-null JSON preference columns to intents/rallies with empty-object defaults and preserves existing rows. Run `npm run ai:personalization` for four live, synthetic 0G checks. Frontend questionnaires render backend option lists; the plan-review screen allows preference edits. Future preference keys/options must be kept in step with its review option list.
 
 Suggested options remain available alongside custom input. Profile supports adding, editing and clearing preferences for all activity categories. Plan-specific choices override profile defaults for that category. Custom preferences inform AI compatibility assessment rather than SQL equality; deterministic fallback uses the existing hard eligibility rules and cannot assess free-text compatibility. No claim is made of calibrated matching quality or dietary/medical safety. Existing profiles are not retroactively interpreted from historical free-text answers.
 
@@ -879,3 +879,9 @@ request cannot hide loaded rallies. Polling never overlaps within a subscription
 has a 20-second deadline. Public cards may show a recognized city derived from the saved place
 when no host-confirmed public venue is set. This exposes only an allowlisted city name, never raw
 private meeting instructions; unknown cities remain unset rather than guessed.
+
+Startup now applies migrations before the API or workers start, regardless of whether the hosting
+command uses npm or direct node. Migration connections disable pipelining and use a ten-second
+connect timeout. A health response from an already-running old process does not prove schema
+compatibility; the missing `public_place` migration caused rally queries to fail while SELECT 1
+readiness stayed healthy.
