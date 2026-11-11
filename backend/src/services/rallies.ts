@@ -1,3 +1,4 @@
+import { cityFromPlace } from '../domain/place.js';
 import { randomBytes } from 'node:crypto';
 
 import { and, desc, eq, exists, inArray, isNull, lt, or, sql } from 'drizzle-orm';
@@ -74,6 +75,7 @@ export function rallyView(rally: Rally) {
     expiresAt: rally.expiresAt.toISOString(),
     version: rally.version,
     publicPlace: rally.publicPlace,
+    city: cityFromPlace(rally.publicPlace ?? rally.meetingPoint),
     hasMeetingPoint: rally.meetingPoint !== null,
     createdAt: rally.createdAt.toISOString(),
   };

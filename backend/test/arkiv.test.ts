@@ -274,7 +274,7 @@ describe('public preview', () => {
     const card = activities.find((a: Json) => a.opaqueId === rally.opaqueId);
     expect(card).toMatchObject({ category: 'travel', title: 'Flight companion to Delhi [email]', zone: 'venue-floor-2', status: 'open' });
     expect(Object.keys(card).sort()).toEqual(
-      ['aiRequestId', 'category', 'dialogue', 'minGroupSize', 'neededRole', 'opaqueId', 'openSeats', 'publicPlace', 'startBucket', 'status', 'title', 'zone'],
+      ['aiRequestId', 'category', 'city', 'dialogue', 'minGroupSize', 'neededRole', 'opaqueId', 'openSeats', 'publicPlace', 'startBucket', 'status', 'title', 'zone'],
     );
   });
 
@@ -283,6 +283,7 @@ describe('public preview', () => {
     let data = await preview();
     expect(data.activities.find((a: Json) => a.opaqueId === rally.opaqueId).publicPlace).toBe('Mumbai Airport T1');
     expect(JSON.stringify(data)).not.toContain('private gate 42');
+    expect(data.activities.find((a: Json) => a.opaqueId === rally.opaqueId).city).toBe('Mumbai');
     expect(JSON.stringify(entityFor(rally.opaqueId))).not.toContain('Mumbai Airport');
     const own = await creator.get('/rallies');
     expect(own.items.find((r: Json) => r.id === rally.id).meetingPoint).toBe('Mumbai Airport T1, private gate 42');
@@ -291,7 +292,10 @@ describe('public preview', () => {
     data = await preview();
     expect(data.activities.find((a: Json) => a.opaqueId === rally.opaqueId).publicPlace).toBe('Terminal 1 Mumbai');
     await creator.patch(`/rallies/${rally.id}`, { expectedVersion: updated.version, publicPlace: null });
-    expect((await preview()).activities.find((a: Json) => a.opaqueId === rally.opaqueId).publicPlace).toBeNull();
+    const hidden = (await preview()).activities.find((a: Json) => a.opaqueId === rally.opaqueId);
+    expect(hidden.publicPlace).toBeNull();
+    expect(hidden.city).toBe('Mumbai');
+    expect(JSON.stringify(hidden)).not.toContain('gate 42');
     const legacy = await published({ meetingPoint: 'Private home address' });
     expect((await preview()).activities.find((a: Json) => a.opaqueId === legacy.opaqueId).publicPlace).toBeNull();
     expect(JSON.stringify(await preview())).not.toContain('Private home address');

@@ -228,7 +228,7 @@ export default function DiscoverScreen() {
                     </span>
                   </span>
                 </button>
-                <div style={{ padding: "0 16px 12px" }}><PlaceTag place={c.publicPlace} /></div>
+                <div style={{ padding: "0 16px 12px" }}><PlaceTag place={c.publicPlace} city={c.city} /></div>
                 {isOpen && (
                   <div
                     style={{

@@ -873,3 +873,9 @@ preview enrichment and match views, not written to Arkiv. Exact `meeting_point` 
 private. Only the authenticated owned/joined rally list adds private meeting points, so My rallies
 can link members to their place. Existing meeting points are not backfilled into public labels:
 hosts can explicitly set a public place from My rallies. Private/sensitive rallies stay excluded.
+
+My rallies loads its 20-item rally pages independently of invitations, so a delayed invitations
+request cannot hide loaded rallies. Polling never overlaps within a subscription; token retrieval
+has a 20-second deadline. Public cards may show a recognized city derived from the saved place
+when no host-confirmed public venue is set. This exposes only an allowlisted city name, never raw
+private meeting instructions; unknown cities remain unset rather than guessed.

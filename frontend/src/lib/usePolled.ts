@@ -14,14 +14,18 @@ export function usePolled<T>(load: (() => Promise<T>) | null, pollMs?: number) {
   useEffect(() => {
     if (!load) return;
     let alive = true;
-    const run = () => {
-      load()
-        .then((data) => {
-          if (alive) setState({ data, error: null, loaded: true });
-        })
-        .catch((error: unknown) => {
-          if (alive) setState((prev) => ({ ...prev, error, loaded: true }));
-        });
+    let inFlight = false;
+    const run = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        const data = await load();
+        if (alive) setState({ data, error: null, loaded: true });
+      } catch (error: unknown) {
+        if (alive) setState(prev => ({ ...prev, error, loaded: true }));
+      } finally {
+        inFlight = false;
+      }
     };
     run();
     const timer = pollMs

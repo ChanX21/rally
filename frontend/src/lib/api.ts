@@ -234,6 +234,7 @@ export type Rally = {
   expiresAt: string;
   version: number;
   publicPlace: string | null;
+  city: string | null;
   meetingPoint?: string | null;
   hasMeetingPoint: boolean;
   createdAt: string;
@@ -335,6 +336,7 @@ export type Match = {
     | "category"
     | "goal"
     | "publicPlace"
+    | "city"
     | "vibe"
     | "windowStart"
     | "windowEnd"
@@ -359,6 +361,7 @@ export type AiRequest = { task: string; requestId: string; outcome?: string; cre
 
 export type PreviewActivity = {
   publicPlace: string | null;
+  city: string | null;
   title: string;
   opaqueId: string;
   dialogue: string | null;
@@ -470,7 +473,13 @@ export type TokenSource = () => Promise<string | null>;
 // fetched per request rather than stored.
 export function createApiClient(getToken: TokenSource) {
   async function authed<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    const token = await getToken();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let token: string | null;
+    try {
+      token = await Promise.race([getToken(), new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new RallyApiError(0, { code: "TIMEOUT", message: "Sign-in took too long. Please try again." })), DEFAULT_TIMEOUT_MS);
+      })]);
+    } finally { clearTimeout(timer); }
     if (!token) {
       throw new RallyApiError(401, {
         code: "SIGNED_OUT",

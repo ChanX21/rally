@@ -1,3 +1,4 @@
+import { cityFromPlace } from '../domain/place.js';
 import { redactPii } from '../domain/intent-fallback.js';
 import { inArray } from 'drizzle-orm';
 
@@ -78,6 +79,7 @@ export async function previewActivities(deps: Deps, query: PreviewQuery) {
         opaqueId: listing.opaqueId,
         title: redactPii(rally.meetingPoint ? rally.goal.split(rally.meetingPoint).join('') : rally.goal).trim().slice(0, 80) || listing.category,
         publicPlace: rally.publicPlace,
+        city: cityFromPlace(rally.publicPlace ?? rally.meetingPoint),
         dialogue: dialogues.get(rally.id)?.dialogue ?? null,
         aiRequestId: dialogues.get(rally.id)?.aiRequestId ?? null,
         category: listing.category,

@@ -25,18 +25,22 @@ export default function MyRalliesScreen() {
   const [savingPlace, setSavingPlace] = useState<string | null>(null);
   const [pages, setPages] = useState(1);
   const load = useCallback(async () => {
-    const [first, matches] = await Promise.all([api.listRallies({ limit: 100 }), api.listMatches({ limit: 100 })]);
+    const first = await api.listRallies({ limit: 20 });
     const items = [...first.items];
     let nextCursor = first.nextCursor;
     for (let page = 1; page < pages && nextCursor; page++) {
-      const next = await api.listRallies({ limit: 100, cursor: nextCursor });
+      const next = await api.listRallies({ limit: 20, cursor: nextCursor });
       items.push(...next.items);
       nextCursor = next.nextCursor;
     }
-    return { ...myRallySections(items, matches.matches, Date.now()), waiting: matches.waiting, nextCursor, pages };
+    return { items, nextCursor, pages, loadedAt: Date.now() };
   }, [api, pages]);
+  const loadInvitations = useCallback(async () => ({ ...await api.listMatches({ limit: 100 }), loadedAt: Date.now() }), [api]);
   const { data, error, loaded, refresh } = usePolled(load, 15_000);
-  const rows = tab === "current" ? data?.current ?? [] : data?.past ?? [];
+  const invitations = usePolled(loadInvitations, 15_000);
+  const sections = myRallySections(data?.items ?? [], invitations.data?.matches ?? [], Math.max(data?.loadedAt ?? 0, invitations.data?.loadedAt ?? 0));
+  const rows = tab === "current" ? sections.current : sections.past;
+  const waiting = invitations.data?.waiting ?? [];
 
   const rallyCard = (rally: Rally) => {
     const host = rally.creatorId === me?.user.id;
@@ -49,7 +53,7 @@ export default function MyRalliesScreen() {
       <p>{durationLabel(rally.durationMin)} · Up to {rally.capacity} people{rally.openSeats > 0 && !["completed", "cancelled", "expired"].includes(rally.status) ? ` · ${rally.openSeats} open` : ""}</p>
       <span className="action" style={{ display: "block" }}>{action} ↗</span>
       </a>
-      <div style={{ marginTop: 12 }}><PlaceTag place={rally.publicPlace ?? rally.meetingPoint} /></div>
+      <div style={{ marginTop: 12 }}><PlaceTag place={rally.publicPlace ?? rally.meetingPoint} city={rally.city} /></div>
       {host && rally.visibility === "public_coarse" && !["met", "completed", "cancelled", "expired"].includes(rally.status) && <details style={{ marginTop: 12, fontSize: 12 }}><summary style={{ cursor: "pointer", color: "#315FE8", minHeight: 32 }}>Edit public place</summary>
         <form onSubmit={async event => {
           event.preventDefault();
@@ -94,18 +98,20 @@ export default function MyRalliesScreen() {
       <nav className="topbar" aria-label="Account"><a className="back" href="/app/home" aria-label="Back to home">←</a><a href="/app/inbox">Notifications</a><a href="/app/profile">Profile</a></nav>
       <header><span className={mono.className} style={{ fontSize: 11, letterSpacing: ".08em", color: "#766B65" }}>YOUR PLANS, TOGETHER</span><h1 className={serif.className}>My <em>rallies</em></h1><p>Plans you host, crews you join, and invitations waiting for you.</p></header>
       <div className="tabs" role="group" aria-label="Rally view">
-        {([['current', 'Current'], ['invitations', 'Invitations'], ['past', 'Past']] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}{data ? ` (${data[key].length + (key === "current" ? data.waiting.length : 0)})` : ""}</button>)}
+        {([['current', 'Current'], ['invitations', 'Invitations'], ['past', 'Past']] as const).map(([key, label]) => <button type="button" key={key} aria-pressed={tab === key} onClick={() => setTab(key)}>{label}{data ? ` (${sections[key].length + (key === "current" ? waiting.length : 0)})` : ""}</button>)}
       </div>
       {placeError && <p role="alert">{placeError}</p>}
       {Boolean(error) && <div role="alert"><p>{errorMessage(error)}</p><button type="button" onClick={refresh}>Try again</button></div>}
-      {!loaded && <RallyLoader context="plan" />}
-      {data && <div className="list">
-        {tab === "invitations" ? data.invitations.map(match => <article key={match.id} className="rally-card"><a href={`/app/match-found?id=${match.id}`}>
+      {tab === "invitations" && !invitations.loaded && <RallyLoader context="plan" />}
+      {tab === "invitations" && Boolean(invitations.error) && <div role="alert"><p>{errorMessage(invitations.error)}</p><button type="button" onClick={invitations.refresh}>Retry invitations</button></div>}
+      {tab !== "invitations" && !loaded && <RallyLoader context="plan" />}
+      {(data || tab === "invitations") && <div className="list">
+        {tab === "invitations" ? sections.invitations.map(match => <article key={match.id} className="rally-card"><a href={`/app/match-found?id=${match.id}`}>
           <div className="card-top"><span className="eyebrow">MATCH FOUND</span><span className="badge">Needs your answer</span></div>
           <h2 className={serif.className}>{match.rally.goal}</h2><p>{dateLabel(match.rally.windowStart)} · {durationLabel(match.rally.durationMin)}</p><p>{match.reason}</p><p>Reply by {dateLabel(match.holdUntil)}</p><span className="action">Review invitation ↗</span>
-        </a><div style={{ marginTop: 12 }}><PlaceTag place={match.rally.publicPlace} /></div></article>) : rows.map(rallyCard)}
-        {tab === "current" && data.waiting.map(intent => <a className="rally-card" key={intent.id} href={`/app/no-fit?intent=${intent.id}`}><span className="badge">Looking for a fit</span><h2 className={serif.className}>{intent.goal ?? "Your next rally"}</h2><p>We’ll notify you when a compatible plan comes up.</p></a>)}
-        {(tab === "invitations" ? data.invitations.length === 0 : rows.length === 0 && (tab !== "current" || data.waiting.length === 0)) && <div className="empty"><h2 className={serif.className}>{tab === "invitations" ? "No invitations waiting" : tab === "past" ? "Your story starts here" : "Room for a new plan"}</h2><p>{tab === "invitations" ? "New matches will appear here and in Notifications." : tab === "past" ? "Finished, cancelled and expired rallies will appear here." : "Create a rally or turn on matching in your profile."}</p></div>}
+        </a><div style={{ marginTop: 12 }}><PlaceTag place={match.rally.publicPlace} city={match.rally.city} /></div></article>) : rows.map(rallyCard)}
+        {tab === "current" && waiting.map(intent => <a className="rally-card" key={intent.id} href={`/app/no-fit?intent=${intent.id}`}><span className="badge">Looking for a fit</span><h2 className={serif.className}>{intent.goal ?? "Your next rally"}</h2><p>We’ll notify you when a compatible plan comes up.</p></a>)}
+        {(tab === "invitations" ? invitations.loaded && !invitations.error && sections.invitations.length === 0 : rows.length === 0 && (tab !== "current" || waiting.length === 0)) && <div className="empty"><h2 className={serif.className}>{tab === "invitations" ? "No invitations waiting" : tab === "past" ? "Your story starts here" : "Room for a new plan"}</h2><p>{tab === "invitations" ? "New matches will appear here and in Notifications." : tab === "past" ? "Finished, cancelled and expired rallies will appear here." : "Create a rally or turn on matching in your profile."}</p></div>}
       </div>}
       {data?.nextCursor && <button type="button" className="primary" disabled={data.pages < pages} onClick={() => setPages(value => value + 1)}>{data.pages < pages ? "Loading…" : "Load more rallies"}</button>}
       <a className="primary" href={CREATE_RALLY_PATH}>Create a rally</a>

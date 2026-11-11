@@ -1,3 +1,4 @@
+import { cityFromPlace } from '../domain/place.js';
 import { and, desc, eq, sql } from 'drizzle-orm';
 
 import { claims, intents, matchProposals, offers, rallies, userBlocks } from '../db/schema/index.js';
@@ -39,6 +40,7 @@ function matchView(
       category: rally.category,
       goal: rally.goal,
       publicPlace: rally.publicPlace,
+      city: cityFromPlace(rally.publicPlace ?? rally.meetingPoint),
       vibe: rally.vibe,
       windowStart: rally.windowStart.toISOString(),
       windowEnd: rally.windowEnd.toISOString(),
