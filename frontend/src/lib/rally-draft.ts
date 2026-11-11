@@ -1,5 +1,5 @@
 import type { CreateRallyInput, Intent } from "./api";
-import { CATEGORIES, ZONES, VIBES, fromLocalInput, toLocalInput } from "./format";
+import { CATEGORIES, ZONES, VIBES, fromLocalInput, toLocalInput, shortPlace } from "./format";
 
 // A typed place stays private: `zone` is published to public listings, so only these fixed areas
 // can go there. The typed text is sent as the meeting point, which only the formed group can see.
@@ -8,7 +8,7 @@ export const isFixedArea = (area: string) => ZONES.some((zone) => zone.id === ar
 
 export type RallyDraft = {
   goal: string; category: string; start: string; durationMin: string;
-  groupMin: string; capacity: string; zone: string; vibe: string; preferences: Record<string, string>;
+  publicPlace: string; groupMin: string; capacity: string; zone: string; vibe: string; preferences: Record<string, string>;
 };
 
 export function draftFromIntent(intent: Intent, answers: Record<string, string> = {}): RallyDraft {
@@ -17,6 +17,7 @@ export function draftFromIntent(intent: Intent, answers: Record<string, string> 
     durationMin: intent.durationMin?.toString() ?? "45", groupMin: String(intent.groupMin ?? 2),
     capacity: String(intent.groupMax ?? intent.groupMin ?? 2), zone: intent.zone ?? "", vibe: intent.vibe ?? "any",
     preferences: intent.preferences ?? {},
+    publicPlace: intent.zone && !isFixedArea(intent.zone) ? shortPlace(intent.zone) : "",
   };
   // These answers come from typed controls, so a failed reparse must not erase them.
   if (answers.start_time && /^\d{4}-\d{2}-\d{2}T/.test(answers.start_time)) draft.start = toLocalInput(fromLocalInput(answers.start_time));
@@ -40,6 +41,7 @@ export function rallyDraftIssues(draft: RallyDraft, now = Date.now()): Partial<R
   if (!Number.isInteger(duration) || duration < 5 || duration > 480) issues.durationMin = "Choose a duration from 5 to 480 minutes.";
   if (!Number.isInteger(min) || min < 2 || min > 12) issues.groupMin = "Choose a minimum of 2–12 people.";
   if (!Number.isInteger(max) || max < 2 || max > 12 || min > max) issues.capacity = "Choose a maximum of 2–12 people, no smaller than the minimum.";
+  if (draft.publicPlace.trim().length > 120) issues.publicPlace = "Keep the public place name within 120 characters.";
   if (!draft.zone.trim()) issues.zone = "Type a meeting area or pick one.";
   if (!VIBES.some((vibe) => vibe.id === draft.vibe)) issues.vibe = "Choose a group atmosphere.";
   return issues;
@@ -54,6 +56,7 @@ export function rallyInputFromDraft(draft: RallyDraft, intentId: string): Create
   if (problem) throw new Error(problem);
   const start = fromLocalInput(draft.start)!;
   return {
+    ...(draft.publicPlace.trim() ? { publicPlace: draft.publicPlace.trim() } : {}),
     intentId, goal: draft.goal.trim(), category: draft.category, preferences: draft.preferences,
     windowStart: start, windowEnd: new Date(Date.parse(start) + Number(draft.durationMin) * 60_000).toISOString(),
     durationMin: Number(draft.durationMin), groupMin: Number(draft.groupMin), capacity: Number(draft.capacity),

@@ -56,6 +56,7 @@ export async function previewActivities(deps: Deps, query: PreviewQuery) {
             visibility: rallies.visibility,
             goal: rallies.goal,
             meetingPoint: rallies.meetingPoint,
+            publicPlace: rallies.publicPlace,
             category: rallies.category,
             expiresAt: rallies.expiresAt,
           })
@@ -76,6 +77,7 @@ export async function previewActivities(deps: Deps, query: PreviewQuery) {
       {
         opaqueId: listing.opaqueId,
         title: redactPii(rally.meetingPoint ? rally.goal.split(rally.meetingPoint).join('') : rally.goal).trim().slice(0, 80) || listing.category,
+        publicPlace: rally.publicPlace,
         dialogue: dialogues.get(rally.id)?.dialogue ?? null,
         aiRequestId: dialogues.get(rally.id)?.aiRequestId ?? null,
         category: listing.category,

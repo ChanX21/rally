@@ -239,6 +239,7 @@ export const rallies = pgTable(
     groupMin: integer('group_min').notNull(),
     capacity: integer('capacity').notNull(),
     openSeats: integer('open_seats').notNull(),
+    publicPlace: text('public_place'),
     meetingPoint: text('meeting_point'),
     meetingBrief: text('meeting_brief'),
     meetAt: timestamptz('meet_at'),

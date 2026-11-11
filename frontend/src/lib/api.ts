@@ -233,6 +233,8 @@ export type Rally = {
   openSeats: number;
   expiresAt: string;
   version: number;
+  publicPlace: string | null;
+  meetingPoint?: string | null;
   hasMeetingPoint: boolean;
   createdAt: string;
 };
@@ -250,6 +252,7 @@ export type CreateRallyInput = {
   groupMin: number;
   capacity: number;
   visibility?: "public_coarse" | "private";
+  publicPlace?: string;
   meetingPoint?: string;
   meetingBrief?: string;
   publish: boolean;
@@ -265,6 +268,7 @@ export type UpdateRallyInput = {
   zone?: string;
   groupMin?: number;
   capacity?: number;
+  publicPlace?: string | null;
   meetingPoint?: string;
   meetingBrief?: string;
   meetAt?: string;
@@ -330,6 +334,7 @@ export type Match = {
     | "status"
     | "category"
     | "goal"
+    | "publicPlace"
     | "vibe"
     | "windowStart"
     | "windowEnd"
@@ -353,6 +358,7 @@ export type Matches = { matches: Match[]; waiting: WaitingIntent[] };
 export type AiRequest = { task: string; requestId: string; outcome?: string; createdAt?: string };
 
 export type PreviewActivity = {
+  publicPlace: string | null;
   title: string;
   opaqueId: string;
   dialogue: string | null;

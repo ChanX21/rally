@@ -7,7 +7,7 @@ import RallyLoader from "@/components/RallyLoader";
 import RallyOrb from "@/components/RallyOrb";
 import { PreferenceEditor, PreferenceInput } from "@/components/PreferenceInput";
 import { errorMessage, type ParsedIntent } from "@/lib/api";
-import { CATEGORIES, SENSITIVE_CATEGORIES, VIBES, ZONES, categoryLabel, zoneLabel, preferenceText, toLocalInput, fromLocalInput, rallyPath } from "@/lib/format";
+import { CATEGORIES, SENSITIVE_CATEGORIES, VIBES, ZONES, categoryLabel, zoneLabel, preferenceText, shortPlace, toLocalInput, fromLocalInput, rallyPath } from "@/lib/format";
 import { AiRequests } from "@/components/AiRequests";
 import type { AiRequest } from "@/lib/api";
 import { clearRallyCreation } from "@/lib/plan";
@@ -43,7 +43,7 @@ function AreaInput({ value, onChange, disabled }: { value: string; onChange: (va
 function AreaOptions({ value }: { value: string }) {
   return <>
     {value.trim() && <a className="field-hint" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(zoneLabel(value))}`} target="_blank" rel="noopener noreferrer">View location on map ↗</a>}
-    <p className="field-hint">The exact meeting place is shared only with your group.</p>
+    <p className="field-hint">Choose a public place name at review. Exact meeting instructions stay with your group.</p>
   </>;
 }
 
@@ -76,6 +76,7 @@ export default function CreateRallyScreen() {
     if (result.startTimeConfirmed && result.intent.windowStart && !currentAnswers.start_time) next.start = toLocalInput(result.intent.windowStart);
     if (result.location && !currentAnswers.distance) next.zone = result.location;
     else if (draft?.zone && !isFixedArea(draft.zone) && parsed?.intent.id === result.intent.id && !currentAnswers.distance) next.zone = draft.zone;
+    if (!isFixedArea(next.zone)) next.publicPlace = shortPlace(next.zone);
     if (result.aiRequestId) setReceipts((previous) => [...previous, { task: "intent", requestId: result.aiRequestId!, outcome: result.status === "needs_review" ? "fallback" : "ok" }]);
     setParsed(result);
     setQuestionIndex(0);
@@ -143,7 +144,7 @@ export default function CreateRallyScreen() {
     }
   };
   const set = (key: Exclude<keyof RallyDraft, "preferences">, value: string) =>
-    setDraft((previous) => previous ? { ...previous, [key]: value, ...(key === "category" ? { preferences: {} } : {}) } : previous);
+    setDraft((previous) => previous ? { ...previous, [key]: value, ...(key === "zone" ? { publicPlace: isFixedArea(value) ? "" : shortPlace(value) } : {}), ...(key === "category" ? { preferences: {} } : {}) } : previous);
   const problem = draft ? rallyDraftProblem(draft) : null;
   const showField = (field: RallyDetail) => stage === "edit" || detailFields.includes(field);
   const visibleIssues = draft ? Object.entries(rallyDraftIssues(draft)).filter(([field]) => showField(field as RallyDetail)) : [];
@@ -258,6 +259,7 @@ export default function CreateRallyScreen() {
             </dl>
             {Object.entries(draft.preferences).filter(([, value]) => value !== "any").map(([key, value]) => <p key={key}>{preferenceText(key, value)}</p>)}
           </article>
+          {!SENSITIVE_CATEGORIES.includes(draft.category) && <label>Public place name (optional)<input maxLength={120} value={draft.publicPlace} placeholder="e.g. Mumbai Airport T1" onChange={event => set("publicPlace", event.target.value)} /><span className="field-hint">Shown on rally cards with a Google Maps link. Keep table, gate or personal address details in the private meeting point.</span></label>}
           {(parsed?.intent.source === "fallback" || parsed?.intent.durationMin === null) && !answers.duration && draft.durationMin === String(parsed?.intent.durationMin ?? 45) && <p>The suggested length is {draft.durationMin} minutes. You can change it in Edit details.</p>}
           {SENSITIVE_CATEGORIES.includes(draft.category) && <p>This Rally stays private and will not appear on the public map.</p>}
         </>}

@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Inter, Instrument_Serif, IBM_Plex_Mono } from "next/font/google";
 import { errorMessage, getPreview, type PreviewActivity } from "@/lib/api";
-import { CATEGORIES, SENSITIVE_CATEGORIES, ZONES, bucketLabel, capitalize, categoryPhrase, zoneLabel } from "@/lib/format";
+import { CATEGORIES, SENSITIVE_CATEGORIES, ZONES, bucketLabel, capitalize, categoryPhrase } from "@/lib/format";
 import { AiRequests } from "@/components/AiRequests";
+import PlaceTag from "@/components/PlaceTag";
 import VenueMap from "@/components/VenueMap";
 import RallyLogo from "@/components/RallyLogo";
 import RallyLoader from "@/components/RallyLoader";
@@ -217,7 +218,7 @@ export default function DiscoverScreen() {
                     <span style={{ fontFamily: SERIF, fontSize: "19px", lineHeight: 1.15 }}>{c.title || categoryPhrase(c.category)}</span>
                     <span style={{ fontSize: "13px", color: "#766B65" }}>
                       <span style={{ fontFamily: MONO, color: "#1C1917" }}>{bucketLabel(c.startBucket)}</span>
-                      {" · "}{zoneLabel(c.zone)}
+
                     </span>
                   </span>
                   <span style={{ display: "flex", flexDirection: "column", gap: "4px", flexShrink: 0 }}>
@@ -227,6 +228,7 @@ export default function DiscoverScreen() {
                     </span>
                   </span>
                 </button>
+                <div style={{ padding: "0 16px 12px" }}><PlaceTag place={c.publicPlace} /></div>
                 {isOpen && (
                   <div
                     style={{

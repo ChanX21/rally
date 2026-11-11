@@ -37,9 +37,11 @@ it('upgrades the existing receipt-free schema without losing stored provider IDs
   const database = await createTestDatabase();
   const client = postgres(database.url, { max: 1, onnotice: () => {} });
   try {
-    const journal = JSON.parse(readFileSync(new URL('../drizzle/meta/_journal.json', import.meta.url), 'utf8')) as { entries: { when: number }[] };
+    const journal = JSON.parse(readFileSync(new URL('../drizzle/meta/_journal.json', import.meta.url), 'utf8')) as { entries: { when: number; tag: string }[] };
+    const receipts = journal.entries.find(entry => entry.tag === '0009_ai_receipts')!;
     await client`alter table model_runs drop column rally_id`;
-    await client`delete from drizzle.__drizzle_migrations where created_at = ${journal.entries.at(-1)!.when}`;
+    await client`alter table rallies drop column public_place`;
+    await client`delete from drizzle.__drizzle_migrations where created_at >= ${receipts.when}`;
     await client`insert into model_runs (task, prompt_version, outcome, request_id) values ('intent', 'legacy', 'ok', 'provider-existing-request')`;
     await runMigrations(database.url);
     const rows = await client`select request_id,rally_id from model_runs where request_id = 'provider-existing-request'`;

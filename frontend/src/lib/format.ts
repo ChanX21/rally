@@ -231,3 +231,11 @@ export function notificationPath(type: string, data: Record<string, string>): st
       return "/app/home";
   }
 }
+
+
+export function shortPlace(place: string): string {
+  return place.split(/[,\n]/)[0].trim().slice(0, 70);
+}
+export function placeMapUrl(place: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.trim())}`;
+}

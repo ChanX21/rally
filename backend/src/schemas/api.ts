@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { redactPii } from '../domain/intent-fallback.js';
 import { preferenceSchema, PREFERENCE_CHOICES } from '../domain/questions.js';
 
 import {
@@ -14,6 +15,7 @@ import {
 import { paginationQuery } from '../lib/pagination.js';
 
 const shortText = (max: number) => z.string().trim().min(1).max(max);
+const publicPlaceText = shortText(120).refine(value => redactPii(value) === value, 'Use a place name without contact details');
 const dateTime = z.iso.datetime({ offset: true }).transform((value) => new Date(value));
 const isoString = z.string();
 const category = z.enum(CATEGORIES);
@@ -177,6 +179,7 @@ export const createRallyBody = z.object({
   capacity: z.number().int().min(MIN_GROUP).max(MAX_GROUP),
   slotRoles: z.array(z.enum(ROLES)).max(MAX_GROUP - 1).optional(),
   visibility: z.enum(['public_coarse', 'private']).optional(),
+  publicPlace: publicPlaceText.optional(),
   meetingPoint: shortText(300).optional(),
   meetingBrief: shortText(500).optional(),
   publish: z.boolean().default(false),
@@ -192,6 +195,7 @@ export const updateRallyBody = z.object({
   zone: shortText(64).optional(),
   groupMin: z.number().int().min(MIN_GROUP).max(MAX_GROUP).optional(),
   capacity: z.number().int().min(MIN_GROUP).max(MAX_GROUP).optional(),
+  publicPlace: publicPlaceText.nullable().optional(),
   meetingPoint: shortText(300).optional(),
   meetingBrief: shortText(500).optional(),
   meetAt: dateTime.optional(),
@@ -233,6 +237,8 @@ export const rallySchema = z.object({
   openSeats: z.number(),
   expiresAt: isoString,
   version: z.number(),
+  publicPlace: z.string().nullable(),
+  meetingPoint: z.string().nullable().optional(),
   hasMeetingPoint: z.boolean(),
   createdAt: isoString,
 });
@@ -297,6 +303,7 @@ export const matchSchema = z.object({
     status: rallyStatusSchema,
     category: z.string(),
     goal: z.string(),
+    publicPlace: z.string().nullable(),
     vibe: z.string().nullable(),
     windowStart: isoString,
     windowEnd: isoString,
@@ -341,6 +348,7 @@ export const previewSchema = z.object({
     z.object({
       opaqueId: z.string(),
       title: z.string().max(80),
+      publicPlace: z.string().nullable(),
       dialogue: z.string().max(80).nullable(),
       aiRequestId: z.string().nullable(),
       category: z.string(),

@@ -73,6 +73,7 @@ export function rallyView(rally: Rally) {
     openSeats: rally.openSeats,
     expiresAt: rally.expiresAt.toISOString(),
     version: rally.version,
+    publicPlace: rally.publicPlace,
     hasMeetingPoint: rally.meetingPoint !== null,
     createdAt: rally.createdAt.toISOString(),
   };
@@ -119,6 +120,7 @@ export interface CreateRallyInput {
   capacity: number;
   slotRoles?: Role[] | undefined;
   visibility?: 'public_coarse' | 'private' | undefined;
+  publicPlace?: string | undefined;
   meetingPoint?: string | undefined;
   meetingBrief?: string | undefined;
   publish: boolean;
@@ -210,6 +212,7 @@ export async function createRally(
           groupMin: input.groupMin,
           capacity: input.capacity,
           openSeats: input.capacity - 1,
+          publicPlace: input.publicPlace,
           meetingPoint: input.meetingPoint,
           meetingBrief: input.meetingBrief,
           expiresAt: input.windowEnd,
@@ -329,7 +332,7 @@ export async function listRallies(
     .limit(options.limit + 1);
 
   const { items, nextCursor } = page(rows, options.limit);
-  return { items: items.map(rallyView), nextCursor };
+  return { items: items.map(rally => ({ ...rallyView(rally), meetingPoint: rally.meetingPoint })), nextCursor };
 }
 
 export interface UpdateRallyInput {
@@ -342,6 +345,7 @@ export interface UpdateRallyInput {
   zone?: string | undefined;
   groupMin?: number | undefined;
   capacity?: number | undefined;
+  publicPlace?: string | null | undefined;
   meetingPoint?: string | undefined;
   meetAt?: Date | undefined;
   meetingBrief?: string | undefined;
@@ -453,6 +457,7 @@ export async function updateRally(
         goal: input.goal ?? rally.goal,
         vibe: input.vibe ?? rally.vibe,
         zone: input.zone ?? rally.zone,
+        publicPlace: input.publicPlace === undefined ? rally.publicPlace : input.publicPlace,
         meetingPoint: input.meetingPoint ?? rally.meetingPoint,
         meetingBrief: input.meetingBrief ?? rally.meetingBrief,
         meetAt: input.meetAt ?? rally.meetAt,

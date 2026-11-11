@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { meetingTimeFromInput, fromLocalInput, toLocalInput, CATEGORIES, preferenceText, preferenceNotes, preferencesFromNotes, matchingProgressLabels, clockCountdown, durationLabel, scheduleTime } from "./format.ts";
+import { shortPlace, placeMapUrl, meetingTimeFromInput, fromLocalInput, toLocalInput, CATEGORIES, preferenceText, preferenceNotes, preferencesFromNotes, matchingProgressLabels, clockCountdown, durationLabel, scheduleTime } from "./format.ts";
 import { CATEGORIES as BACKEND_CATEGORIES } from "../../../backend/src/domain/catalog.ts";
 
 test("frontend activity choices stay in sync with the backend and display new preferences", () => {
@@ -66,4 +66,15 @@ test("the default meeting time retains seconds so it stays inside the future win
   assert.equal(meetingTimeFromInput("", start), start);
   assert.equal(meetingTimeFromInput(toLocalInput(start), start), start);
   assert.equal(meetingTimeFromInput(toLocalInput("2026-11-12T10:00:00Z"), start), "2026-11-12T10:00:00.000Z");
+});
+
+
+test("place tags stay short while Maps receives the full encoded place", () => {
+  const place = "Mumbai Airport T1, Arrivals & pickup";
+  assert.equal(shortPlace(place), "Mumbai Airport T1");
+  const url = new URL(placeMapUrl(place));
+  assert.equal(url.origin, "https://www.google.com");
+  assert.equal(url.searchParams.get("query"), place);
+  assert.equal(url.searchParams.get("api"), "1");
+  assert.ok(shortPlace("A".repeat(150)).length <= 70);
 });

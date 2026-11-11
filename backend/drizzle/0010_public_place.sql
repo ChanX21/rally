@@ -1,0 +1,1 @@
+ALTER TABLE "rallies" ADD COLUMN "public_place" text;

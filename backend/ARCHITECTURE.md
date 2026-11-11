@@ -864,3 +864,12 @@ Room/participant responses include only the latest profile avatar preset, select
 after membership authorization. They never expose another member's preferences. The My rallies
 page combines paginated owned/joined rallies with pending invitations and waiting intents; it does
 not join anyone automatically and leaves the profile history unchanged.
+
+### Public place names
+
+`rallies.public_place` is an optional host-confirmed public venue label. Creation review explains
+that this name and its Google Maps search link appear on public cards; it is returned by PostgreSQL
+preview enrichment and match views, not written to Arkiv. Exact `meeting_point` instructions remain
+private. Only the authenticated owned/joined rally list adds private meeting points, so My rallies
+can link members to their place. Existing meeting points are not backfilled into public labels:
+hosts can explicitly set a public place from My rallies. Private/sensitive rallies stay excluded.

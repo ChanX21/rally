@@ -274,8 +274,27 @@ describe('public preview', () => {
     const card = activities.find((a: Json) => a.opaqueId === rally.opaqueId);
     expect(card).toMatchObject({ category: 'travel', title: 'Flight companion to Delhi [email]', zone: 'venue-floor-2', status: 'open' });
     expect(Object.keys(card).sort()).toEqual(
-      ['aiRequestId', 'category', 'dialogue', 'minGroupSize', 'neededRole', 'opaqueId', 'openSeats', 'startBucket', 'status', 'title', 'zone'],
+      ['aiRequestId', 'category', 'dialogue', 'minGroupSize', 'neededRole', 'opaqueId', 'openSeats', 'publicPlace', 'startBucket', 'status', 'title', 'zone'],
     );
+  });
+
+  it('shows only the confirmed public place and keeps legacy meeting instructions private', async () => {
+    const rally = await published({ publicPlace: 'Mumbai Airport T1', meetingPoint: 'Mumbai Airport T1, private gate 42' });
+    let data = await preview();
+    expect(data.activities.find((a: Json) => a.opaqueId === rally.opaqueId).publicPlace).toBe('Mumbai Airport T1');
+    expect(JSON.stringify(data)).not.toContain('private gate 42');
+    expect(JSON.stringify(entityFor(rally.opaqueId))).not.toContain('Mumbai Airport');
+    const own = await creator.get('/rallies');
+    expect(own.items.find((r: Json) => r.id === rally.id).meetingPoint).toBe('Mumbai Airport T1, private gate 42');
+    const updated = await creator.patch(`/rallies/${rally.id}`, { expectedVersion: rally.version, publicPlace: 'Terminal 1 Mumbai' });
+    expect(updated.publicPlace).toBe('Terminal 1 Mumbai');
+    data = await preview();
+    expect(data.activities.find((a: Json) => a.opaqueId === rally.opaqueId).publicPlace).toBe('Terminal 1 Mumbai');
+    await creator.patch(`/rallies/${rally.id}`, { expectedVersion: updated.version, publicPlace: null });
+    expect((await preview()).activities.find((a: Json) => a.opaqueId === rally.opaqueId).publicPlace).toBeNull();
+    const legacy = await published({ meetingPoint: 'Private home address' });
+    expect((await preview()).activities.find((a: Json) => a.opaqueId === legacy.opaqueId).publicPlace).toBeNull();
+    expect(JSON.stringify(await preview())).not.toContain('Private home address');
   });
 
   it('takes seat counts from PostgreSQL rather than the listing', async () => {

@@ -54,9 +54,10 @@ test("typed answers survive an AI reparse failure and preserve the user's actual
 
 test("a typed meeting area stays private while the public zone stays coarse", () => {
   const valid = draftFromIntent(intent());
-  const typed = rallyInputFromDraft({ ...valid, zone: "  Pavilion 2 " }, "intent-1");
+  const typed = rallyInputFromDraft({ ...valid, publicPlace: "Pavilion 2", zone: "  Pavilion 2 " }, "intent-1");
   assert.equal(typed.zone, TYPED_AREA_ZONE);
   assert.equal(typed.meetingPoint, "Pavilion 2");
+  assert.equal(typed.publicPlace, "Pavilion 2");
   const picked = rallyInputFromDraft({ ...valid, zone: "venue-floor-1" }, "intent-1");
   assert.equal(picked.zone, "venue-floor-1");
   assert.equal("meetingPoint" in picked, false);

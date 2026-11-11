@@ -38,6 +38,7 @@ function matchView(
       status: rally.status,
       category: rally.category,
       goal: rally.goal,
+      publicPlace: rally.publicPlace,
       vibe: rally.vibe,
       windowStart: rally.windowStart.toISOString(),
       windowEnd: rally.windowEnd.toISOString(),
